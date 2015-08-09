@@ -33,3 +33,6 @@ Obj/
 
 # Debug files
 *.dSYM/
+
+*.zip
+*.rar
