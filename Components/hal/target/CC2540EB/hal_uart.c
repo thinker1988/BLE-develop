@@ -94,6 +94,11 @@ void HalUARTInit(void)
   {
     HalUARTInitDMA();
   }
+// add by lan 15.7.15
+#if HAL_UART_ISR
+  HalUARTInitISR();
+#endif
+
 #else
 #if HAL_UART_DMA
   HalUARTInitDMA();
@@ -122,10 +127,10 @@ void HalUARTInit(void)
  *****************************************************************************/
 uint8 HalUARTOpen(uint8 port, halUARTCfg_t *config)
 {
-#if (HAL_UART_DMA == 1)
+#if (HAL_UART_DMA == 1) && (HAL_UART_SPI == 0)	// add by lan
   if (port == HAL_UART_PORT_0)  HalUARTOpenDMA(config);
 #endif
-#if (HAL_UART_DMA == 2)
+#if (HAL_UART_DMA == 2) && (HAL_UART_SPI == 0)	// add by lan
   if (port == HAL_UART_PORT_1)  HalUARTOpenDMA(config);
 #endif
 #if (HAL_UART_ISR == 1)
@@ -165,10 +170,10 @@ uint8 HalUARTOpen(uint8 port, halUARTCfg_t *config)
  *****************************************************************************/
 uint16 HalUARTRead(uint8 port, uint8 *buf, uint16 len)
 {
-#if (HAL_UART_DMA == 1)
+#if (HAL_UART_DMA == 1) && (HAL_UART_SPI == 0)	// add by lan
   if (port == HAL_UART_PORT_0)  return HalUARTReadDMA(buf, len);
 #endif
-#if (HAL_UART_DMA == 2)
+#if (HAL_UART_DMA == 2)&& (HAL_UART_SPI == 0)	// add by lan
   if (port == HAL_UART_PORT_1)  return HalUARTReadDMA(buf, len);
 #endif
 #if (HAL_UART_ISR == 1)
@@ -210,10 +215,10 @@ uint16 HalUARTRead(uint8 port, uint8 *buf, uint16 len)
  *****************************************************************************/
 uint16 HalUARTWrite(uint8 port, uint8 *buf, uint16 len)
 {
-#if (HAL_UART_DMA == 1)
+#if (HAL_UART_DMA == 1) && (HAL_UART_SPI == 0)	// add by lan
   if (port == HAL_UART_PORT_0)  return HalUARTWriteDMA(buf, len);
 #endif
-#if (HAL_UART_DMA == 2)
+#if (HAL_UART_DMA == 2) && (HAL_UART_SPI == 0)	// add by lan
   if (port == HAL_UART_PORT_1)  return HalUARTWriteDMA(buf, len);
 #endif
 #if (HAL_UART_ISR == 1)
@@ -295,6 +300,12 @@ void HalUARTPoll(void)
   {
     HalUARTPollDMA();
   }
+
+// add by lan 15.7.15
+#if HAL_UART_ISR
+  HalUARTPollISR();
+#endif
+
 #else
 #if HAL_UART_DMA
   HalUARTPollDMA();
@@ -322,10 +333,10 @@ void HalUARTPoll(void)
  **************************************************************************************************/
 uint16 Hal_UART_RxBufLen( uint8 port )
 {
-#if (HAL_UART_DMA == 1)
+#if (HAL_UART_DMA == 1) && (HAL_UART_SPI == 0)	// add by lan
   if (port == HAL_UART_PORT_0)  return HalUARTRxAvailDMA();
 #endif
-#if (HAL_UART_DMA == 2)
+#if (HAL_UART_DMA == 2) && (HAL_UART_SPI == 0)	// add by lan
   if (port == HAL_UART_PORT_1)  return HalUARTRxAvailDMA();
 #endif
 #if (HAL_UART_ISR == 1)

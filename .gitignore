@@ -39,6 +39,7 @@ Documents/
 *.zip
 *.rar
 *.pdf
+README.txt
 BLEstack.*
 
 BloodPressure/
@@ -61,6 +62,7 @@ SimpleBLEObserver/
 SimpleBLEPeripheral/
 Thermometer/
 TimeApp/
+util/
 
 Exe/
 List/
