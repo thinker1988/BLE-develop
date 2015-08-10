@@ -21,12 +21,6 @@
 *.dylib
 
 # Executables
-<<<<<<< HEAD
-=======
-Exe/
-List/
-Obj/
->>>>>>> 5f322b54d4db5be0650a88e58232e127e2229635
 *.exe
 *.out
 *.app
@@ -37,17 +31,16 @@ Obj/
 # Debug files
 *.dSYM/
 
-<<<<<<< HEAD
 #my setup
-_iss
-Accessories/
-Documents/
-
 *.zip
 *.rar
 *.pdf
 README.txt
 BLEstack.*
+
+_iss
+Accessories/
+Documents/
 
 BloodPressure/
 CyclingSensor/
@@ -74,7 +67,3 @@ util/
 Exe/
 List/
 Obj/
-=======
-*.zip
-*.rar
->>>>>>> 5f322b54d4db5be0650a88e58232e127e2229635
