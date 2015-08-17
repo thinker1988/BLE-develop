@@ -55,11 +55,23 @@ extern "C"
 
 
 // Simple BLE Central Task Events
-#define BLE_CORE_START_EVT					0x0001
-#define READ_GM_DATA_EVT						0x0002
-#define GM_DRDY_INT_INT_EVT					0x0004
+#define BLE_CORE_START_EVT				0x0001
+#define READ_GM_DATA_EVT				0x0002
+#define GM_DRDY_INT_INT_EVT				0x0004
 #define HEART_BEAT_EVT					0x0008
 #define CORE_PWR_SAVING_EVT				0x0010
+
+#if ( defined USE_CC112X_RF )
+#define RF_RXTX_RDY_EVT					0x0020
+#else
+#define TEN_TX_RDY_EVT					0x0020
+#endif
+
+#define ALL_EVENT_ID					0xFFFF
+
+
+#define IDLE_PWR_HOLD_PERIOD		1000
+
 
 /*********************************************************************
  * MACROS
@@ -69,6 +81,20 @@ extern "C"
 											P1SEL &= 0; P1DIR &= 0; P1INP |= 0xFF; \
 														P2INP |= BV(0)|BV(3)|BV(4);)
 														
+// Pin 0 Int enable/disable
+#define SET_P0_INT_ENABLE()		st( IEN1 |=	BV(5); )
+#define SET_P0_INT_DISABLE()	st( IEN1 &=	~(BV(5)); )
+
+// Pin 1 Int enable/disable
+#define SET_P1_INT_ENABLE()		st( IEN2 |=	BV(4); )
+#define SET_P1_INT_DISABLE()	st( IEN2 &=	~(BV(4)); )
+
+#define SET_P0_INT_FALLING_EDGE() 	st( PICTL |= BV(0); )
+#define SET_P0_INT_RISING_EDGE() 	st( PICTL &= ~(BV(0)); )
+
+#define SET_P1_INT_FALLING_EDGE() 	st( PICTL |= BV(1); )
+#define SET_P1_INT_RISING_EDGE() 	st( PICTL &= ~(BV(1)); )
+
 
 /*********************************************************************
  * FUNCTIONS
@@ -93,6 +119,14 @@ extern void RFsleep(void);
 extern void settmsync(void);
 extern void cleartmsync(void);
 extern bool gettmsync(void);
+
+extern uint8 CalcBatteryPercent(void);
+
+extern int8 GetGDETmpr(void);
+
+#if ( !defined USE_CC112X_RF )
+extern void prepare_TEN_send(void);
+#endif
 
 /*********************************************************************
 *********************************************************************/

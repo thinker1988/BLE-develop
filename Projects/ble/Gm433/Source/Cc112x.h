@@ -287,7 +287,126 @@ typedef uint8 rfStatus_t;
 
 /******************************************************************************
  * VARIABLES
- */  
+ */
+
+// RX filter BW = 50.000000 
+// Address config = No address check 
+// Packet length = 255 
+// Symbol rate = 1.2 
+// PA ramping = true 
+// Performance mode = High Performance 
+// Carrier frequency = 434.000000 
+// Bit rate = 1.2 
+// Packet bit length = 0 
+// Whitening = false 
+// Manchester enable = false 
+// Modulation format = 2-FSK 
+// Packet length mode = Variable 
+// Device address = 0 
+// TX power = 15 
+// Deviation = 20.019531 
+static const registerSetting_t preferredSettings434[]= 
+{
+	{CC112X_IOCFG3, 		   0xB0},
+	{CC112X_IOCFG2, 		   0x06},
+	{CC112X_IOCFG1, 		   0xB0},
+	{CC112X_IOCFG0, 		   0x40},
+	{CC112X_SYNC_CFG1,		   0x0B},
+//	{CC112X_DEVIATION_M,	   0x48},
+//	{CC112X_MODCFG_DEV_E,	   0x05},
+	{CC112X_DCFILT_CFG, 	   0x1C},
+	{CC112X_IQIC,			   0x46},
+	{CC112X_CHAN_BW,		   0x04},
+	{CC112X_MDMCFG0,		   0x05},
+	{CC112X_AGC_REF,		   0x20},//20
+	{CC112X_AGC_CS_THR, 	   0x19},//19
+	//add agc mode
+	{CC112X_AGC_CFG2,		   0x00},
+
+	{CC112X_AGC_CFG1,		   0xA9},
+	{CC112X_AGC_CFG0,		   0xCF},
+	{CC112X_FIFO_CFG,		   0x00},
+	{CC112X_SETTLING_CFG,	   0x03},
+	{CC112X_FS_CFG, 		   0x14},
+	{CC112X_PKT_CFG0,		   0x20},
+	{CC112X_PKT_LEN,		   0xFF},
+	{CC112X_IF_MIX_CFG, 	   0x00},
+	{CC112X_FREQOFF_CFG,	   0x22},
+	{CC112X_FREQ2,			   0x6C},
+	{CC112X_FREQ1,			   0x80},
+	{CC112X_FS_DIG1,		   0x00},
+	{CC112X_FS_DIG0,		   0x5F},
+	{CC112X_FS_CAL1,		   0x40},
+	{CC112X_FS_CAL0,		   0x0E},
+	{CC112X_FS_DIVTWO,		   0x03},
+	{CC112X_FS_DSM0,		   0x33},
+	{CC112X_FS_DVC0,		   0x17},
+	{CC112X_FS_PFD, 		   0x50},
+	{CC112X_FS_PRE, 		   0x6E},
+	{CC112X_FS_REG_DIV_CML,    0x14},
+	{CC112X_FS_SPARE,		   0xAC},
+	{CC112X_FS_VCO0,		   0xB4},
+	{CC112X_XOSC5,			   0x0E},
+	{CC112X_XOSC1,			   0x03},
+};
+
+// RX filter BW = 41.666667 
+// Address config = No address check 
+// Packet length = 255 
+// Symbol rate = 1.2 
+// PA ramping = true 
+// Performance mode = High Performance 
+// Carrier frequency = 868.000000 
+// Bit rate = 1.2 
+// Packet bit length = 0 
+// Whitening = false 
+// Manchester enable = false 
+// Modulation format = 2-FSK 
+// Packet length mode = Variable 
+// Device address = 0 
+// TX power = 15 
+// Deviation = 10.009766
+static const registerSetting_t preferredSettings868[]= 
+{
+	{CC112X_IOCFG3, 		   0xB0},
+	{CC112X_IOCFG2, 		   0x06},
+	{CC112X_IOCFG1, 		   0xB0},
+	{CC112X_IOCFG0, 		   0x40},
+	{CC112X_SYNC_CFG1,		   0x0B},
+	{CC112X_DEVIATION_M,	   0x48},
+	{CC112X_MODCFG_DEV_E,	   0x04},
+	{CC112X_DCFILT_CFG, 	   0x1C},
+	{CC112X_IQIC,			   0xC6},
+	{CC112X_CHAN_BW,		   0x43},
+	{CC112X_MDMCFG0,		   0x05},
+	{CC112X_AGC_REF,		   0x20},
+	{CC112X_AGC_CS_THR ,	   0x19},
+	{CC112X_AGC_CFG1 ,		   0xA9},
+	{CC112X_AGC_CFG0 ,		   0xCF},
+	{CC112X_FIFO_CFG,		   0x00},
+	{CC112X_SETTLING_CFG ,	   0x03},
+	{CC112X_FS_CFG, 		   0x12},
+	{CC112X_PKT_CFG0   ,	   0x20},
+	{CC112X_PKT_LEN  ,		   0xFF},
+	{CC112X_IF_MIX_CFG ,	   0x00},
+	{CC112X_FREQOFF_CFG ,	   0x22},
+	{CC112X_FREQ2,			   0x6C},
+	{CC112X_FREQ1 , 		   0x80},
+	{CC112X_FS_DIG1  ,		   0x00},
+	{CC112X_FS_DIG0  ,		   0x5F},
+	{CC112X_FS_CAL1  ,		   0x40},
+	{CC112X_FS_CAL0   , 	   0x0E},
+	{CC112X_FS_DIVTWO  ,	   0x03},
+	{CC112X_FS_DSM0   , 	   0x33},
+	{CC112X_FS_DVC0,		   0x17},
+	{CC112X_FS_PFD	,		   0x50},
+	{CC112X_FS_PRE	,		   0x6E},
+	{CC112X_FS_REG_DIV_CML	,  0x14},
+	{CC112X_FS_SPARE   ,	   0xAC},
+	{CC112X_FS_VCO0    ,	   0xB4},
+	{CC112X_XOSC5	   ,	   0x0E},
+	{CC112X_XOSC1	   ,	   0x03},
+};
 // Address config = No address check 
 // Packet length = 255 (variable)
 // Modulation format = 2-GFSK 
@@ -313,7 +432,8 @@ static const registerSetting_t preferredSettings470[]=
   {CC112X_SYNC_CFG1,         0x08}, // sync threshold
 
   {CC112X_DCFILT_CFG,        0x1C}, // 256 sample
-  {CC112X_IQIC,              0xC6}, // 
+  {CC112X_IQIC,              0xC6}, //
+  {CC112X_MDMCFG0,			 0x04},
 
   {CC112X_AGC_REF,           0x20}, // AGC ref = 0x20
   {CC112X_AGC_CS_THR,        0x19}, //
@@ -349,24 +469,39 @@ static const registerSetting_t preferredSettings470[]=
 
 static const registerSetting_t br_1200_cfg[]=
 {
-	{CC112X_DEVIATION_M,	   0x06}, // frequency deviation 3.9978 kHz
-	{CC112X_MODCFG_DEV_E,	   0x0B}, // normal mode, 2-GFSk, DEV_E=1
+	{CC112X_DEVIATION_M,	   0x3B}, // frequency deviation 1.2 kHz
+	{CC112X_MODCFG_DEV_E,	   0x09}, // normal mode, 2-GFSk, DEV_E=1
 	{CC112X_CHAN_BW,		   0x43}, // enable channel filter, decimation factor 32, RX filter BW=1000k/8/3=41.67k
-	{CC112X_SYMBOL_RATE2,	   0x43}, // data rate/symbol rate=1(2-GFSK), SRATE_E=4, SRATE_M=3A92A	=1200
+	{CC112X_SYMBOL_RATE2,	   0x43}, // data rate/symbol rate=1(2-GFSK), SRATE_E=4, SRATE_M=3A92A	BR=1200
+};
+
+static const registerSetting_t br_4800_cfg[]=
+{
+	{CC112X_DEVIATION_M,	 0x3B}, // frequency deviation 4.806kHz
+	{CC112X_MODCFG_DEV_E,	 0x0B}, // normal mode, 2-GFSk, DEV_E=3
+	{CC112X_CHAN_BW,         0x42}, // enable channel filter, decimation factor 32, RX filter BW=1000k/8/2=62.5k
+	{CC112X_SYMBOL_RATE2,    0x63}, // data rate/symbol rate=1(2-GFSK), SRATE_E=6, SRATE_M=3A92A  BR=4800
 };
 
 static const registerSetting_t br_9600_cfg[]=
 {
-	{CC112X_DEVIATION_M,	 0x48}, // frequency deviation 20.0195 kHz
-	{CC112X_MODCFG_DEV_E,	 0x0D}, // normal mode, 2-GFSk, DEV_E=5
-	{CC112X_CHAN_BW,         0x41}, // enable channel filter, decimation factor 32, RX filter BW=1000k/8=125k
-	{CC112X_SYMBOL_RATE2,    0x73}, // data rate/symbol rate=1(2-GFSK), SRATE_E=7, SRATE_M=3A92A  =9600
+	{CC112X_DEVIATION_M,	 0x3B}, // frequency deviation 9.612 kHz
+	{CC112X_MODCFG_DEV_E,	 0x0C}, // normal mode, 2-GFSk, DEV_E=4
+	{CC112X_CHAN_BW,         0x42}, // enable channel filter, decimation factor
+	{CC112X_SYMBOL_RATE2,    0x73}, // data rate/symbol rate=1(2-GFSK), SRATE_E=7, SRATE_M=3A92A  BR=9600
 };
 
 /******************************************************************************
  * PROTPTYPES
  */ 
 void initRFcfg(void);
+void RFentersleep(void);
+void RFmodechange(void);
+
+
+void txdata(uint8 *txbuf, uint8 len);
+void rxdata(void);
+
 void tx_test(void);
 void rx_test(void);
 

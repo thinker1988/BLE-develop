@@ -8,11 +8,28 @@
 #include "GMProc.h"
 #include "BLECore.h"
 
+#if ( defined USE_CC112X_RF )
+#include "Cc112x.h"
+#endif
+
 #define GET_RF_SRC_ADDR(rfbuf)	\
 	(BUILD_UINT16(rfbuf[GMS_SRC_ADDR_POS+1],rfbuf[GMS_SRC_ADDR_POS]))
 
 #define GET_RF_DEST_ADDR(rfbuf)	\
 	(BUILD_UINT16(rfbuf[GMS_DEST_ADDR_POS+1],rfbuf[GMS_DEST_ADDR_POS]))
+
+
+// Wait 1 [ms]
+#define SYS_WAIT_1MS()      {for(unsigned short i=0;i<32000;i++)asm("NOP"); }
+
+// Wait t [ms]
+#define SYS_WAIT_MS(t)                      \
+    do{                                 \
+        for(uint8 i = 0; i<t; i++)      \
+            SYS_WAIT_1MS();                 \
+    }while(0)
+
+
 
 #ifndef GDE_DEV_ID
 #define GDE_DEV_ID		1
@@ -42,12 +59,16 @@ uint16 RFdevID = GDE_DEV_ID;
 uint16 RFdestID = GME_DEV_ID;
 uint16 version = VERSION_NUMBER;
 
+#if ( ! defined USE_CC112X_RF )
+uint8 rfsndbuf[GMS_PKT_MAX_LEN] = {0};
+uint8 rfsndlen;
+#endif
+
 static pktgms_t pktgmsst=PKT_GMS_ID;
 
 static uint8 gmsrdpkt[GMS_PKT_MAX_LEN]={0};
 static uint8 currdlen=0;
 static uint8 totrdlen=0;
-static uint8 totpldlen=0;
 
 static UTCTimeStruct lasttm;
 
@@ -311,17 +332,16 @@ static uint8 calcGMchksum(uint8* chkbuf, uint16 len)
 	return sum;
 }
 
-
 static rferr_t rfdatasend(uint8 *buf, uint8 len)
 {
-#if ( HW_VERN == 1 )
-	RFwakeup();
-	halSleep(100);
+#if ( defined USE_CC112X_RF )
+	txdata(buf,len);
+#else
+	osal_memcpy(rfsndbuf,buf,len);
+	rfsndlen = len;
+	prepare_TEN_send();
+#endif	// USE_CC112X_RF
 
-	Com433Write(COM433_WORKING_PORT, buf, len);
-#elif ( HW_VERN == 2 )
-	txdata(buf, uint8 len)
-#endif
 	return RF_SUCCESS;
 }
 

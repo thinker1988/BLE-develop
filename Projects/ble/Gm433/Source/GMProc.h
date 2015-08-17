@@ -35,7 +35,7 @@ void set_heart_beat(void);
 void set_data_change(void);
 void clear_send(void);
 
-void gm_data_proc(uint8 tmpr,int16 tmpX,int16 tmpY,int16 tmpZ);
+void gm_data_proc(int16 tmpX,int16 tmpY,int16 tmpZ);
 void send_gde_data(uint8 prcnt, uint8 tmpr,int16 tmpX, int16 tmpY, int16 tmpZ);
 void stopresend(uint8 *data, uint8 len);
 

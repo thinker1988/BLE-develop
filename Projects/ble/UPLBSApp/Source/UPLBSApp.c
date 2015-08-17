@@ -132,7 +132,7 @@ enum
  *
  * To convert a voltage to an ADC value use: 
  * Beacon:	(v/3)/1.25 * 511 = adc	3.0V = 409 ADC	2.0V = 273 ADC
- * CARDROID:						4.2V = 1929 ADC	3.3V = 1560 ADC
+ * CARDROID:  (v*100)/370/1.25*2047 	4.2V = 1929 ADC	3.3V = 1560 ADC
  */
 #if ( defined BLE_BEACON )
 // Battery check period in ms <default 86400000, i.e. 24h>

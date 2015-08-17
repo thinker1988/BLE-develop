@@ -115,6 +115,7 @@ void initGMstate(void)
 		prevgmst = GMFirstBoot;
 	}
 	gmst = GMFirstBoot;
+	readcnt = 0;
 }
 
 
@@ -136,12 +137,10 @@ void clear_send(void)
 {
 	rsndcnt = 0;
 	sndtyp = SEND_NOTHG;
-
-//	RFsleep();
 }
 
 
-void gm_data_proc(uint8 tmpr, int16 tmpX, int16 tmpY, int16 tmpZ)
+void gm_data_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 {	
 	switch(gmst)
 	{
@@ -199,10 +198,14 @@ void gm_data_proc(uint8 tmpr, int16 tmpX, int16 tmpY, int16 tmpZ)
 	
 	if (sndtyp != SEND_NOTHG)
 	{
-		uint8 prcnt=20;
+		uint8 prcnt;
+		int8 gdetmpr;
 
-		//prcnt = get_batt_percent(void)
-		send_gde_data(prcnt,tmpr,tmpX,tmpY,tmpZ);
+		RFwakeup();
+		
+		prcnt = CalcBatteryPercent();
+		gdetmpr = GetGDETmpr();
+		send_gde_data(prcnt,gdetmpr,tmpX,tmpY,tmpZ);
 	}
 	else
 	{
@@ -210,7 +213,6 @@ void gm_data_proc(uint8 tmpr, int16 tmpX, int16 tmpY, int16 tmpZ)
 		{
 			syncUTCtimereq();
 		}
-		PrintGMvalue(COM433_DEBUG_PORT, "\r\nR:", tmpX, tmpY, tmpZ);
 	}
 }
 
@@ -310,8 +312,11 @@ static void normrgltGMbenchmk(int16 xVal,int16 yVal, int16 zVal)
 {	
 	// adjust benchmark ervery 5*120=10min
 	if ( ++readcnt < 120 )
+	{
+		PrintGMvalue(COM433_DEBUG_PORT, "\r\nR:", xVal, yVal, zVal);
 		return;
-
+	}
+	
 	readcnt = 0;
 	tmpbenchcnt++;
 

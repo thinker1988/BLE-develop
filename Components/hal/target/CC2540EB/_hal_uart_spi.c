@@ -250,7 +250,7 @@
 #define SPI_RDYIn									P1_4
 #define SPI_RDYIn_BIT							BV(4)
 
-#if 1
+#if 0
 #define SPI_SI								P1_6
 #define SPI_SO								P1_7
 #endif
@@ -633,6 +633,7 @@ static spiLen_t HalUARTReadSPI(uint8 *buf, spiLen_t len)
 		*buf++ = spiRxDat[spiRxHead];
 	}
 #else	/* SPI_USE_DMA */
+	while (UxCSR & CSR_ACTIVE);
 
 	buf[0] = UxDBUF;
 	len = 1;
@@ -725,7 +726,7 @@ static spiLen_t HalUARTWriteSPI(uint8 *buf, spiLen_t len)
 	SPI_SET_CSn_OUT();
 #endif
 	HAL_DMA_ARM_CH(HAL_SPI_CH_TX);
-#if 1	//modified by lan 15.8.3, wait SO low;
+#if 0	//modified by lan 15.8.3, wait SO low;
 	while(SPI_SO);
 #endif
 	asm("NOP"); asm("NOP"); asm("NOP"); asm("NOP"); asm("NOP");
@@ -743,8 +744,6 @@ static spiLen_t HalUARTWriteSPI(uint8 *buf, spiLen_t len)
 
 
 #else	/* SPI_USE_DMA */
-	// wait device stable
-	while(SPI_SO);
 	UxDBUF = buf[0];
 	while (UxCSR & CSR_ACTIVE);
 	

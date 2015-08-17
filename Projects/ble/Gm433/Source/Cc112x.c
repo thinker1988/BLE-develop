@@ -1,7 +1,10 @@
+#include "OSAL.h"
 #include "Com433.h"
 #include "Cc112x.h"
+#include "BLECore.h"
+#include "Pktfmt.h"
 
-#define PKTLEN				10
+#define PKTLEN				64
 #define RX_FIFO_ERROR		0x11
 
 //modified by lan 15.8.3, control by app
@@ -9,8 +12,10 @@
 #define SPI_CSN_PIN					P1_4
 #define SPI_CSN_BIT					BV(4)
 
-#define TRXEN_SPI_END()				(SPI_CSN_PIN = 1)
-#define TRXEN_SPI_BEGIN()			(SPI_CSN_PIN = 0)
+#define SPI_MISO_PIN				P1_7
+
+#define TRXEN_SPI_END()				st(asm("NOP"); SPI_CSN_PIN = 1;)
+#define TRXEN_SPI_BEGIN()			st(SPI_CSN_PIN = 0; asm("NOP");)
 
 // CC112X GPIO2 INT -> P1.3
 #define RF_SYNC_INT_PINSEL			P1SEL
@@ -19,12 +24,12 @@
 #define RF_SYNC_INT_IF				P1IF
 #define RF_SYNC_INT_IEN				P1IEN
 
-#define RF_SYNC_INT_PIN				BV(3)
+#define RF_SYNC_INT_IE				BV(3)
 
-#define SET_P1_INT_FALLING_EDGE() 	st(PICTL |= BV(1))
+#define RF_SYNC_INT_ENABLE()		st(RF_SYNC_INT_IEN |= RF_SYNC_INT_IE;)
+#define RF_SYNC_INT_DISABLE()		st(RF_SYNC_INT_IEN &= ~RF_SYNC_INT_IE;)
 
-#define ENABLE_P1_INT()			st(IEN2 |=	BV(4))
-
+#define WAIT_SO_STABLE()			st(while(SPI_MISO_PIN == 1);)
 
 enum RFworkingmode{
 	RF_IDLE_M,
@@ -32,9 +37,13 @@ enum RFworkingmode{
 	RF_RX_M
 };
 
-static bool RFrxtxRdy;
+
+extern uint8 BLECore_TaskId;
+
 
 static uint8 RFmode = RF_IDLE_M;
+
+static bool RFrxtxRdy;
 
 static void trxSyncIntCfg(void);
 
@@ -46,78 +55,81 @@ static rfStatus_t trx8BitRegAccess(uint8 accessType, uint8 addrByte, uint8 *pDat
 static rfStatus_t trx16BitRegAccess(uint8 accessType, uint8 extAddr, uint8 regAddr, uint8 *pData, uint8 len);
 static void trxReadWriteBurstSingle(uint8 addr,uint8 *pData,uint16 len);
 
+static int8 Read8BitRssi(void);
+
 static void createPacket(uint8 txBuffer[]);
 
 static void trxSingleTX(uint8 data);
 static uint8 trxSingleRX(void);
 
-static void trxBurstTX(uint8 *data, uint8 len);
-static void trxBurstRX(uint8 *data, uint8 len);
-
 static void manualCalibration(void);
 
 
 void initRFcfg(void)
-{	
+{
+	uint8 rfvern;
+	
 	registerConfig();
-	manualCalibration();
+	cc112xSpiReadReg(CC112X_PARTVERSION, &rfvern, 1);
+	Com433WriteInt(COM433_DEBUG_PORT, "\r\nVERN", rfvern, 16);
+
+	if ( rfvern == 0x21 )
+		manualCalibration();
+	else
+		trxSpiCmdStrobe(CC112X_SCAL);
 	
 	trxSyncIntCfg();
 
 	// enter low power mode
-	trxSpiCmdStrobe(CC112X_SIDLE);
+	//RFentersleep();
 //	Com433WriteStr(COM433_DEBUG_PORT,"\r\nOK!");
 }
 
+void RFentersleep(void)
+{
+	RFmode = RF_IDLE_M;
+	trxSpiCmdStrobe(CC112X_SIDLE);
+}
 
+void RFmodechange(void)
+{
+	if ( RFmode == RF_TX_M )
+	{
+//		RFentersleep();
+		// begin to RX after TX over
+		RFmode = RF_RX_M;
+		trxSpiCmdStrobe(CC112X_SRX);
+
+		// leave 1000 ms recieve
+		osal_start_timerEx(BLECore_TaskId, CORE_PWR_SAVING_EVT, IDLE_PWR_HOLD_PERIOD);
+	}
+	else if ( RFmode == RF_RX_M )
+		rxdata();
+}
 void txdata(uint8 *txbuf, uint8 len)
 {
+#if 1
+	uint8 txBuffer[GMS_PKT_MAX_LEN] = {0};
+
+	txBuffer[0] = len;
+	osal_memcpy(txBuffer+1, txbuf, len);
+	
 	RFmode = RF_TX_M;
 	// Write packet to TX FIFO
-	cc112xSpiWriteTxFifo(txbuf, len);
+	cc112xSpiWriteTxFifo(txBuffer, len+1);
 	// Strobe TX to send packet
 	trxSpiCmdStrobe(CC112X_STX);
-	while(RFrxtxRdy == FALSE);
-
-
-	RFmode = RF_RX_M;
-	trxSpiCmdStrobe(CC112X_SRX);
-	// wait data receive
-	halSleep();
+#else
+	tx_test();
+#endif
 }
 
 void rxdata(void)
 {
-	
-}
-
-void tx_test(void)
-{
-	uint8 txBuffer[PKTLEN+1] = {0};
-
-	createPacket(txBuffer);
-	// Write packet to TX FIFO
-	cc112xSpiWriteTxFifo(txBuffer, sizeof(txBuffer));
-	Com433WriteInt(COM433_DEBUG_PORT,"\r\nT:",PKTLEN+1,10);
-	Com433WriteInt(COM433_DEBUG_PORT," V:",txBuffer[1]-'0',10);
-	// Strobe TX to send packet
-	trxSpiCmdStrobe(CC112X_STX);
-}
-
-void rx_test(void)
-{
-	uint8 rxBuffer[128] = {0};
+	uint8 rxBuffer[GMS_PKT_MAX_LEN] = {0};
 	uint8 rxBytes;
 	uint8 marcState;
 	
-	trxSpiCmdStrobe(CC112X_SRX);
-
-	while(1){
-
-	if (RFrxtxRdy == FALSE)
-		continue;
-	
-	// Read number of bytes in RX FIFO
 	cc112xSpiReadReg(CC112X_NUM_RXBYTES, &rxBytes, 1);
 	// Check that we have bytes in FIFO
 	if(rxBytes != 0)
@@ -144,21 +156,79 @@ void rx_test(void)
 			}
 			else
 				Com433WriteStr(COM433_DEBUG_PORT,"CRC Fail");
-			
-
-			// Check CRC ok (CRC_OK: bit7 in second status byte)
-			// This assumes status bytes are appended in RX_FIFO
-			// (PKT_CFG1.APPEND_STATUS = 1)
-			// If CRC is disabled the CRC_OK field will read 1
-			
-			//if(rxBuffer[rxBytes - 1] & 0x80)
-			// Update packet counter
-			//Com433Write(COM433_DEBUG_PORT, rxBuffer, rxBytes-1);
 		}
 	}
-
-	RFrxtxRdy = FALSE;
 	trxSpiCmdStrobe(CC112X_SRX);
+}
+
+void tx_test(void)
+{
+	uint8 txBuffer[PKTLEN+1] = {0};
+
+	createPacket(txBuffer);
+	// Write packet to TX FIFO
+	cc112xSpiWriteTxFifo(txBuffer, sizeof(txBuffer));
+	Com433WriteInt(COM433_DEBUG_PORT,"\r\nT:",PKTLEN+1,10);
+	Com433WriteInt(COM433_DEBUG_PORT," V:",txBuffer[1]-'0',10);
+	// Strobe TX to send packet
+	trxSpiCmdStrobe(CC112X_STX);
+}
+
+void rx_test(void)
+{
+	uint8 rxBuffer[128] = {0};
+	uint8 rxBytes;
+	uint8 marcState;
+	
+	trxSpiCmdStrobe(CC112X_SRX);
+
+	while(1)
+	{
+		if (RFrxtxRdy == FALSE)
+			continue;
+	
+		// Read number of bytes in RX FIFO
+		cc112xSpiReadReg(CC112X_NUM_RXBYTES, &rxBytes, 1);
+		// Check that we have bytes in FIFO
+		if(rxBytes != 0)
+		{
+			// Read MARCSTATE to check for RX FIFO error
+			cc112xSpiReadReg(CC112X_MARCSTATE, &marcState, 1);
+
+			// Mask out MARCSTATE bits and check if we have a RX FIFO error
+			if((marcState & 0x1F) == RX_FIFO_ERROR)
+			{
+				Com433WriteStr(COM433_DEBUG_PORT, "\r\nERR");
+				// Flush RX FIFO
+				trxSpiCmdStrobe(CC112X_SFRX);
+			}
+			else
+			{
+				// Read n bytes from RX FIFO
+				cc112xSpiReadRxFifo(rxBuffer, rxBytes);
+				Com433WriteInt(COM433_DEBUG_PORT, "\r\nR:", rxBytes,10);
+				if(rxBuffer[rxBytes - 1] & 0x80)
+				{
+					Com433WriteInt(COM433_DEBUG_PORT," ",Read8BitRssi(),10);
+					
+					rxBuffer[0]=' ';
+					Com433Write(COM433_DEBUG_PORT, rxBuffer, rxBytes-2);
+				}
+				else
+					Com433WriteStr(COM433_DEBUG_PORT,"CRC Fail");
+				// Check CRC ok (CRC_OK: bit7 in second status byte)
+				// This assumes status bytes are appended in RX_FIFO
+				// (PKT_CFG1.APPEND_STATUS = 1)
+				// If CRC is disabled the CRC_OK field will read 1
+			
+				//if(rxBuffer[rxBytes - 1] & 0x80)
+				// Update packet counter
+				//Com433Write(COM433_DEBUG_PORT, rxBuffer, rxBytes-1);
+			}
+		}
+
+		RFrxtxRdy = FALSE;
+		trxSpiCmdStrobe(CC112X_SRX);
 	}
 }
 
@@ -176,19 +246,21 @@ static void createPacket(uint8 txBuffer[])
 
 void trxSyncIntCfg(void)
 {
-	// Falling edge of P1
+	SET_P1_INT_DISABLE();
+	RF_SYNC_INT_DISABLE();
+
+	// Falling edge of P1	
 	SET_P1_INT_FALLING_EDGE();
 	
-	RF_SYNC_INT_PINSEL &= (uint8) ~ RF_SYNC_INT_PIN;
-	RF_SYNC_INT_PINDIR &= (uint8) ~ RF_SYNC_INT_PIN;
+	RF_SYNC_INT_PINSEL &= (uint8) ~ RF_SYNC_INT_IE;
+	RF_SYNC_INT_PINDIR &= (uint8) ~ RF_SYNC_INT_IE;
 
 	RF_SYNC_INT_IFG = 0;
 	RF_SYNC_INT_IF = 0;
 
-	RF_SYNC_INT_IEN |= RF_SYNC_INT_PIN;
-
+	RF_SYNC_INT_ENABLE();
 	// P1 Int enable
-	ENABLE_P1_INT();
+	SET_P1_INT_ENABLE();
 }
 
 static void registerConfig(void)
@@ -200,17 +272,32 @@ static void registerConfig(void)
 	trxSpiCmdStrobe(CC112X_SRES);
 
 	// Write registers to radio
+#if 1
+	for( i=0;i<(sizeof(preferredSettings434)/sizeof(registerSetting_t));i++)
+	{
+		writeByte = preferredSettings434[i].data;
+		cc112xSpiWriteReg(preferredSettings434[i].addr, &writeByte, 1);
+	}
+#else
 	for( i=0;i<(sizeof(preferredSettings470)/sizeof(registerSetting_t));i++)
 	{
 		writeByte = preferredSettings470[i].data;
 		cc112xSpiWriteReg(preferredSettings470[i].addr, &writeByte, 1);
 	}
-
+#if 0
+	for ( i=0;i<(sizeof(br_1200_cfg)/sizeof(registerSetting_t));i++)
+	{
+		writeByte = br_1200_cfg[i].data;
+		cc112xSpiWriteReg(br_1200_cfg[i].addr, &writeByte, 1);
+	}
+#else
 	for ( i=0;i<(sizeof(br_9600_cfg)/sizeof(registerSetting_t));i++)
 	{
 		writeByte = br_9600_cfg[i].data;
 		cc112xSpiWriteReg(br_9600_cfg[i].addr, &writeByte, 1);
 	}
+#endif
+#endif
 }
 
 
@@ -395,6 +482,28 @@ rfStatus_t cc112xGetRxStatus(void)
 	return(trxSpiCmdStrobe(CC112X_SNOP | RADIO_READ_ACCESS));
 }
 
+
+static int8 Read8BitRssi(void)
+{
+	uint8 rssi2compl,rssiValid;
+	uint8 rssiOffset = 102;
+	int8 rssiConverted;
+
+	// Read RSSI_VALID from RSSI0
+	cc112xSpiReadReg(CC112X_RSSI0, &rssiValid, 1);
+	// Check if the RSSI_VALID flag is set
+	if(rssiValid & 0x01)
+	{
+		// Read RSSI from MSB register
+		cc112xSpiReadReg(CC112X_RSSI1, &rssi2compl, 1);
+		rssiConverted = (int8)rssi2compl - rssiOffset;
+		return rssiConverted;
+	}
+
+	// return 0 since new value is not valid
+	return 0; 
+}
+
 /*******************************************************************************
  * @fn					trxSpiCmdStrobe
  *
@@ -414,6 +523,7 @@ static rfStatus_t trxSpiCmdStrobe(uint8 cmd)
 {
 	uint8 rc=0;
 	TRXEN_SPI_BEGIN();
+	WAIT_SO_STABLE();
 	trxSingleTX(cmd);
 	
 	rc = trxSingleRX();
@@ -449,6 +559,7 @@ static rfStatus_t trx8BitRegAccess(uint8 accessType, uint8 addrByte, uint8 *pDat
 
 	/* Pull CS_N low and wait for SO to go low before communication starts */
 	TRXEN_SPI_BEGIN();
+	WAIT_SO_STABLE();
 	/* send register address byte */
 	trxSingleTX(accessType|addrByte);
 	/* Storing chip status */
@@ -487,6 +598,7 @@ static rfStatus_t trx16BitRegAccess(uint8 accessType, uint8 extAddr, uint8 regAd
 	uint8 readValue;
 	
 	TRXEN_SPI_BEGIN();
+	WAIT_SO_STABLE();
 	/* send extended address byte with access type bits set */
 	trxSingleTX(accessType|extAddr);
 	/* Storing chip status */
@@ -540,22 +652,16 @@ static void trxReadWriteBurstSingle(uint8 addr,uint8 *pData,uint16 len)
 	{
 		if(addr&RADIO_BURST_ACCESS)
 		{
-#if 1
 			for (i = 0; i < len; i++)
 			{
 				trxSingleTX(0);			/* Possible to combining read and write as one access type */
 				*pData = trxSingleRX();	/* Store pData from last pData RX */
 				pData++;
 			}
-#else
-			trxBurstRX(pData, len);
-#endif
 		}
 		else
 		{
-#if 1
 			trxSingleTX(0);
-#endif
 			*pData = trxSingleRX();
 		}
 	}
@@ -563,16 +669,12 @@ static void trxReadWriteBurstSingle(uint8 addr,uint8 *pData,uint16 len)
 	{
 		if(addr&RADIO_BURST_ACCESS)
 		{
-#if 1
 			/* Communicate len number of bytes: if TX - the procedure doesn't overwrite pData */
 			for (i = 0; i < len; i++)
 			{
 				trxSingleTX(*pData);
 				pData++;
 			}
-#else
-			trxBurstTX(pData, len);
-#endif
 		}
 		else
 		{
@@ -594,17 +696,6 @@ static uint8 trxSingleRX(void)
 //	while(Hal_UART_RxBufLen(COM433_WORKING_PORT) == 0);
 	Com433Read(COM433_WORKING_PORT, &rc, sizeof(rc));
 	return rc;
-}
-
-static void trxBurstTX(uint8 *data, uint8 len)
-{
-	Com433Write(COM433_WORKING_PORT, data, len);
-}
-
-static void trxBurstRX(uint8 *data, uint8 len)
-{
-//	while(Hal_UART_RxBufLen(COM433_WORKING_PORT) == 0);
-	Com433Read(COM433_WORKING_PORT, data, len);
 }
 
 
@@ -640,7 +731,7 @@ static void manualCalibration(void)
 
 	// 3) Calibrate and wait for calibration to be done
 	//   (radio back in IDLE state)
-	marcstate = trxSpiCmdStrobe(CC112X_SCAL);
+	trxSpiCmdStrobe(CC112X_SCAL);
 
 	do
 	{
@@ -705,13 +796,19 @@ static void manualCalibration(void)
 	}
 }
 
-HAL_ISR_FUNCTION(DEV_I2C_Isr, P1INT_VECTOR)
+#if ( defined USE_CC112X_RF )
+HAL_ISR_FUNCTION(RF_RTX_RDY_Isr, P1INT_VECTOR)
 {
 	HAL_ENTER_ISR();
 
-	// Confirm accelerometer interrupt
-	if (RF_SYNC_INT_IEN & RF_SYNC_INT_PIN)
+	if (RF_SYNC_INT_IEN & RF_SYNC_INT_IE)
+	{
+#if ( defined TEST_433 )
 		RFrxtxRdy = TRUE;
+#else
+		osal_set_event(BLECore_TaskId,RF_RXTX_RDY_EVT);
+#endif	// TEST_433
+	}
 
 	// Clear the CPU interrupt flag for Port PxIFG has to be cleared before PxIF.
 	RF_SYNC_INT_IFG = 0;
@@ -721,3 +818,4 @@ HAL_ISR_FUNCTION(DEV_I2C_Isr, P1INT_VECTOR)
 	
 	HAL_EXIT_ISR();
 }
+#endif	// USE_CC112X_RF

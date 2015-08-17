@@ -22,11 +22,12 @@ extern "C"
 #define COM433_UART_TX_BUF_SIZE				128
 #define COM433_UART_IDLE_TIMEOUT				6
 #define COM433_UART_INT_ENABLE				TRUE
-#if ( !defined HW_VERN ) || ( HW_VERN == 0 )
+
+#if ( defined UART_HIGH_BAUD )
 #define COM433_UART_BR							HAL_UART_BR_115200
-#elif ( HW_VERN == 1 )
+#else
 #define COM433_UART_BR							HAL_UART_BR_9600
-#endif
+#endif	// UART_HIGH_BAUD
 
 // Serial Port Related
 extern void Com433_Init(void);
