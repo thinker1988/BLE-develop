@@ -67,6 +67,9 @@ extern "C"
 #define TEN_TX_RDY_EVT					0x0020
 #endif
 
+#define GM_DEV_WORKING_EVT				0x8000
+
+
 #define ALL_EVENT_ID					0xFFFF
 
 

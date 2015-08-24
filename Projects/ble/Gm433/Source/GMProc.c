@@ -36,13 +36,14 @@ sendtype_t sndtyp = SEND_NOTHG;
 // Resend times (max:3)
 static uint8 rsndcnt;
 
-// Current and previous GM state
+// Current GM state
 static gmstatus_t gmst;
+// Pevious GM state, only used in first boot
 static gmstatus_t prevgmst;
 
 // GM car detect threshold
 uint8 carthrhld = GM_GET_CAR_THRHD;
-uint8 noisethrhld = GM_GET_CAR_THRHD;
+uint8 noisethrhld = GM_NOISE_THRHD;
 
 // Read counts when no car detect, save data in temporary benchmark array every 120s
 static uint8 readcnt;
@@ -67,12 +68,13 @@ uint8 tmpdtctcnt;
 
 static bool initbnchmk(gmstatus_t gmstts,int16 xVal,int16 yVal, int16 zVal);
 
-static void storeGMstate(void);
 static gmstatus_t ChangeGMstate(gmstatus_t curstate);
 
 static void normrgltGMbenchmk(int16 xVal,int16 yVal, int16 zVal);
+/*
+static void storeGMstate(void);
 static void wghtrgltGMCbenchmk(int16 xVal, int16 yVal, int16 zVal);
-
+*/
 static int16 calc_weight(int16 * buf, uint8 len, uint8 bound);
 static int16 calc_avrg(int16 *buf, uint8 n);
 
@@ -93,7 +95,9 @@ void initGMstate(void)
 {
 	int16 tmpx,tmpy,tmpz;
 	bool initflag = FALSE;
-	
+
+	readcnt = 0;
+	tmpbenchcnt = 0;
 	if(osal_snv_read(GM_STATE_NV_ID, sizeof(prevgmst),&prevgmst)!=NV_OPER_FAILED)
 	{
 		if (prevgmst!=GMNoCar && prevgmst!=GMGetCar && prevgmst!=GMUnknow)
@@ -114,8 +118,7 @@ void initGMstate(void)
 		//Com433WriteStr(COM433_DEBUG_PORT,"\r\n!!!NV read failed!!!");
 		prevgmst = GMFirstBoot;
 	}
-	gmst = GMFirstBoot;
-	readcnt = 0;
+	gmst = prevgmst;
 }
 
 
@@ -157,20 +160,28 @@ void gm_data_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 				gmst = GMUnknow;
 			}*/
 			else
-				normrgltGMbenchmk(tmpX,tmpY,tmpZ);
+			{
+				// adjust benchmark ervery 5*120=10min
+				if ( ++readcnt >= 120 )
+					normrgltGMbenchmk(tmpX,tmpY,tmpZ);
+				else
+					PrintGMvalue(COM433_DEBUG_PORT, "\r\nR:",tmpX,tmpY,tmpZ);
+			}
 			
 			break;
 		case GMGetCar:
-			if (CALC_ABS(tmpZ-Zdtctval)>carthrhld && CALC_ABS(tmpZ-Zbenchmk)<carthrhld)
+			if (/*CALC_ABS(tmpZ-Zdtctval)>carthrhld &&*/ CALC_ABS(tmpZ-Zbenchmk)<carthrhld)
 			{
 				gmst = ChangeGMstate(gmst);
-				normrgltGMbenchmk(tmpX,tmpY,tmpZ);
+				initbnchmk(gmst,tmpX,tmpY,tmpZ);
 			}
-			/*else if (CALC_ABS(tmpZ-Zbenchmk)>carthrhld && CALC_ABS(tmpZ-Zbenchmk)>noisethrhld)
+			/*else if (CALC_ABS(tmpZ-Zbenchmk)<carthrhld && CALC_ABS(tmpZ-Zbenchmk)>noisethrhld)
 			{
 				prevgmst = GMGetCar;
 				gmst = GMUnknow;
 			}*/
+			else
+				PrintGMvalue(COM433_DEBUG_PORT, "\r\nDR:",tmpX,tmpY,tmpZ);
 			break;
 		case GMUnknow:
 			/*if (prevgmst == GMNoCar)
@@ -190,8 +201,11 @@ void gm_data_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 			if ( ++readcnt == 2 )
 			{
 				initbnchmk(gmst,tmpX,tmpY,tmpZ);
+				// beat after first boot
 				set_heart_beat();
 			}
+			break;
+		default:
 			break;
 	}
 //	storeGMstate();
@@ -211,6 +225,7 @@ void gm_data_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 	{
 		if (gettmsync() == TRUE)
 		{
+			RFwakeup();
 			syncUTCtimereq();
 		}
 	}
@@ -248,7 +263,6 @@ void send_gde_data(uint8 prcnt, uint8 tmpr,int16 tmpX, int16 tmpY, int16 tmpZ)
 	}
 }
 
-
 void stopresend(uint8 *data, uint8 len)
 {
 	VOID data;
@@ -257,19 +271,14 @@ void stopresend(uint8 *data, uint8 len)
 	clear_send();
 }
 
+
 static bool initbnchmk(gmstatus_t gmstts,int16 xVal,int16 yVal, int16 zVal)
 {
 	switch (gmstts)
 	{
 		case GMFirstBoot:	// Assume no car
 		case GMNoCar:
-			Xbenchmk = tmpXbench[0] = xVal;
-			Ybenchmk = tmpYbench[0] = yVal;
-			Zbenchmk = tmpZbench[0] = zVal;
-
-			tmpbenchcnt = 1;
-			readcnt = 0;
-			PrintGMvalue(COM433_DEBUG_PORT, "\r\nNCInit", Xbenchmk, Ybenchmk, Zbenchmk);
+			normrgltGMbenchmk(xVal,yVal,zVal); 
 
 			gmst = GMNoCar;
 			break;
@@ -293,30 +302,16 @@ static bool initbnchmk(gmstatus_t gmstts,int16 xVal,int16 yVal, int16 zVal)
 	return TRUE;
 }
 
-static void storeGMstate(void)
-{
-	 if(osal_snv_write(GM_STATE_NV_ID, sizeof(gmst),&gmst)==NV_OPER_FAILED)
-	 	Com433WriteStr(COM433_DEBUG_PORT,"\r\n!!!NV Failed!!!");
-}
-
 
 static gmstatus_t ChangeGMstate(gmstatus_t curstate)
 {
 	set_data_change();
-	Com433WriteStr(COM433_DEBUG_PORT,"\r\nCCC");
 	return (curstate==GMNoCar? GMGetCar:GMNoCar);
 }
 
 
 static void normrgltGMbenchmk(int16 xVal,int16 yVal, int16 zVal)
-{	
-	// adjust benchmark ervery 5*120=10min
-	if ( ++readcnt < 120 )
-	{
-		PrintGMvalue(COM433_DEBUG_PORT, "\r\nR:", xVal, yVal, zVal);
-		return;
-	}
-	
+{
 	readcnt = 0;
 	tmpbenchcnt++;
 
@@ -347,6 +342,12 @@ static void normrgltGMbenchmk(int16 xVal,int16 yVal, int16 zVal)
 	PrintGMvalue(COM433_DEBUG_PORT, "\r\nNC bench:", Xbenchmk, Ybenchmk, Zbenchmk);
 }
 
+/*
+static void storeGMstate(void)
+{
+	 if(osal_snv_write(GM_STATE_NV_ID, sizeof(gmst),&gmst)==NV_OPER_FAILED)
+	 	Com433WriteStr(COM433_DEBUG_PORT,"\r\n!!!NV Failed!!!");
+}
 
 static void wghtrgltGMCbenchmk(int16 xVal,int16 yVal, int16 zVal)
 {
@@ -383,7 +384,7 @@ static void wghtrgltGMCbenchmk(int16 xVal,int16 yVal, int16 zVal)
 
 	PrintGMvalue(COM433_DEBUG_PORT, "\r\nDT bench:", Xdtctval, Ydtctval, Zdtctval);
 }
-
+*/
 
 static int16 calc_avrg(int16 *buf, uint8 n)
 {

@@ -83,7 +83,7 @@
 #define GM_READ_EVT_PERIOD 			5000		//1000-> 1s
 
 // Heart beat
-#define HEART_BEAT_EVT_PERIOD 		20000	//20s check battery
+#define HEART_BEAT_EVT_PERIOD 		600000	//600s = 10min heart beat
 
 //G-Sensor I2C address
 #define GM_I2C_ADDR					0x1E
@@ -181,6 +181,8 @@
 #define BATT_ADC_VAL_MAX					1682
 #define BATT_ADC_VAL_MIN					1106
 
+#define BLE_MAC_ADDR_IN_FLASH		0x780E
+
 /*********************************************************************
  * TYPEDEFS
  */
@@ -207,6 +209,9 @@ extern uint8 rfsndlen;
 /*********************************************************************
  * LOCAL VARIABLES
  */
+static uint32 next=1;
+
+static uint32 randwait;
 
 static bool SysWakeup = FALSE;
 
@@ -236,6 +241,12 @@ static bool GM_dev_init(void);
 #if 0
 static void GM_DRDY_INT_Cfg(void);
 #endif
+
+static uint32 c_rand(void);
+static void c_srand(uint32 seed);
+
+static void ReadBLEMac(uint8 * mac_addr);
+
 static void SYS_WS_INT_Cfg(void);
 
 
@@ -263,6 +274,7 @@ static void SYS_WS_INT_Cfg(void);
  */
 void BLECore_Init( uint8 task_id )
 {
+	uint8 BleMac[B_ADDR_LEN];
 	BLECore_TaskId = task_id;
 
 #if (defined POWER_SAVING)
@@ -275,6 +287,11 @@ void BLECore_Init( uint8 task_id )
 #if ( defined USE_CC112X_RF )
 	initRFcfg();
 #endif	// USE_CC112X_RF
+
+	ReadBLEMac(BleMac);
+
+	c_srand(BUILD_UINT32(BleMac[0],BleMac[1],BleMac[2],BleMac[3]));
+	randwait = c_rand()*18;// MAX:589806 ms
 
 	// Start working
 	osal_set_event( BLECore_TaskId, BLE_CORE_START_EVT );
@@ -309,10 +326,10 @@ uint16 BLECore_ProcessEvent( uint8 task_id, uint16 events )
 	{
 #if ( defined TEST_433 )
 		//RFwakeup();
-#if 0
+#if 1
 		rx_test();
 #else
-		osal_start_reload_timer(task_id,HEART_BEAT_EVT,2000);
+		osal_start_reload_timer(task_id,HEART_BEAT_EVT,5000);
 #endif
 #else
 		SYS_WS_INT_Cfg();
@@ -322,21 +339,28 @@ uint16 BLECore_ProcessEvent( uint8 task_id, uint16 events )
 			osal_stop_timerEx(task_id, GM_DRDY_INT_INT_EVT);
 			osal_stop_timerEx(task_id, HEART_BEAT_EVT);
 			osal_stop_timerEx(task_id, CORE_PWR_SAVING_EVT);
-			osal_set_event(task_id, CORE_PWR_SAVING_EVT);
-			//SLEEPCMD |= 0x03; // PM3
+#if ( defined USE_CC112X_RF )
+			osal_stop_timerEx(task_id, RF_RXTX_RDY_EVT);
+#else
+			osal_stop_timerEx(task_id, TEN_TX_RDY_EVT);
+#endif
+			RFsleep();
+			powersave(task_id);
+			SLEEPCMD |= 0x03; // PM3
+			PCON = 0x01;
 		}
 		else
 		{
-			cleartmsync();
 /*			RFwakeup();
 			osal_start_timerEx(BLECore_TaskId, READ_GM_DATA_EVT,100);*/
-
-
 			initGMstate();
+			settmsync();
+
 			if (GM_dev_init() == TRUE)
 			{
 				osal_start_reload_timer(task_id,READ_GM_DATA_EVT,GM_READ_EVT_PERIOD);
-				osal_start_reload_timer(task_id,HEART_BEAT_EVT,5000);//hrtbt_timeout);
+				// random start first heart beat
+				osal_start_timerEx(task_id, HEART_BEAT_EVT, randwait);
 			}
 			else
 				Com433WriteStr(COM433_DEBUG_PORT,"\r\nGM init failed...");
@@ -371,6 +395,7 @@ uint16 BLECore_ProcessEvent( uint8 task_id, uint16 events )
 		tx_test();
 #else
 		set_heart_beat();
+		osal_start_timerEx(task_id, HEART_BEAT_EVT, hrtbt_timeout);
 #endif
 
 		return (events ^ HEART_BEAT_EVT);
@@ -381,8 +406,6 @@ uint16 BLECore_ProcessEvent( uint8 task_id, uint16 events )
 		powersave(BLECore_TaskId);
 		if (RFrxtx == TRUE)
 			RFsleep();
-		
-/*		osal_start_timerEx(BLECore_TaskId, BLE_CORE_START_EVT,3000);*/
 
 		return (events ^ CORE_PWR_SAVING_EVT);
 	}
@@ -619,13 +642,17 @@ static void read_gm_data(void)
 		yval = BUILD_UINT16(tmp_data[5],tmp_data[4]);
 		zval = BUILD_UINT16(tmp_data[3],tmp_data[2]);
 
-		//PrintGMvalue(COM433_DEBUG_PORT, "\r\n", xval, yval, zval);
-		//PrintGMvalue(COM433_WORKING_PORT, "\r\n", xval, yval, zval);
 		gm_data_proc(xval,yval,zval);
 	}
-	// RF have no data send, sleep;
+	// RF have no data send, sleep 100 for serial output;
 	if (RFrxtx == FALSE)
+	{
+#if ( defined ALLOW_DEBUG_OUTPUT )
+		osal_start_timerEx(BLECore_TaskId, CORE_PWR_SAVING_EVT,100);
+#else
 		osal_set_event(BLECore_TaskId, CORE_PWR_SAVING_EVT);
+#endif
+	}
 
 	return;
 }
@@ -760,6 +787,46 @@ static void SYS_WS_INT_Cfg(void)
 	DEV_EN_INT_ENABLE();
 	SET_P0_INT_ENABLE();
 }
+
+/*********************************************************************
+ * @fn		c_rand
+ *
+ * @brief	c_rand and c_srand to calc random number
+ *
+ * @param	none
+ *
+ * @return	1~32767
+ */
+static uint32 c_rand(void)
+{
+	next=next*1103515245+12345;  
+	return (uint32)(next/65536)%32768;  
+}
+
+static void c_srand(uint32 seed)
+{
+	next=seed;
+}
+
+
+/*********************************************************************
+ * @fn		ReadBLEMac
+ *
+ * @brief	Read own mac address in flash. Use *(unsigned char *) to read address
+ *
+ * @param	none
+ *
+ * @return	none
+ */
+static void ReadBLEMac(uint8 *mac_addr)  
+{
+	uint8 i;
+	for (i=0;i<B_ADDR_LEN; i++)
+		mac_addr[i]=XREG(BLE_MAC_ADDR_IN_FLASH+i);
+	
+	return ;  
+}
+
 
 #if ( !defined HW_VERN ) || ( HW_VERN == 0 )
 HAL_ISR_FUNCTION(GMDRDYIsr, P1INT_VECTOR)

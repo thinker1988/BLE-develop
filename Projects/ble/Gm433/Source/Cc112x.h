@@ -289,6 +289,304 @@ typedef uint8 rfStatus_t;
  * VARIABLES
  */
 
+#if defined CC1120
+#ifndef _RF_SETTINGS_H
+#define _RF_SETTINGS_H
+
+#define SMARTRF_SETTING_IOCFG3           0xB0
+#define SMARTRF_SETTING_IOCFG2           0x06
+#define SMARTRF_SETTING_IOCFG1           0xB0
+#define SMARTRF_SETTING_IOCFG0           0x40
+#define SMARTRF_SETTING_SYNC_CFG1        0x0B
+#define SMARTRF_SETTING_DEVIATION_M      0x48
+#define SMARTRF_SETTING_MODCFG_DEV_E     0x05
+#define SMARTRF_SETTING_DCFILT_CFG       0x1C
+#define SMARTRF_SETTING_IQIC             0x46
+#define SMARTRF_SETTING_CHAN_BW          0x02
+#define SMARTRF_SETTING_MDMCFG0          0x05
+#define SMARTRF_SETTING_SYMBOL_RATE2     0x73
+#define SMARTRF_SETTING_AGC_REF          0x20
+#define SMARTRF_SETTING_AGC_CS_THR       0x19
+#define SMARTRF_SETTING_AGC_CFG1         0xA9
+#define SMARTRF_SETTING_AGC_CFG0         0xCF
+#define SMARTRF_SETTING_FIFO_CFG         0x00
+#define SMARTRF_SETTING_SETTLING_CFG     0x03
+#define SMARTRF_SETTING_FS_CFG           0x14
+#define SMARTRF_SETTING_PKT_CFG0         0x20
+#define SMARTRF_SETTING_PA_CFG0          0x7D
+#define SMARTRF_SETTING_PKT_LEN          0xFF
+#define SMARTRF_SETTING_IF_MIX_CFG       0x00
+#define SMARTRF_SETTING_FREQOFF_CFG      0x22
+#define SMARTRF_SETTING_FREQ2            0x6C
+#define SMARTRF_SETTING_FREQ1            0x40
+#define SMARTRF_SETTING_FS_DIG1          0x00
+#define SMARTRF_SETTING_FS_DIG0          0x5F
+#define SMARTRF_SETTING_FS_CAL1          0x40
+#define SMARTRF_SETTING_FS_CAL0          0x0E
+#define SMARTRF_SETTING_FS_DIVTWO        0x03
+#define SMARTRF_SETTING_FS_DSM0          0x33
+#define SMARTRF_SETTING_FS_DVC0          0x17
+#define SMARTRF_SETTING_FS_PFD           0x50
+#define SMARTRF_SETTING_FS_PRE           0x6E
+#define SMARTRF_SETTING_FS_REG_DIV_CML   0x14
+#define SMARTRF_SETTING_FS_SPARE         0xAC
+#define SMARTRF_SETTING_FS_VCO0          0xB4
+#define SMARTRF_SETTING_XOSC5            0x0E
+#define SMARTRF_SETTING_XOSC1            0x03
+
+#define SMARTRF_SETTING_SYNC3            0xD3
+#define SMARTRF_SETTING_SYNC2            0x91
+#define SMARTRF_SETTING_SYNC1            0xD3
+#define SMARTRF_SETTING_SYNC0            0x91
+#define SMARTRF_SETTING_SYMBOL_RATE1     0xA9
+#define SMARTRF_SETTING_SYMBOL_RATE0     0x2A
+#define SMARTRF_SETTING_PKT_CFG2         0x04
+#define SMARTRF_SETTING_PKT_CFG1         0x05
+#define SMARTRF_SETTING_PREAMBLE_CFG1    0x18  
+#define SMARTRF_SETTING_PREAMBLE_CFG0    0x2A  
+#define SMARTRF_SETTING_SYNC_CFG0        0x17 
+
+#endif	/* _RF_SETTINGS_H */
+
+
+static const uint8 rfLogicalChanTable[][4] =
+{
+  {0x6B, 0x00, 0x00}, /* 428MHz */
+  {0x6B, 0x0C, 0xCD}, 
+  {0x6B, 0x19, 0x99}, 
+  {0x6B, 0x26, 0x66},
+  {0x6B, 0x33, 0x33},
+  {0x6B, 0x40, 0x00}, /* 429MHz */  
+  {0x6B, 0x4C, 0xCD}, 
+  {0x6B, 0x59, 0x99}, 
+  {0x6B, 0x66, 0x66},
+  {0x6B, 0x73, 0x33},
+  {0x6B, 0x80, 0x00}, /* 430MHz */ 
+  {0x6B, 0x8C, 0xCD}, 
+  {0x6B, 0x99, 0x99}, 
+  {0x6B, 0xA6, 0x66},
+  {0x6B, 0xB3, 0x33},
+  {0x6B, 0xC0, 0x00}, /* 431MHz */
+  {0x6B, 0xCC, 0xCD}, 
+  {0x6B, 0xD9, 0x99}, 
+  {0x6B, 0xE6, 0x66},
+  {0x6B, 0xF3, 0x33},
+  {0x6C, 0x00, 0x00}, /* 432MHz */
+  {0x6C, 0x0C, 0xCD}, 
+  {0x6C, 0x19, 0x99}, 
+  {0x6C, 0x26, 0x66},
+  {0x6C, 0x33, 0x33},
+  {0x6C, 0x40, 0x00}, /* 433MHz */
+  {0x6C, 0x4C, 0xCD}, 
+  {0x6C, 0x59, 0x99}, 
+  {0x6C, 0x66, 0x66},
+  {0x6C, 0x73, 0x33},
+  {0x6C, 0x80, 0x00}, /* 434MHz */
+  {0x6C, 0x8C, 0xCD}, 
+  {0x6C, 0x99, 0x99}, 
+  {0x6C, 0xA6, 0x66},
+  {0x6C, 0xB3, 0x33},
+  {0x6C, 0xC0, 0x00}, /* 435MHz */
+  {0x6C, 0xCC, 0xCD}, 
+  {0x6C, 0xD9, 0x99}, 
+  {0x6C, 0xE6, 0x66},
+  {0x6C, 0xF3, 0x33},
+  {0x6D, 0x00, 0x00}, /* 436MHz */
+  {0x6D, 0x0C, 0xCD}, 
+  {0x6D, 0x19, 0x99}, 
+  {0x6D, 0x26, 0x66},
+  {0x6D, 0x33, 0x33},
+  {0x6D, 0x40, 0x00}, /* 437MHz */
+  {0x6D, 0x4C, 0xCD}, 
+  {0x6D, 0x59, 0x99}, 
+  {0x6D, 0x66, 0x66},
+  {0x6D, 0x73, 0x33},
+  {0x6D, 0x80, 0x00}, /* 438MHz */
+};
+
+static const uint8 rfRFPowerTable[] =
+{
+  0x7F, /* 15dBm */
+  0x7D, /* 14dBm */
+  0x7B, /* 13dBm */
+  0x79, /* 12dBm */
+  0x77, /* 11dBm */
+  0x74, /* 10dBm */
+  0x72, /* 9dBm */
+  0x6F, /* 8dBm */
+  0x6D, /* 7dBm */
+  0x6B, /* 6dBm */
+  0x69, /* 5dBm */
+  0x66, /* 4dBm */
+  0x64, /* 3dBm */
+  0x62, /* 2dBm */
+  0x5F, /* 1dBm */
+  0x5D, /* 0dBm */
+  0x56, /* -3dBm */
+  0x4F, /* -6dBm */
+  0x43, /* -11dBm */
+};
+
+/* Common configuration for diffrent data rate */
+static const registerSetting_t rfRadioCfgCm[] =
+{
+  {CC112X_IOCFG0,            SMARTRF_SETTING_IOCFG0},
+//  {CC112X_RFEND_CFG1,        SMARTRF_SETTING_RFEND_CFG1},
+//  {CC112X_RFEND_CFG0,        SMARTRF_SETTING_RFEND_CFG0},
+  {CC112X_PKT_CFG2,          SMARTRF_SETTING_PKT_CFG2},
+  {CC112X_PKT_CFG1,          SMARTRF_SETTING_PKT_CFG1},
+  {CC112X_PKT_CFG0,          SMARTRF_SETTING_PKT_CFG0},
+  {CC112X_SETTLING_CFG,      SMARTRF_SETTING_SETTLING_CFG},
+  {CC112X_PKT_LEN,           SMARTRF_SETTING_PKT_LEN},
+  {CC112X_FIFO_CFG,          SMARTRF_SETTING_FIFO_CFG},
+  {CC112X_SYNC3,             SMARTRF_SETTING_SYNC3},  
+  {CC112X_SYNC2,             SMARTRF_SETTING_SYNC2},  
+  {CC112X_SYNC1,             SMARTRF_SETTING_SYNC1},  
+  {CC112X_SYNC0,             SMARTRF_SETTING_SYNC0}, 
+  {CC112X_MDMCFG0,           SMARTRF_SETTING_MDMCFG0},
+  {CC112X_AGC_CFG1,          SMARTRF_SETTING_AGC_CFG1},
+  {CC112X_IF_MIX_CFG,        SMARTRF_SETTING_IF_MIX_CFG},
+  {CC112X_FS_DIG1,           SMARTRF_SETTING_FS_DIG1},
+  {CC112X_FS_DIG0,           SMARTRF_SETTING_FS_DIG0},
+  {CC112X_FS_CAL1,           SMARTRF_SETTING_FS_CAL1},
+  {CC112X_FS_CAL0,           SMARTRF_SETTING_FS_CAL0},
+  {CC112X_FS_DIVTWO,         SMARTRF_SETTING_FS_DIVTWO},
+  {CC112X_FS_DSM0,           SMARTRF_SETTING_FS_DSM0},
+  {CC112X_FS_DVC0,           SMARTRF_SETTING_FS_DVC0},
+  {CC112X_FS_PFD,            SMARTRF_SETTING_FS_PFD},
+  {CC112X_FS_PRE,            SMARTRF_SETTING_FS_PRE},
+  {CC112X_FS_REG_DIV_CML,    SMARTRF_SETTING_FS_REG_DIV_CML},
+  {CC112X_FS_SPARE,          SMARTRF_SETTING_FS_SPARE},
+  {CC112X_FS_VCO0,           SMARTRF_SETTING_FS_VCO0},
+  {CC112X_XOSC5,             SMARTRF_SETTING_XOSC5},
+  {CC112X_XOSC1,             SMARTRF_SETTING_XOSC1},
+
+
+	{CC112X_IOCFG3,			 0xB0},  // not use GPIO3, 3-state
+	{CC112X_IOCFG2,			  0x06}, // GPIO2 - PKT_SYNC_RXTX
+	{CC112X_IOCFG1,			  0xB0}, // not use GPIO1, 3-state
+
+  	{CC112X_FREQ2,			   0x6B}, // M: 6C
+	{CC112X_FREQ1,			   0x00}, // M: 80	New 428
+	{CC112X_FREQ0,			   0x00},
+};
+
+/* Special configuration for different data rate.
+ * [1.2k][2.4k][4.8k][9.6k][19.2k][38.4k][50k][100k][150k][200k][REG] 
+ */
+static const uint16 rfRadioCfgSp[][11] =
+{
+  {0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x08, 0x07, 0x07, CC112X_SYNC_CFG1},
+  {0x06, 0x06, 0x3B, 0x48, 0x48, 0x48, 0x99, 0x99, 0x53, 0x53, CC112X_DEVIATION_M},
+  {0x03, 0x03, 0x04, 0x05, 0x05, 0x05, 0x05, 0x2D, 0x2F, 0x2F, CC112X_MODCFG_DEV_E},
+  {0x1C, 0x1C, 0x1C, 0x1C, 0x1C, 0x1C, 0x15, 0x15, 0x04, 0x04, CC112X_DCFILT_CFG},
+  {0x18, 0x18, 0x18, 0x18, 0x18, 0x20, 0x18, 0x18, 0x18, 0x18, CC112X_PREAMBLE_CFG0},////
+  {0x18, 0x18, 0x18, 0x18, 0x18, 0x14, 0x18, 0x18, 0x18, 0x18, CC112X_PREAMBLE_CFG1},
+  {0x40, 0x40, 0x40, 0x40, 0x40, 0x40, 0x3A, 0x3A, 0x00, 0x00, CC112X_FREQ_IF_CFG},
+  {0xC6, 0xC6, 0x46, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x00, CC112X_IQIC},
+  {0x08, 0x08, 0x04, 0x02, 0x02, 0x02, 0x02, 0x01, 0x01, 0x01, CC112X_CHAN_BW},
+  {0x43, 0x53, 0x63, 0x73, 0x83, 0x93, 0x99, 0x99, 0xA3, 0xA9, CC112X_SYMBOL_RATE2},
+  {0xA9, 0xA9, 0xA9, 0xA9, 0xA9, 0xA9, 0x99, 0x99, 0x33, 0x99, CC112X_SYMBOL_RATE1},
+  {0x2A, 0x2A, 0x2A, 0x2A, 0x2A, 0x2A, 0x99, 0x9A, 0x33, 0x99, CC112X_SYMBOL_RATE0},
+  {0x20, 0x20, 0x20, 0x20, 0x20, 0x36, 0x3C, 0x3C, 0x3C, 0x3C, CC112X_AGC_REF},
+  {0x19, 0x19, 0x19, 0x19, 0x19, 0x19, 0xEF, 0xEF, 0xEC, 0xEC, CC112X_AGC_CS_THR},
+  {0x91, 0x91, 0x91, 0x91, 0x91, 0x91, 0x91, 0x91, 0x83, 0x83, CC112X_AGC_CFG3},
+  {0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x60, 0x60, CC112X_AGC_CFG2},
+  {0xCF, 0xCF, 0xCF, 0xCF, 0xCF, 0xCF, 0xC0, 0xC0, 0xC0, 0xC0, CC112X_AGC_CFG0},
+  {0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, 0x14, CC112X_FS_CFG},
+  {0x7E, 0x7E, 0x7E, 0x7D, 0x7C, 0x7B, 0x79, 0x7B, 0x02, 0x01, CC112X_PA_CFG0},
+  {0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x20, 0x20, CC112X_FREQOFF_CFG},
+  {0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x0B, 0x0A, 0x0A, 0x0A, 0x0A, CC112X_TOC_CFG},
+};
+
+#else
+// RX filter BW = 50.000000 
+// Address config = No address check 
+// Packet length = 255 
+// Symbol rate = 1.2 
+// PA ramping = true 
+// Performance mode = High Performance 
+// Carrier frequency = 434.000000 
+// Bit rate = 1.2 
+// Packet bit length = 0 
+// Whitening = false 
+// Manchester enable = false 
+// Modulation format = 2-FSK 
+// Packet length mode = Variable 
+// Device address = 0 
+// TX power = 15 
+// Deviation = 3.997803
+static const registerSetting_t preferredSettings434n[]= 
+{
+	{CC112X_IOCFG3, 		   0xB0},
+	{CC112X_IOCFG2, 		   0x06},
+	{CC112X_IOCFG1, 		   0xB0},
+	{CC112X_IOCFG0, 		   0x40},
+
+	{CC112X_FS_DIG1,		   0x00},
+	{CC112X_FS_DIG0,		   0x5F},
+	{CC112X_FS_CAL0,		   0x0E},
+	{CC112X_FS_DIVTWO,		   0x03},
+	{CC112X_FS_DSM0,		   0x33},
+	{CC112X_FS_DVC0,		   0x17},
+	{CC112X_FS_PFD, 		   0x50},
+	{CC112X_FS_PRE, 		   0x6E},
+	{CC112X_FS_REG_DIV_CML,    0x14},
+	{CC112X_FS_SPARE,		   0xAC},
+	{CC112X_XOSC5,			   0x0E},
+	{CC112X_XOSC4,			   0xA0},
+	{CC112X_XOSC3,			   0xC7},
+	{CC112X_XOSC1,			   0x03},
+	{CC112X_ANALOG_SPARE,	   0x00},
+	{CC112X_FIFO_CFG,		   0x80}, // D: auto flushes bit turned on
+	{CC112X_DEV_ADDR,		   0x00},
+	{CC112X_SETTLING_CFG,	   0x03},
+	{CC112X_FS_CFG, 		   0x14}, // M:12 D: 12 may be error, changed to 14
+	{CC112X_PKT_CFG2,		   0x00}, // always give CCA indication
+	{CC112X_PKT_CFG1,		   0x05},
+	{CC112X_PKT_CFG0,		   0x20},
+	{CC112X_PKT_LEN,		   0xFF},
+	{CC112X_RFEND_CFG1,		   0x0E}, // D: omit PQT and CS
+	{CC112X_RFEND_CFG0,		   0x20}, // D: TXOFF return to TX
+	{CC112X_FREQ2,			   0x6B}, // M: 6C
+	{CC112X_FREQ1,			   0x00}, // M: 80	New 428
+	{CC112X_FREQ0,			   0x00},
+	{CC112X_SYNC3,			   0x93},
+	{CC112X_SYNC2,	  		   0x0B},
+	{CC112X_SYNC1,			   0x51},
+	{CC112X_SYNC0,	   		   0xDE},
+	{CC112X_SYNC_CFG1,		   0x0B},
+	{CC112X_SYNC_CFG0,		   0x17},
+	{CC112X_DEVIATION_M,	   0x06}, // M: 06 D: deviation = 3.997803
+	{CC112X_MODCFG_DEV_E,	   0x03}, // M: 03	New deviation = 20.019531 48 05
+	{CC112X_DCFILT_CFG, 	   0x1C},
+	{CC112X_PREAMBLE_CFG1, 	   0x14}, // D: minimum 4 bytes preamble bits
+	{CC112X_PREAMBLE_CFG0,	   0x2A},
+	{CC112X_FREQ_IF_CFG,	   0x40},
+	{CC112X_IQIC,			   0xC6}, // D: enable IQ
+	{CC112X_CHAN_BW,		   0x08}, // D: 1120 25Hz	
+	{CC112X_MDMCFG1,		   0x46},
+	{CC112X_MDMCFG0,		   0x05},
+	{CC112X_SYMBOL_RATE2,	   0x43},
+	{CC112X_SYMBOL_RATE1,	   0xA9},
+	{CC112X_SYMBOL_RATE0,	   0x2A},
+	{CC112X_AGC_REF,		   0x20},
+	{CC112X_AGC_CS_THR, 	   0x19},
+	{CC112X_AGC_GAIN_ADJUST,   0x00},
+	{CC112X_AGC_CFG3,		   0x91},
+	{CC112X_AGC_CFG2,		   0x20},
+	{CC112X_AGC_CFG1,		   0xA9},
+	{CC112X_AGC_CFG0,		   0xCF},
+	{CC112X_PA_CFG2, 	       0x7F},
+	{CC112X_PA_CFG1,		   0x56},
+	{CC112X_PA_CFG0,		   0x7C},
+	{CC112X_IF_MIX_CFG, 	   0x00},
+	{CC112X_FREQOFF_CFG,	   0x22},
+	{CC112X_TOC_CFG, 	       0x0B},
+	{CC112X_CFM_DATA_CFG, 	   0x00},
+};
+
+
 // RX filter BW = 50.000000 
 // Address config = No address check 
 // Packet length = 255 
@@ -318,8 +616,8 @@ static const registerSetting_t preferredSettings434[]=
 	{CC112X_IQIC,			   0x46},
 	{CC112X_CHAN_BW,		   0x04},
 	{CC112X_MDMCFG0,		   0x05},
-	{CC112X_AGC_REF,		   0x20},//20
-	{CC112X_AGC_CS_THR, 	   0x19},//19
+	{CC112X_AGC_REF,		   0x20},
+	{CC112X_AGC_CS_THR, 	   0x19},
 	//add agc mode
 	{CC112X_AGC_CFG2,		   0x00},
 
@@ -490,7 +788,7 @@ static const registerSetting_t br_9600_cfg[]=
 	{CC112X_CHAN_BW,         0x42}, // enable channel filter, decimation factor
 	{CC112X_SYMBOL_RATE2,    0x73}, // data rate/symbol rate=1(2-GFSK), SRATE_E=7, SRATE_M=3A92A  BR=9600
 };
-
+#endif
 /******************************************************************************
  * PROTPTYPES
  */ 

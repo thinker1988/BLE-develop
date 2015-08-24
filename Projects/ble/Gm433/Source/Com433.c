@@ -92,7 +92,15 @@ void Com433WriteIntBoth( char *title, int16 value, uint8 format)
 
 void PrintGMvalue(uint8 port, char *pBuffer, int16 xval, int16 yval, int16 zval)
 {
+#if ( defined ALLOW_DEBUG_OUTPUT )
 	Com433WriteInt(port, pBuffer, xval,10);
 	Com433WriteInt(port, " ", yval,10);
 	Com433WriteInt(port, " ", zval,10);
+#else
+	VOID port;
+	VOID pBuffer;
+	VOID xval;
+	VOID yval;
+	VOID zval;
+#endif
 }

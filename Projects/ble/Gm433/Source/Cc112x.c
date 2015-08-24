@@ -57,8 +57,6 @@ static void trxReadWriteBurstSingle(uint8 addr,uint8 *pData,uint16 len);
 
 static int8 Read8BitRssi(void);
 
-static void createPacket(uint8 txBuffer[]);
-
 static void trxSingleTX(uint8 data);
 static uint8 trxSingleRX(void);
 
@@ -70,6 +68,8 @@ void initRFcfg(void)
 	uint8 rfvern;
 	
 	registerConfig();
+	cc112xSpiReadReg(CC112X_PARTNUMBER, &rfvern, 1);
+	Com433WriteInt(COM433_DEBUG_PORT, "\r\nDEV", rfvern, 16);
 	cc112xSpiReadReg(CC112X_PARTVERSION, &rfvern, 1);
 	Com433WriteInt(COM433_DEBUG_PORT, "\r\nVERN", rfvern, 16);
 
@@ -163,6 +163,7 @@ void rxdata(void)
 
 void tx_test(void)
 {
+#if ( defined USE_CC112X_RF )
 	uint8 txBuffer[PKTLEN+1] = {0};
 
 	createPacket(txBuffer);
@@ -172,6 +173,13 @@ void tx_test(void)
 	Com433WriteInt(COM433_DEBUG_PORT," V:",txBuffer[1]-'0',10);
 	// Strobe TX to send packet
 	trxSpiCmdStrobe(CC112X_STX);
+
+	while(RFrxtxRdy == FALSE);
+	RFrxtxRdy = FALSE;
+#else
+	uint8 txBuffer[PKTLEN+1]="123456789012345678901234567890123456789012345678901234567890";
+	Com433WriteStr(COM433_WORKING_PORT, txBuffer);
+#endif
 }
 
 void rx_test(void)
@@ -210,9 +218,9 @@ void rx_test(void)
 				if(rxBuffer[rxBytes - 1] & 0x80)
 				{
 					Com433WriteInt(COM433_DEBUG_PORT," ",Read8BitRssi(),10);
-					
-					rxBuffer[0]=' ';
-					Com433Write(COM433_DEBUG_PORT, rxBuffer, rxBytes-2);
+//					rxBuffer[0]=' ';
+					Com433WriteStr(COM433_DEBUG_PORT," ");
+					Com433Write(COM433_DEBUG_PORT, rxBuffer, rxBytes-2);			
 				}
 				else
 					Com433WriteStr(COM433_DEBUG_PORT,"CRC Fail");
@@ -231,18 +239,21 @@ void rx_test(void)
 		trxSpiCmdStrobe(CC112X_SRX);
 	}
 }
+#if ( defined TEST_433 )
+static void createPacket(uint8 txBuffer[]);
 
 static void createPacket(uint8 txBuffer[])
 {
 	txBuffer[0] = PKTLEN; // Length byte
 	static uint8 val='0';
-
+	
 	// Fill rest of buffer with random bytes
 	for(uint8 i = 1; i < (PKTLEN + 1); i++)
 		txBuffer[i] = val;
 	if (++val > '9')
 		val= '0';
 }
+#endif
 
 void trxSyncIntCfg(void)
 {
@@ -272,6 +283,19 @@ static void registerConfig(void)
 	trxSpiCmdStrobe(CC112X_SRES);
 
 	// Write registers to radio
+#if defined CC1120
+	for( i=0;i<(sizeof(rfRadioCfgCm)/sizeof(registerSetting_t));i++)
+	{
+		writeByte = rfRadioCfgCm[i].data;
+		cc112xSpiWriteReg(rfRadioCfgCm[i].addr, &writeByte, 1);
+	}
+
+	for( i=0;i<(sizeof(rfRadioCfgSp)/sizeof(rfRadioCfgSp[0]));i++)
+	{
+		writeByte = rfRadioCfgSp[i][0];
+		cc112xSpiWriteReg(rfRadioCfgSp[i][10], &writeByte, 1);
+	}
+#else
 #if 1
 	for( i=0;i<(sizeof(preferredSettings434)/sizeof(registerSetting_t));i++)
 	{
@@ -297,6 +321,8 @@ static void registerConfig(void)
 		cc112xSpiWriteReg(br_9600_cfg[i].addr, &writeByte, 1);
 	}
 #endif
+#endif
+
 #endif
 }
 

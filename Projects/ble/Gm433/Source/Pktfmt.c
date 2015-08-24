@@ -39,11 +39,13 @@
 #define GME_DEV_ID		1001
 #endif
 
-// Default version 1.1
+// Default version 1.0
 #ifndef VERSION_NUMBER
 #define VERSION_NUMBER		0x0100
 #endif
 
+// Stop time synchronise after 5 times
+#define TIME_SYNC_AUTO_STOP			5
 /*********************************************************************
  * TYPEDEFS
  */
@@ -70,6 +72,8 @@ static uint8 gmsrdpkt[GMS_PKT_MAX_LEN]={0};
 static uint8 currdlen=0;
 static uint8 totrdlen=0;
 
+static uint8 syncautostop;
+
 static UTCTimeStruct lasttm;
 
 static void syncUTCtimeresp(uint8 *data, uint8 len);
@@ -87,7 +91,13 @@ void syncUTCtimereq(void)
 {
 	uint8 tmsync=TRUE;
 
-	rfdataform(GDE_ST_TMSYN_REQ,&tmsync,sizeof(tmsync));
+	if (++syncautostop == TIME_SYNC_AUTO_STOP)
+	{
+		syncautostop = 0;
+		cleartmsync();
+	}
+	else
+		rfdataform(GDE_ST_TMSYN_REQ,&tmsync,sizeof(tmsync));
 }
 
 /*********************************************************************
@@ -131,7 +141,7 @@ void gmspktform(uint8 *rawbuf, uint8 rawlen)
 				gmsrdpkt[currdlen++]= rawbuf[i];
 				if (currdlen == totrdlen)
 				{
-					Com433WriteInt(COM433_DEBUG_PORT, "\r\n",rfdataparse(gmsrdpkt, currdlen),10);
+					Com433WriteInt(COM433_DEBUG_PORT, "\r\nRF",rfdataparse(gmsrdpkt, currdlen),10);
 					pktgmsst=PKT_GMS_ID;
 					currdlen = 0;
 				}
@@ -300,6 +310,10 @@ static uint8 filltime(uint8 *buf)
 static void syncUTCtimeresp(uint8 *data, uint8 len)
 {
 	if (data[0]!=EID_GME_TMSYN_ACK || len!=GME_TMSYN_ACK_LEN)
+		return;
+
+	// time overflow
+	if (data[ELM_HDR_SIZE+5] > 136)
 		return;
 
 	UTCTimeStruct settmst;
