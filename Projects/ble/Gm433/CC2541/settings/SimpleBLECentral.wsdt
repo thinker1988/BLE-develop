@@ -12,7 +12,7 @@
           
           
           
-        <Column0>355</Column0><Column1>27</Column1><Column2>27</Column2><Column3>27</Column3></ColumnWidths>
+        <Column0>245</Column0><Column1>27</Column1><Column2>27</Column2><Column3>27</Column3></ColumnWidths>
       </Workspace>
       <Build>
         
@@ -24,7 +24,7 @@
     <Windows>
       
       
-    <Wnd0>
+    <Wnd2>
         <Tabs>
           <Tab>
             <Identity>TabID-19397-19138</Identity>
@@ -32,11 +32,11 @@
             <Factory>Workspace</Factory>
             <Session>
               
-            <NodeDict><ExpandedNode>SimpleBLECentral</ExpandedNode><ExpandedNode>SimpleBLECentral/APP</ExpandedNode><ExpandedNode>SimpleBLECentral/HAL</ExpandedNode><ExpandedNode>SimpleBLECentral/HAL/Common</ExpandedNode><ExpandedNode>SimpleBLECentral/HAL/Include</ExpandedNode><ExpandedNode>SimpleBLECentral/HAL/Target</ExpandedNode><ExpandedNode>SimpleBLECentral/HAL/Target/CC2540EB</ExpandedNode><ExpandedNode>SimpleBLECentral/HAL/Target/CC2540EB/Config</ExpandedNode><ExpandedNode>SimpleBLECentral/HAL/Target/CC2540EB/Drivers</ExpandedNode><ExpandedNode>SimpleBLECentral/HAL/Target/CC2540EB/Includes</ExpandedNode><ExpandedNode>SimpleBLECentral/LIB</ExpandedNode><ExpandedNode>SimpleBLECentral/Output</ExpandedNode><ExpandedNode>SimpleBLECentral/TOOLS</ExpandedNode></NodeDict></Session>
+            <NodeDict><ExpandedNode>SimpleBLECentral</ExpandedNode><ExpandedNode>SimpleBLECentral/APP</ExpandedNode><ExpandedNode>SimpleBLECentral/INCLUDE</ExpandedNode><ExpandedNode>SimpleBLECentral/LIB</ExpandedNode><ExpandedNode>SimpleBLECentral/OSAL</ExpandedNode><ExpandedNode>SimpleBLECentral/Output</ExpandedNode><ExpandedNode>SimpleBLECentral/PROFILES</ExpandedNode><ExpandedNode>SimpleBLECentral/TOOLS</ExpandedNode></NodeDict></Session>
           </Tab>
         </Tabs>
         
-      <SelectedTab>0</SelectedTab></Wnd0><Wnd1>
+      <SelectedTab>0</SelectedTab></Wnd2><Wnd3>
         <Tabs>
           <Tab>
             <Identity>TabID-2628-26002</Identity>
@@ -46,20 +46,20 @@
           </Tab>
         <Tab><Identity>TabID-8240-2110</Identity><TabName>Debug Log</TabName><Factory>Debug-Log</Factory><Session/></Tab><Tab><Identity>TabID-8692-892</Identity><TabName>Breakpoints</TabName><Factory>Breakpoints</Factory></Tab></Tabs>
         
-      <SelectedTab>0</SelectedTab></Wnd1></Windows>
+      <SelectedTab>0</SelectedTab></Wnd3></Windows>
     <Editor>
       
       
       
       
-    <Pane><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\Source\Cc112x.c</Filename><XPos>0</XPos><YPos>790</YPos><SelStart>20938</SelStart><SelEnd>20938</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\Source\BLECore_Main.c</Filename><XPos>0</XPos><YPos>60</YPos><SelStart>3509</SelStart><SelEnd>3509</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\..\..\..\Components\hal\target\CC2540EB\_hal_uart_spi.c</Filename><XPos>0</XPos><YPos>1102</YPos><SelStart>31856</SelStart><SelEnd>31856</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\..\..\..\Components\hal\target\CC2540EB\hal_uart.c</Filename><XPos>0</XPos><YPos>205</YPos><SelStart>7240</SelStart><SelEnd>7240</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\Source\Com433.c</Filename><XPos>0</XPos><YPos>85</YPos><SelStart>2433</SelStart><SelEnd>2433</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\Source\BLECore.c</Filename><XPos>0</XPos><YPos>274</YPos><SelStart>8725</SelStart><SelEnd>8725</SelEnd></Tab><ActiveTab>5</ActiveTab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\..\..\..\Components\hal\target\CC2540EB\_hal_uart_isr.c</Filename><XPos>0</XPos><YPos>196</YPos><SelStart>7825</SelStart><SelEnd>7825</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\Source\GMProc.c</Filename><XPos>0</XPos><YPos>383</YPos><SelStart>8461</SelStart><SelEnd>8461</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\..\..\..\Components\osal\common\OSAL.c</Filename><XPos>0</XPos><YPos>887</YPos><SelStart>23888</SelStart><SelEnd>23888</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\Source\Cc112x.h</Filename><XPos>0</XPos><YPos>458</YPos><SelStart>19907</SelStart><SelEnd>19907</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\..\..\..\Components\hal\target\CC2540EB\_hal_uart_dma.c</Filename><XPos>0</XPos><YPos>619</YPos><SelStart>22962</SelStart><SelEnd>22962</SelEnd></Tab></Pane><ActivePane>0</ActivePane><Sizes><Pane><X>1000000</X><Y>1000000</Y></Pane></Sizes><SplitMode>1</SplitMode></Editor>
+    <Pane><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\Source\Cc112x.c</Filename><XPos>0</XPos><YPos>790</YPos><SelStart>20938</SelStart><SelEnd>20938</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\Source\BLECore.c</Filename><XPos>0</XPos><YPos>628</YPos><SelStart>16580</SelStart><SelEnd>16580</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\..\..\..\Components\hal\target\CC2540EB\_hal_uart_isr.c</Filename><XPos>0</XPos><YPos>196</YPos><SelStart>7825</SelStart><SelEnd>7825</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\..\..\..\Components\osal\common\OSAL.c</Filename><XPos>0</XPos><YPos>223</YPos><SelStart>7339</SelStart><SelEnd>7339</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\..\Profiles\Roles\gap.c</Filename><XPos>0</XPos><YPos>195</YPos><SelStart>988</SelStart><SelEnd>988</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\Source\Pktfmt.c</Filename><XPos>0</XPos><YPos>136</YPos><SelStart>2936</SelStart><SelEnd>2936</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\Source\BLECore_Main.c</Filename><XPos>0</XPos><YPos>60</YPos><SelStart>3509</SelStart><SelEnd>3509</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\..\..\..\Components\osal\common\OSAL_ClockBLE.c</Filename><XPos>0</XPos><YPos>181</YPos><SelStart>6895</SelStart><SelEnd>6895</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\Source\Com433.c</Filename><XPos>0</XPos><YPos>28</YPos><SelStart>1094</SelStart><SelEnd>1094</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\..\..\..\Components\hal\target\CC2540EB\_hal_uart_dma.c</Filename><XPos>0</XPos><YPos>806</YPos><SelStart>27285</SelStart><SelEnd>27285</SelEnd></Tab><ActiveTab>9</ActiveTab></Pane><ActivePane>0</ActivePane><Sizes><Pane><X>1000000</X><Y>1000000</Y></Pane></Sizes><SplitMode>1</SplitMode></Editor>
     <Positions>
       
       
       
       
       
-    <Top><Row0><Sizes><Toolbar-00cbf0a8><key>iaridepm.enu1</key></Toolbar-00cbf0a8></Sizes></Row0></Top><Left><Row0><Sizes><Wnd0><Rect><Top>-2</Top><Left>-2</Left><Bottom>561</Bottom><Right>446</Right><x>-2</x><y>-2</y><xscreen>1923</xscreen><yscreen>1029</yscreen><sizeHorzCX>1201875</sizeHorzCX><sizeHorzCY>1257946</sizeHorzCY><sizeVertCX>280000</sizeVertCX><sizeVertCY>688264</sizeVertCY></Rect></Wnd0></Sizes></Row0></Left><Right><Row0><Sizes/></Row0></Right><Bottom><Row0><Sizes><Wnd1><Rect><Top>-2</Top><Left>-2</Left><Bottom>212</Bottom><Right>1602</Right><x>-2</x><y>-2</y><xscreen>1604</xscreen><yscreen>214</yscreen><sizeHorzCX>1002500</sizeHorzCX><sizeHorzCY>261614</sizeHorzCY><sizeVertCX>1201875</sizeVertCX><sizeVertCY>1257946</sizeVertCY></Rect></Wnd1></Sizes></Row0></Bottom><Float><Sizes/></Float></Positions>
+    <Top><Row0><Sizes><Toolbar-001ef060><key>iaridepm.enu1</key></Toolbar-001ef060></Sizes></Row0></Top><Left><Row0><Sizes><Wnd2><Rect><Top>-2</Top><Left>-2</Left><Bottom>558</Bottom><Right>336</Right><x>-2</x><y>-2</y><xscreen>1209</xscreen><yscreen>840</yscreen><sizeHorzCX>755625</sizeHorzCX><sizeHorzCY>1026895</sizeHorzCY><sizeVertCX>211250</sizeVertCX><sizeVertCY>684597</sizeVertCY></Rect></Wnd2></Sizes></Row0></Left><Right><Row0><Sizes/></Row0></Right><Bottom><Row0><Sizes><Wnd3><Rect><Top>-2</Top><Left>-2</Left><Bottom>215</Bottom><Right>1602</Right><x>-2</x><y>-2</y><xscreen>1604</xscreen><yscreen>217</yscreen><sizeHorzCX>1002500</sizeHorzCX><sizeHorzCY>265281</sizeHorzCY><sizeVertCX>755625</sizeVertCX><sizeVertCY>1026895</sizeVertCY></Rect></Wnd3></Sizes></Row0></Bottom><Float><Sizes/></Float></Positions>
   </Desktop>
 </Workspace>
 

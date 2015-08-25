@@ -46,14 +46,6 @@
 #include "OSAL_PwrMgr.h"
 #include "OnBoard.h"
 
-#include "gatt.h"
-#include "ll.h"
-#include "hci.h"
-#include "gapgattserver.h"
-#include "gattservapp.h"
-#include "central.h"
-#include "gapbondmgr.h"
-
 #include "hal_led.h"
 #include "hal_lcd.h"
 #include "hal_i2c.h"
@@ -68,6 +60,18 @@
 #include "Cc112x.h"
 #endif	// USE_CC112X_RF
 
+#if ( defined USE_BLE_STACK )
+#include "gatt.h"
+#include "ll.h"
+#include "hci.h"
+#include "gapgattserver.h"
+#include "gattservapp.h"
+#include "central.h"
+#include "gapbondmgr.h"
+#include "peripheral.h"
+#endif
+
+
 /*********************************************************************
  * MACROS
  */
@@ -76,6 +80,25 @@
 /*********************************************************************
  * CONSTANTS
  */
+#if ( defined USE_BLE_STACK )
+#define BLE_CORE_DEV_TYPE				0xC9C9
+
+#define BLE_CORE_ADV_INTVL				8000		//(units of 625us, 8000*0.625
+
+#define BLE_CORE_MIN_CON_INTVL			80
+
+#define BLE_CORE_MAX_CON_INTVL			80
+
+#define BLE_CORE_SLAVE_LATENCY			0
+
+#define BLE_CORE_CON_TIMEOUT			50
+
+#define BLE_CORE_UPDATE_FLAG			TRUE
+
+#define BLE_CORE_UPDATE_PAUSE			1
+#endif
+
+
 //  Geomagnetic sensor ID
 #define GM_ID_STR						"H43"
 
@@ -221,6 +244,40 @@ static i2cClock_t i2cclk = i2cClock_123KHZ;
 
 static bool RFrxtx=FALSE; 
 
+#if ( defined USE_BLE_STACK )
+// GAP - Advertisement data (max size = 31 bytes, though this is best kept short to conserve power while advertisting)
+static uint8 BLECoreAdvData[] =
+{
+	// Flags; this sets the device to use limited discoverable mode (advertises for 30 seconds at a time),
+	// instead of general discoverable mode (advertises indefinitely)
+	0x02,	 // length of this data
+	GAP_ADTYPE_FLAGS,
+	GAP_ADTYPE_FLAGS_GENERAL | GAP_ADTYPE_FLAGS_BREDR_NOT_SUPPORTED,
+	
+	// service UUID, to notify central devices what services are included in this peripheral
+	0x03,	// length of this data
+	GAP_ADTYPE_16BIT_MORE,			//special UUID the same with entry device filtering UUID 
+	LO_UINT16(BLE_CORE_DEV_TYPE),
+	HI_UINT16(BLE_CORE_DEV_TYPE),
+};
+
+// GAP - SCAN RSP data (max size = 31 bytes)
+static uint8 BLECoreScanRespData[] =
+{
+	// complete name
+	0x08,	// length of this data
+	GAP_ADTYPE_LOCAL_NAME_COMPLETE,
+	'G','D','E','-','D','E','V',
+
+	// connection interval range
+	0x05,	// length of this data
+	GAP_ADTYPE_SLAVE_CONN_INTERVAL_RANGE,
+	LO_UINT16( BLE_CORE_MIN_CON_INTVL ),
+	HI_UINT16( BLE_CORE_MIN_CON_INTVL ),
+	LO_UINT16( BLE_CORE_MAX_CON_INTVL ),
+	HI_UINT16( BLE_CORE_MAX_CON_INTVL ),
+};
+#endif
 
 /*********************************************************************
  * LOCAL FUNCTIONS
@@ -247,13 +304,24 @@ static void c_srand(uint32 seed);
 
 static void ReadBLEMac(uint8 * mac_addr);
 
+#if ( defined USE_BLE_STACK )
+static void init_gap_periph_role(void);
+static void init_gap_periph_params(void);
+static void BLECorePeriphNotiCB(gaprole_States_t newState);
+#endif
 static void SYS_WS_INT_Cfg(void);
 
 
 /*********************************************************************
  * PROFILE CALLBACKS
  */
-
+#if ( defined USE_BLE_STACK )
+static gapRolesCBs_t BLECore_PeriphCBs =
+{
+	BLECorePeriphNotiCB,	// Profile State Change Callbacks
+	NULL							// When a valid RSSI is read from controller (not used by application)
+};
+#endif
 /*********************************************************************
  * PUBLIC FUNCTIONS
  */
@@ -292,7 +360,12 @@ void BLECore_Init( uint8 task_id )
 
 	c_srand(BUILD_UINT32(BleMac[0],BleMac[1],BleMac[2],BleMac[3]));
 	randwait = c_rand()*18;// MAX:589806 ms
-
+	
+#if ( defined USE_BLE_STACK )
+	init_gap_periph_role();
+	init_gap_periph_params();
+	VOID GAPRole_StartDevice( &BLECore_PeriphCBs );
+#endif
 	// Start working
 	osal_set_event( BLECore_TaskId, BLE_CORE_START_EVT );
 
@@ -827,6 +900,86 @@ static void ReadBLEMac(uint8 *mac_addr)
 	return ;  
 }
 
+#if ( defined USE_BLE_STACK )
+/*********************************************************************
+ * @fn		init_gap_peripheral_role
+ *
+ * @brief		Set gap peripheral role.
+ *
+ * @param	none
+ *
+ * @return	none
+ */
+static void init_gap_periph_role(void)
+{
+	uint8 initial_advertising_enable = TRUE;
+	uint16 gapRole_AdvertOffTime = BLE_CORE_ADV_INTVL;
+	uint8 enable_update_request = BLE_CORE_UPDATE_FLAG;
+	uint16 desired_min_interval = BLE_CORE_MIN_CON_INTVL;
+	uint16 desired_max_interval = BLE_CORE_MAX_CON_INTVL;
+	uint16 desired_slave_latency = BLE_CORE_SLAVE_LATENCY;
+	uint16 desired_conn_timeout = BLE_CORE_CON_TIMEOUT;
+
+	GAPRole_SetParameter( GAPROLE_ADVERT_ENABLED, sizeof( uint8 ), &initial_advertising_enable );
+	GAPRole_SetParameter( GAPROLE_ADVERT_OFF_TIME, sizeof( uint16 ), &gapRole_AdvertOffTime );
+	GAPRole_SetParameter( GAPROLE_PARAM_UPDATE_ENABLE, sizeof( uint8 ), &enable_update_request );
+	GAPRole_SetParameter( GAPROLE_MIN_CONN_INTERVAL, sizeof( uint16 ), &desired_min_interval );
+	GAPRole_SetParameter( GAPROLE_MAX_CONN_INTERVAL, sizeof( uint16 ), &desired_max_interval );
+	GAPRole_SetParameter( GAPROLE_SLAVE_LATENCY, sizeof( uint16 ), &desired_slave_latency );
+	GAPRole_SetParameter( GAPROLE_TIMEOUT_MULTIPLIER, sizeof( uint16 ), &desired_conn_timeout );
+
+	GAPRole_SetParameter( GAPROLE_ADVERT_DATA, sizeof( BLECoreAdvData ), BLECoreAdvData );
+
+	GAPRole_SetParameter( GAPROLE_SCAN_RSP_DATA, sizeof ( BLECoreScanRespData ), BLECoreScanRespData );
+}
+
+/*********************************************************************
+ * @fn		init_gap_peripheral_params
+ *
+ * @brief		Init peripheral advertising interval.
+ *
+ * @param	none
+ *
+ * @return	none
+ */
+static void init_gap_periph_params(void)
+{
+	// Set advertising interval
+	GAP_SetParamValue( TGAP_GEN_DISC_ADV_INT_MIN, BLE_CORE_ADV_INTVL );
+	GAP_SetParamValue( TGAP_GEN_DISC_ADV_INT_MAX, BLE_CORE_ADV_INTVL );
+
+	// Set parameter updates waiting time
+	GAP_SetParamValue( TGAP_CONN_PAUSE_PERIPHERAL, BLE_CORE_UPDATE_PAUSE );
+}
+
+
+/*********************************************************************
+ * @fn		BLECorePeriphNotiCB
+ *
+ * @brief	Notification from the profile of a state change.
+ *
+ * @param	newState - new state
+ *
+ * @return	none
+ */
+static void BLECorePeriphNotiCB( gaprole_States_t newState )
+{
+	switch ( newState )
+	{
+		case GAPROLE_STARTED:
+		case GAPROLE_ADVERTISING:
+		case GAPROLE_CONNECTED:
+		case GAPROLE_WAITING:
+		case GAPROLE_WAITING_AFTER_TIMEOUT:
+		case GAPROLE_ERROR:
+		{
+			break;
+		}
+		default:
+			break;
+	} 
+}
+#endif
 
 #if ( !defined HW_VERN ) || ( HW_VERN == 0 )
 HAL_ISR_FUNCTION(GMDRDYIsr, P1INT_VECTOR)

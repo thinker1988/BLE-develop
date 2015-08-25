@@ -71,7 +71,7 @@
 #include "gattservapp.h"
 
 /* Profiles */
-#include "central.h"
+#include "peripheral.h"
 
 /* Application */
 #include "BLECore.h"
@@ -93,7 +93,7 @@ const pTaskEventHandlerFn tasksArr[] =
   GAP_ProcessEvent,
   GATT_ProcessEvent,
   SM_ProcessEvent,
-  GAPCentralRole_ProcessEvent,
+  GAPRole_ProcessEvent,
   GAPBondMgr_ProcessEvent,
   GATTServApp_ProcessEvent,
   BLECore_ProcessEvent
@@ -150,7 +150,7 @@ void osalInitTasks( void )
   SM_Init( taskID++ );
 
   /* Profiles */
-  GAPCentralRole_Init( taskID++ );
+  GAPRole_Init( taskID++ );
   GAPBondMgr_Init( taskID++ );
 
   GATTServApp_Init( taskID++ );

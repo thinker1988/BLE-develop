@@ -3,7 +3,7 @@
 <Workspace>
   <ConfigDictionary>
     
-  <CurrentConfigs><Project>SimpleBLECentral/BLE_BEACON_IMG</Project></CurrentConfigs></ConfigDictionary>
+  <CurrentConfigs><Project>SimpleBLECentral/CC2541EM</Project></CurrentConfigs></ConfigDictionary>
   <Desktop>
     <Static>
       <Workspace>
@@ -24,7 +24,7 @@
     <Windows>
       
       
-    <Wnd0>
+    <Wnd2>
         <Tabs>
           <Tab>
             <Identity>TabID-3229-13631</Identity>
@@ -32,11 +32,11 @@
             <Factory>Workspace</Factory>
             <Session>
               
-            <NodeDict><ExpandedNode>SimpleBLECentral</ExpandedNode><ExpandedNode>SimpleBLECentral/APP</ExpandedNode><ExpandedNode>SimpleBLECentral/HAL</ExpandedNode><ExpandedNode>SimpleBLECentral/Output</ExpandedNode><ExpandedNode>SimpleBLECentral/PROFILES</ExpandedNode><ExpandedNode>SimpleBLECentral/TOOLS</ExpandedNode></NodeDict></Session>
+            <NodeDict><ExpandedNode>SimpleBLECentral</ExpandedNode><ExpandedNode>SimpleBLECentral/APP</ExpandedNode><ExpandedNode>SimpleBLECentral/HAL</ExpandedNode><ExpandedNode>SimpleBLECentral/INCLUDE</ExpandedNode><ExpandedNode>SimpleBLECentral/LIB</ExpandedNode><ExpandedNode>SimpleBLECentral/OSAL</ExpandedNode><ExpandedNode>SimpleBLECentral/Output</ExpandedNode><ExpandedNode>SimpleBLECentral/PROFILES</ExpandedNode><ExpandedNode>SimpleBLECentral/TOOLS</ExpandedNode></NodeDict></Session>
           </Tab>
         </Tabs>
         
-      <SelectedTab>0</SelectedTab></Wnd0><Wnd1>
+      <SelectedTab>0</SelectedTab></Wnd2><Wnd3>
         <Tabs>
           <Tab>
             <Identity>TabID-7704-13752</Identity>
@@ -46,20 +46,20 @@
           </Tab>
         </Tabs>
         
-      <SelectedTab>0</SelectedTab></Wnd1></Windows>
+      <SelectedTab>0</SelectedTab></Wnd3></Windows>
     <Editor>
       
       
       
       
-    <Pane><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\..\..\..\..\IAR Systems\Embedded Workbench 6.0\8051\doc\infocenter\index.ENU.html</Filename></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\Source\UPLBSApp.c</Filename><XPos>0</XPos><YPos>516</YPos><SelStart>15467</SelStart><SelEnd>15467</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\buildConfig.cfg</Filename><XPos>0</XPos><YPos>44</YPos><SelStart>0</SelStart><SelEnd>0</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\..\config\buildComponents.cfg</Filename><XPos>0</XPos><YPos>27</YPos><SelStart>0</SelStart><SelEnd>0</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\..\common\cc2540\OnBoard.c</Filename><XPos>0</XPos><YPos>195</YPos><SelStart>6350</SelStart><SelEnd>6350</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\CC2541EM\List\SimpleBLECentral.map</Filename><XPos>0</XPos><YPos>28613</YPos><SelStart>1785445</SelStart><SelEnd>1785445</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\Source\cc254x_f256_imgB_Large.xcl</Filename><XPos>0</XPos><YPos>192</YPos><SelStart>7440</SelStart><SelEnd>7440</SelEnd></Tab><ActiveTab>6</ActiveTab></Pane><ActivePane>0</ActivePane><Sizes><Pane><X>1000000</X><Y>1000000</Y></Pane></Sizes><SplitMode>1</SplitMode></Editor>
+    <Pane><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\..\..\..\..\IAR Systems\Embedded Workbench 6.0\8051\doc\infocenter\index.ENU.html</Filename></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\Source\UPLBSApp.c</Filename><XPos>0</XPos><YPos>864</YPos><SelStart>25316</SelStart><SelEnd>25316</SelEnd></Tab><ActiveTab>1</ActiveTab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\buildConfig.cfg</Filename><XPos>0</XPos><YPos>44</YPos><SelStart>0</SelStart><SelEnd>0</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\..\config\buildComponents.cfg</Filename><XPos>0</XPos><YPos>27</YPos><SelStart>0</SelStart><SelEnd>0</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\..\common\cc2540\OnBoard.c</Filename><XPos>0</XPos><YPos>195</YPos><SelStart>6350</SelStart><SelEnd>6350</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\CC2541EM\List\SimpleBLECentral.map</Filename><XPos>0</XPos><YPos>28613</YPos><SelStart>1785445</SelStart><SelEnd>1785445</SelEnd></Tab><Tab><Factory>TextEditor</Factory><Filename>$WS_DIR$\..\Source\cc254x_f256_imgB_Large.xcl</Filename><XPos>0</XPos><YPos>174</YPos><SelStart>7440</SelStart><SelEnd>7440</SelEnd></Tab></Pane><ActivePane>0</ActivePane><Sizes><Pane><X>1000000</X><Y>1000000</Y></Pane></Sizes><SplitMode>1</SplitMode></Editor>
     <Positions>
       
       
       
       
       
-    <Top><Row0><Sizes><Toolbar-003cf060><key>iaridepm.enu1</key></Toolbar-003cf060></Sizes></Row0></Top><Left><Row0><Sizes><Wnd0><Rect><Top>-2</Top><Left>-2</Left><Bottom>541</Bottom><Right>339</Right><x>-2</x><y>-2</y><xscreen>224</xscreen><yscreen>234</yscreen><sizeHorzCX>140000</sizeHorzCX><sizeHorzCY>286064</sizeHorzCY><sizeVertCX>213125</sizeVertCX><sizeVertCY>663814</sizeVertCY></Rect></Wnd0></Sizes></Row0></Left><Right><Row0><Sizes/></Row0></Right><Bottom><Row0><Sizes><Wnd1><Rect><Top>-2</Top><Left>-2</Left><Bottom>232</Bottom><Right>1602</Right><x>-2</x><y>-2</y><xscreen>1604</xscreen><yscreen>234</yscreen><sizeHorzCX>1002500</sizeHorzCX><sizeHorzCY>286064</sizeHorzCY><sizeVertCX>140000</sizeVertCX><sizeVertCY>286064</sizeVertCY></Rect></Wnd1></Sizes></Row0></Bottom><Float><Sizes/></Float></Positions>
+    <Top><Row0><Sizes><Toolbar-0120f060><key>iaridepm.enu1</key></Toolbar-0120f060></Sizes></Row0></Top><Left><Row0><Sizes><Wnd2><Rect><Top>-2</Top><Left>-2</Left><Bottom>541</Bottom><Right>339</Right><x>-2</x><y>-2</y><xscreen>224</xscreen><yscreen>234</yscreen><sizeHorzCX>140000</sizeHorzCX><sizeHorzCY>286064</sizeHorzCY><sizeVertCX>213125</sizeVertCX><sizeVertCY>663814</sizeVertCY></Rect></Wnd2></Sizes></Row0></Left><Right><Row0><Sizes/></Row0></Right><Bottom><Row0><Sizes><Wnd3><Rect><Top>-2</Top><Left>-2</Left><Bottom>232</Bottom><Right>1602</Right><x>-2</x><y>-2</y><xscreen>1604</xscreen><yscreen>234</yscreen><sizeHorzCX>1002500</sizeHorzCX><sizeHorzCY>286064</sizeHorzCY><sizeVertCX>140000</sizeVertCX><sizeVertCY>286064</sizeVertCY></Rect></Wnd3></Sizes></Row0></Bottom><Float><Sizes/></Float></Positions>
   </Desktop>
 </Workspace>
 

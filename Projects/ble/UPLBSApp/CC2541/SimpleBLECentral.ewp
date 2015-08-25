@@ -281,7 +281,7 @@
           <state>HAL_DMA=TRUE</state>
           <state>HAL_LED=FALSE</state>
           <state>HAL_UART=FALSE</state>
-          <state>xDMA_PM=FALSE</state>
+          <state>DMA_PM=FALSE</state>
           <state>xHAL_UART_ISR=0</state>
           <state>HAL_I2C=FALSE</state>
           <state>xHAL_I2C_MASTER</state>
