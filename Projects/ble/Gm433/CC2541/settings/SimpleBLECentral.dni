@@ -1,5 +1,5 @@
 [DebugChecksum]
-Checksum=1003449166
+Checksum=-1204773657
 [DisAssemblyWindow]
 NumStates=_ 1
 State 1=_ 1
@@ -30,7 +30,10 @@ LogFile=_ ""
 Bp0=_ "STD_CODE" "{$PROJ_DIR$\..\Source\BLECore.c}.291.2@1" 0 0 0 0 "" 0 ""
 Bp1=_ "STD_CODE" "{$PROJ_DIR$\..\Source\BLECore.c}.294.1@1" 0 0 0 0 "" 0 ""
 Bp2=_ "STD_CODE" "{$PROJ_DIR$\..\Source\Pktfmt.c}.158.2@1" 1 0 0 0 "" 0 ""
-Count=3
+Bp3=_ "STD_CODE" "{$PROJ_DIR$\..\Source\BLECore.c}.346.2@1" 1 0 0 0 "" 0 ""
+Bp4=_ "STD_CODE" "{$PROJ_DIR$\..\..\..\..\Components\osal\common\OSAL.c}.1056.3@1" 1 0 0 0 "" 0 ""
+Bp5=_ "STD_CODE" "{$PROJ_DIR$\..\Source\BLECore.c}.398.2@1" 1 0 0 0 "" 0 ""
+Count=6
 [ChipconEmu]
 Stop timers on halt=0
 Leave target running=1

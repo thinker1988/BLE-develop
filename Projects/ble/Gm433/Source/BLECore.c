@@ -60,7 +60,7 @@
 #include "Cc112x.h"
 #endif	// USE_CC112X_RF
 
-#if ( defined USE_BLE_STACK )
+#if ( !defined NOT_USE_BLE_STACK && defined ALLOW_BLE_ADV )
 #include "gatt.h"
 #include "ll.h"
 #include "hci.h"
@@ -80,7 +80,7 @@
 /*********************************************************************
  * CONSTANTS
  */
-#if ( defined USE_BLE_STACK )
+#if ( !defined NOT_USE_BLE_STACK && defined ALLOW_BLE_ADV )
 #define BLE_CORE_DEV_TYPE				0xC9C9
 
 #define BLE_CORE_ADV_INTVL				8000		//(units of 625us, 8000*0.625
@@ -139,6 +139,10 @@
 
 // Single measurement
 #define SET_GM_READ_ONCE			0x21
+
+// Sleep mode
+#define SET_GM_SLEEP_MODE			0x03
+
 
 
 /******************************
@@ -244,7 +248,7 @@ static i2cClock_t i2cclk = i2cClock_123KHZ;
 
 static bool RFrxtx=FALSE; 
 
-#if ( defined USE_BLE_STACK )
+#if ( !defined NOT_USE_BLE_STACK && defined ALLOW_BLE_ADV )
 // GAP - Advertisement data (max size = 31 bytes, though this is best kept short to conserve power while advertisting)
 static uint8 BLECoreAdvData[] =
 {
@@ -265,9 +269,9 @@ static uint8 BLECoreAdvData[] =
 static uint8 BLECoreScanRespData[] =
 {
 	// complete name
-	0x08,	// length of this data
+	0x0B,	// length of this data
 	GAP_ADTYPE_LOCAL_NAME_COMPLETE,
-	'G','D','E','-','D','E','V',
+	'G','D','E','-','D','E','V','-','2','3',
 
 	// connection interval range
 	0x05,	// length of this data
@@ -287,13 +291,14 @@ static void TEN_RF_Init(void);
 static void TEN_RF_stop(void);
 #endif	// !USE_CC112X_RF
 
+static bool GM_dev_init(void);
+static void GM_dev_stop(void);
+
 static void prepare_gm_read(void);
 static void read_gm_data(void);
 
 static bool gm_read_reg(uint8 addr,uint8 * pBuf,uint8 nBytes);
 static bool gm_write_reg(uint8 addr, uint8 *pBuf, uint8 nBytes);
-
-static bool GM_dev_init(void);
 
 #if 0
 static void GM_DRDY_INT_Cfg(void);
@@ -304,7 +309,7 @@ static void c_srand(uint32 seed);
 
 static void ReadBLEMac(uint8 * mac_addr);
 
-#if ( defined USE_BLE_STACK )
+#if ( !defined NOT_USE_BLE_STACK && defined ALLOW_BLE_ADV )
 static void init_gap_periph_role(void);
 static void init_gap_periph_params(void);
 static void BLECorePeriphNotiCB(gaprole_States_t newState);
@@ -315,7 +320,7 @@ static void SYS_WS_INT_Cfg(void);
 /*********************************************************************
  * PROFILE CALLBACKS
  */
-#if ( defined USE_BLE_STACK )
+#if ( !defined NOT_USE_BLE_STACK && defined ALLOW_BLE_ADV )
 static gapRolesCBs_t BLECore_PeriphCBs =
 {
 	BLECorePeriphNotiCB,	// Profile State Change Callbacks
@@ -361,7 +366,9 @@ void BLECore_Init( uint8 task_id )
 	c_srand(BUILD_UINT32(BleMac[0],BleMac[1],BleMac[2],BleMac[3]));
 	randwait = c_rand()*18;// MAX:589806 ms
 	
-#if ( defined USE_BLE_STACK )
+#if ( !defined NOT_USE_BLE_STACK && defined ALLOW_BLE_ADV )
+	HCI_EXT_SetTxPowerCmd(HCI_EXT_TX_POWER_MINUS_23_DBM);
+
 	init_gap_periph_role();
 	init_gap_periph_params();
 	VOID GAPRole_StartDevice( &BLECore_PeriphCBs );
@@ -408,6 +415,7 @@ uint16 BLECore_ProcessEvent( uint8 task_id, uint16 events )
 		SYS_WS_INT_Cfg();
 		if ( SysWakeup == FALSE )
 		{
+			powerhold(task_id);
 			osal_stop_timerEx(task_id, READ_GM_DATA_EVT);
 			osal_stop_timerEx(task_id, GM_DRDY_INT_INT_EVT);
 			osal_stop_timerEx(task_id, HEART_BEAT_EVT);
@@ -417,10 +425,11 @@ uint16 BLECore_ProcessEvent( uint8 task_id, uint16 events )
 #else
 			osal_stop_timerEx(task_id, TEN_TX_RDY_EVT);
 #endif
+			GM_dev_stop();
 			RFsleep();
 			powersave(task_id);
-			SLEEPCMD |= 0x03; // PM3
-			PCON = 0x01;
+			/*SLEEPCMD |= 0x03; // PM3
+			PCON = 0x01;*/
 		}
 		else
 		{
@@ -677,6 +686,57 @@ static void TEN_RF_stop(void)
 }
 #endif	// !USE_CC112X_RF
 
+
+/*********************************************************************
+ * @fn		GM_dev_init
+ *
+ * @brief	GM device init
+ *
+ * @param	none
+ * @return	TRUE - init OK; FALSE - failed
+ */
+static bool GM_dev_init(void)
+{
+	uint8 id_str[3];
+	uint8 gm_cfg = SET_GM_NORMAL;
+	uint8 gm_gain = SET_GM_GAIN;
+	
+	HalI2CInit(GM_I2C_ADDR, i2cclk);
+
+	gm_read_reg(GM_ID_A_REG,id_str,sizeof(id_str));
+
+	if (osal_memcmp(id_str,GM_ID_STR,sizeof(id_str)) == FALSE)
+		return FALSE;
+
+//	Com433WriteStr(COM433_DEBUG_PORT,"\r\nGM:");
+//	Com433Write(COM433_DEBUG_PORT,id_str,sizeof(id_str));
+	
+	gm_write_reg(GM_CONFIG_A_REG,&gm_cfg,1);
+	gm_write_reg(GM_CONFIG_B_REG,&gm_gain,1);
+
+#if 0
+	GM_DRDY_INT_Cfg();
+#endif
+
+	return TRUE;
+}
+
+/*********************************************************************
+ * @fn		GM_dev_stop
+ *
+ * @brief	GM device stop
+ *
+ * @param	none
+ * @return	none
+ */
+static void GM_dev_stop(void)
+{
+	uint8 sleep_mode = SET_GM_SLEEP_MODE;
+
+	HalI2CInit(GM_I2C_ADDR, i2cclk);
+	gm_write_reg(GM_MODE_REG, &sleep_mode, 1);
+}
+
 static void prepare_gm_read(void)
 {
 	uint8 singl_read = SET_GM_READ_ONCE;
@@ -785,32 +845,6 @@ static bool gm_read_reg(uint8 addr, uint8 *pBuf, uint8 nBytes)
 	return i == nBytes;
 }
 
-static bool GM_dev_init(void)
-{
-	uint8 id_str[3];
-	uint8 gm_cfg = SET_GM_NORMAL;
-	uint8 gm_gain = SET_GM_GAIN;
-	
-	HalI2CInit(GM_I2C_ADDR, i2cclk);
-
-	gm_read_reg(GM_ID_A_REG,id_str,sizeof(id_str));
-
-	if (osal_memcmp(id_str,GM_ID_STR,sizeof(id_str)) == FALSE)
-		return FALSE;
-
-//	Com433WriteStr(COM433_DEBUG_PORT,"\r\nGM:");
-//	Com433Write(COM433_DEBUG_PORT,id_str,sizeof(id_str));
-	
-	gm_write_reg(GM_CONFIG_A_REG,&gm_cfg,1);
-	gm_write_reg(GM_CONFIG_B_REG,&gm_gain,1);
-
-#if 0
-	GM_DRDY_INT_Cfg();
-#endif
-
-	return TRUE;
-}
-
 #if 0
 static void GM_DRDY_INT_Cfg(void)
 {
@@ -900,7 +934,7 @@ static void ReadBLEMac(uint8 *mac_addr)
 	return ;  
 }
 
-#if ( defined USE_BLE_STACK )
+#if ( !defined NOT_USE_BLE_STACK && defined ALLOW_BLE_ADV )
 /*********************************************************************
  * @fn		init_gap_peripheral_role
  *

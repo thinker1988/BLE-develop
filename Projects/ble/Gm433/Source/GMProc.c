@@ -215,7 +215,7 @@ void gm_data_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 		uint8 prcnt;
 		int8 gdetmpr;
 
-		RFwakeup();
+//		RFwakeup();
 		
 		prcnt = CalcBatteryPercent();
 		gdetmpr = GetGDETmpr();
@@ -225,7 +225,7 @@ void gm_data_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 	{
 		if (gettmsync() == TRUE)
 		{
-			RFwakeup();
+//			RFwakeup();
 			syncUTCtimereq();
 		}
 	}

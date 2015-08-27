@@ -44,18 +44,21 @@
 #include "OSAL.h"
 #include "OSAL_Tasks.h"
 
-/* HAL */
-#include "hal_drivers.h"
-
 /* LL */
 #include "ll.h"
 
-/* HCI */
-#include "hci_tl.h"
+/* HAL */
+#include "hal_drivers.h"
 
 #if defined ( OSAL_CBTIMER_NUM_TASKS )
   #include "osal_cbTimer.h"
 #endif
+
+
+#if ( !defined NOT_USE_BLE_STACK )
+
+/* HCI */
+#include "hci_tl.h"
 
 /* L2CAP */
 #include "l2cap.h"
@@ -72,6 +75,7 @@
 
 /* Profiles */
 #include "peripheral.h"
+#endif
 
 /* Application */
 #include "BLECore.h"
@@ -85,10 +89,13 @@ const pTaskEventHandlerFn tasksArr[] =
 {
   LL_ProcessEvent,
   Hal_ProcessEvent,
-  HCI_ProcessEvent,
+
 #if defined ( OSAL_CBTIMER_NUM_TASKS )
   OSAL_CBTIMER_PROCESS_EVENT( osal_CbTimerProcessEvent ),
 #endif
+
+#if ( !defined NOT_USE_BLE_STACK )
+  HCI_ProcessEvent,
   L2CAP_ProcessEvent,
   GAP_ProcessEvent,
   GATT_ProcessEvent,
@@ -96,6 +103,7 @@ const pTaskEventHandlerFn tasksArr[] =
   GAPRole_ProcessEvent,
   GAPBondMgr_ProcessEvent,
   GATTServApp_ProcessEvent,
+#endif
   BLECore_ProcessEvent
 };
 
@@ -128,14 +136,15 @@ void osalInitTasks( void )
   /* Hal Task */
   Hal_Init( taskID++ );
 
-  /* HCI Task */
-  HCI_Init( taskID++ );
-
 #if defined ( OSAL_CBTIMER_NUM_TASKS )
   /* Callback Timer Tasks */
   osal_CbTimerInit( taskID );
   taskID += OSAL_CBTIMER_NUM_TASKS;
 #endif
+
+#if ( !defined NOT_USE_BLE_STACK )
+  /* HCI Task */
+  HCI_Init( taskID++ );
 
   /* L2CAP Task */
   L2CAP_Init( taskID++ );
@@ -154,7 +163,7 @@ void osalInitTasks( void )
   GAPBondMgr_Init( taskID++ );
 
   GATTServApp_Init( taskID++ );
-
+#endif
   /* Application */
   BLECore_Init( taskID );
 }

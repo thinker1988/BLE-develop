@@ -348,6 +348,8 @@ static uint8 calcGMchksum(uint8* chkbuf, uint16 len)
 
 static rferr_t rfdatasend(uint8 *buf, uint8 len)
 {
+	RFwakeup();
+
 #if ( defined USE_CC112X_RF )
 	txdata(buf,len);
 #else
