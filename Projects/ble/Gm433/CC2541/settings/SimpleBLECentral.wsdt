@@ -3,7 +3,7 @@
 <Workspace>
   <ConfigDictionary>
     
-  <CurrentConfigs><Project>SimpleBLECentral/CC2541EM</Project></CurrentConfigs></ConfigDictionary>
+  <CurrentConfigs><Project>SimpleBLECentral/GDE_RELEASE</Project></CurrentConfigs></ConfigDictionary>
   <Desktop>
     <Static>
       <Workspace>
@@ -12,7 +12,7 @@
           
           
           
-        <Column0>445</Column0><Column1>27</Column1><Column2>27</Column2><Column3>27</Column3></ColumnWidths>
+        <Column0>309</Column0><Column1>27</Column1><Column2>27</Column2><Column3>27</Column3></ColumnWidths>
       </Workspace>
       <Build>
         
@@ -59,7 +59,7 @@
       
       
       
-    <Top><Row0><Sizes><Toolbar-011af060><key>iaridepm.enu1</key></Toolbar-011af060></Sizes></Row0></Top><Left><Row0><Sizes><Wnd0><Rect><Top>-2</Top><Left>-2</Left><Bottom>359</Bottom><Right>536</Right><x>-2</x><y>-2</y><xscreen>1923</xscreen><yscreen>1029</yscreen><sizeHorzCX>1911531</sizeHorzCX><sizeHorzCY>1540419</sizeHorzCY><sizeVertCX>534791</sizeVertCX><sizeVertCY>540419</sizeVertCY></Rect></Wnd0></Sizes></Row0></Left><Right><Row0><Sizes/></Row0></Right><Bottom><Row0><Sizes><Wnd1><Rect><Top>-2</Top><Left>-2</Left><Bottom>264</Bottom><Right>1008</Right><x>-2</x><y>-2</y><xscreen>1010</xscreen><yscreen>266</yscreen><sizeHorzCX>1003976</sizeHorzCX><sizeHorzCY>398204</sizeHorzCY><sizeVertCX>1911531</sizeVertCX><sizeVertCY>1540419</sizeVertCY></Rect></Wnd1></Sizes></Row0></Bottom><Float><Sizes/></Float></Positions>
+    <Top><Row0><Sizes><Toolbar-0106f060><key>iaridepm.enu1</key></Toolbar-0106f060></Sizes></Row0></Top><Left><Row0><Sizes><Wnd0><Rect><Top>-2</Top><Left>-2</Left><Bottom>595</Bottom><Right>400</Right><x>-2</x><y>-2</y><xscreen>4864</xscreen><yscreen>1543</yscreen><sizeHorzCX>3040000</sizeHorzCX><sizeHorzCY>1886308</sizeHorzCY><sizeVertCX>251250</sizeVertCX><sizeVertCY>729829</sizeVertCY></Rect></Wnd0></Sizes></Row0></Left><Right><Row0><Sizes/></Row0></Right><Bottom><Row0><Sizes><Wnd1><Rect><Top>-2</Top><Left>-2</Left><Bottom>178</Bottom><Right>1602</Right><x>-2</x><y>-2</y><xscreen>1604</xscreen><yscreen>180</yscreen><sizeHorzCX>1002500</sizeHorzCX><sizeHorzCY>220049</sizeHorzCY><sizeVertCX>3040000</sizeVertCX><sizeVertCY>1886308</sizeVertCY></Rect></Wnd1></Sizes></Row0></Bottom><Float><Sizes/></Float></Positions>
   </Desktop>
 </Workspace>
 
