@@ -17,7 +17,7 @@
 
 
 // Threshold
-#define GM_GET_CAR_THRHD	50
+#define GM_GET_CAR_THRHD	30
 
 #define GM_NOISE_THRHD		10
 
@@ -141,14 +141,31 @@ void clear_send(void)
 	rsndcnt = 0;
 	sndtyp = SEND_NOTHG;
 }
+static bool checkcarin(int16 tmpX, int16 tmpY, int16 tmpZ);
+static bool checkcarin(int16 tmpX, int16 tmpY, int16 tmpZ)
+{
+	if (CALC_ABS(tmpZ-Zbenchmk)>carthrhld)
+		return TRUE;
+	else if (CALC_ABS(tmpX-Xbenchmk)>carthrhld && CALC_ABS(tmpY-Ybenchmk)>carthrhld)
+		return TRUE;
 
+	return FALSE;
+}
+static bool checkcarout(int16 tmpX, int16 tmpY, int16 tmpZ);
+static bool checkcarout(int16 tmpX, int16 tmpY, int16 tmpZ)
+{
+	if (CALC_ABS(tmpZ-Zbenchmk)<carthrhld)
+		if (CALC_ABS(tmpX-Xbenchmk)<carthrhld || CALC_ABS(tmpY-Ybenchmk)<carthrhld)
+			return TRUE;
 
+	return FALSE;
+}
 void gm_data_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 {	
 	switch(gmst)
 	{
 		case GMNoCar:
-			if (CALC_ABS(tmpZ-Zbenchmk)>carthrhld)
+			if (checkcarin(tmpX,tmpY,tmpZ) == TRUE)
 			{
 				gmst = ChangeGMstate(gmst);
 				// Reinit detect benchmark every time
@@ -170,7 +187,7 @@ void gm_data_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 			
 			break;
 		case GMGetCar:
-			if (/*CALC_ABS(tmpZ-Zdtctval)>carthrhld &&*/ CALC_ABS(tmpZ-Zbenchmk)<carthrhld)
+			if (checkcarout(tmpX,tmpY,tmpZ) == TRUE)
 			{
 				gmst = ChangeGMstate(gmst);
 				initbnchmk(gmst,tmpX,tmpY,tmpZ);
