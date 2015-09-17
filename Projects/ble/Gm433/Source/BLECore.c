@@ -106,7 +106,7 @@
 #define GM_READ_EVT_PERIOD 			5000		//1000-> 1s
 
 // Heart beat
-#define HEART_BEAT_EVT_PERIOD 		600000	//600s = 10min heart beat
+#define HEART_BEAT_EVT_PERIOD 		120000	//600s = 10min heart beat now 2min
 
 //G-Sensor I2C address
 #define GM_I2C_ADDR					0x1E
@@ -364,7 +364,8 @@ void BLECore_Init( uint8 task_id )
 	ReadBLEMac(BleMac);
 
 	c_srand(BUILD_UINT32(BleMac[0],BleMac[1],BleMac[2],BleMac[3]));
-	randwait = c_rand()*18;// MAX:589806 ms
+	// c_rand:0.001~32s, then distribute in heart beat time
+	randwait = c_rand()*(hrtbt_timeout/1000/33);
 	
 #if ( !defined NOT_USE_BLE_STACK && defined ALLOW_BLE_ADV )
 	HCI_EXT_SetTxPowerCmd(HCI_EXT_TX_POWER_MINUS_23_DBM);

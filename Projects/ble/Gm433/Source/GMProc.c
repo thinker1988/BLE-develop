@@ -15,12 +15,6 @@
 #define GM_PAST_YVAL_ID		0xA2
 #define GM_PAST_ZVAL_ID		0xA3
 
-
-// Threshold
-#define GM_GET_CAR_THRHD	30
-
-#define GM_NOISE_THRHD		10
-
 // Length to count average benchmark
 #define BENCH_AVG_LEN		10
 
@@ -41,9 +35,10 @@ static gmstatus_t gmst;
 // Pevious GM state, only used in first boot
 static gmstatus_t prevgmst;
 
+// Threshold
 // GM car detect threshold
-uint8 carthrhld = GM_GET_CAR_THRHD;
-uint8 noisethrhld = GM_NOISE_THRHD;
+uint8 carthrhld = 40;
+uint8 noisethrhld = 10;
 
 // Read counts when no car detect, save data in temporary benchmark array every 120s
 static uint8 readcnt;
@@ -144,9 +139,14 @@ void clear_send(void)
 static bool checkcarin(int16 tmpX, int16 tmpY, int16 tmpZ);
 static bool checkcarin(int16 tmpX, int16 tmpY, int16 tmpZ)
 {
-	if (CALC_ABS(tmpZ-Zbenchmk)>carthrhld)
-		return TRUE;
-	else if (CALC_ABS(tmpX-Xbenchmk)>carthrhld && CALC_ABS(tmpY-Ybenchmk)>carthrhld)
+	uint16 xdev,ydev,zdev;
+
+	xdev = CALC_ABS(tmpX-Xbenchmk);
+	ydev = CALC_ABS(tmpY-Ybenchmk);
+	zdev = CALC_ABS(tmpZ-Zbenchmk);
+
+	// >800 means error
+	if (xdev+ydev+zdev>carthrhld && zdev>noisethrhld && zdev<800)
 		return TRUE;
 
 	return FALSE;
@@ -154,9 +154,14 @@ static bool checkcarin(int16 tmpX, int16 tmpY, int16 tmpZ)
 static bool checkcarout(int16 tmpX, int16 tmpY, int16 tmpZ);
 static bool checkcarout(int16 tmpX, int16 tmpY, int16 tmpZ)
 {
-	if (CALC_ABS(tmpZ-Zbenchmk)<carthrhld)
-		if (CALC_ABS(tmpX-Xbenchmk)<carthrhld || CALC_ABS(tmpY-Ybenchmk)<carthrhld)
-			return TRUE;
+	uint16 xdev,ydev,zdev;
+
+	xdev = CALC_ABS(tmpX-Xbenchmk);
+	ydev = CALC_ABS(tmpY-Ybenchmk);
+	zdev = CALC_ABS(tmpZ-Zbenchmk);
+	
+	if (xdev+ydev+zdev<noisethrhld || zdev<noisethrhld)
+		return TRUE;
 
 	return FALSE;
 }
@@ -178,8 +183,11 @@ void gm_data_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 			}*/
 			else
 			{
+				// adjust benchmark at first and fill the array
+				if ( tmpbenchcnt < BENCH_AVG_LEN)
+					normrgltGMbenchmk(tmpX,tmpY,tmpZ);
 				// adjust benchmark ervery 5*120=10min
-				if ( ++readcnt >= 120 )
+				else if (readcnt >= 120)
 					normrgltGMbenchmk(tmpX,tmpY,tmpZ);
 				else
 					PrintGMvalue(COM433_DEBUG_PORT, "\r\nR:",tmpX,tmpY,tmpZ);
@@ -334,6 +342,7 @@ static void normrgltGMbenchmk(int16 xVal,int16 yVal, int16 zVal)
 
 	if ( tmpbenchcnt > BENCH_AVG_LEN )
 	{
+		// Keep tmpbenchcnt always > 10
 		if (tmpbenchcnt > 2*BENCH_AVG_LEN)
 			tmpbenchcnt = BENCH_AVG_LEN+1;
 		
