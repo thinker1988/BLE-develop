@@ -2,103 +2,10 @@
 
 <project>
   <fileVersion>2</fileVersion>
-<<<<<<< HEAD
   <fileChecksum>2682774189</fileChecksum>
   <configuration>
     <name>CC2541EM</name>
     <outputs>
-=======
-  <fileChecksum>2097321673</fileChecksum>
-  <configuration>
-    <name>CC2541EM</name>
-    <outputs>
-      <file>$PROJ_DIR$\CC2541EM\Obj\Com433.pbi</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\OSAL_BLECore.r51</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\gapbondmgr.r51</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\BLECore.r51</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\OnBoard.pbi</file>
-      <file>$PROJ_DIR$\..\Source\BLECore.c</file>
-      <file>$PROJ_DIR$\..\Source\BLECore.h</file>
-      <file>$PROJ_DIR$\..\Source\BLECore_Main.c</file>
-      <file>$PROJ_DIR$\..\Source\OSAL_BLECore.c</file>
-      <file>$PROJ_DIR$\..\Source\Cc112x.c</file>
-      <file>$PROJ_DIR$\..\Source\Cc112x.h</file>
-      <file>$PROJ_DIR$\..\Source\Com433.c</file>
-      <file>$PROJ_DIR$\..\Source\Com433.h</file>
-      <file>$PROJ_DIR$\..\Source\GMProc.c</file>
-      <file>$PROJ_DIR$\..\Source\GMProc.h</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\hal\common\hal_drivers.c</file>
-      <file>$PROJ_DIR$\..\Source\Pktfmt.c</file>
-      <file>$PROJ_DIR$\..\Source\Pktfmt.h</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\hal\include\hal_adc.h</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\hal\include\hal_assert.h</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\hal\include\hal_defs.h</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\hal\include\hal_board.h</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\hal\include\hal_drivers.h</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\hal\include\hal_key.h</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\hal\include\hal_flash.h</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\hal\include\hal_lcd.h</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\hal\include\hal_led.h</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\hal\include\hal_uart.h</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\hal\include\hal_sleep.h</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\hal\include\hal_timer.h</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\hal\target\CC2540EB\hal_board_cfg.h</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\hal\target\CC2540EB\hal_dma.c</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\hal\target\CC2540EB\hal_adc.c</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\hal\target\CC2540EB\hal_aes.c</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\hal_i2c.pbi</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\GMProc.r51</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\hal_flash.pbi</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\osal_cbtimer.pbi</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\hal_aes.pbi</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\BLECore.pbi</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\osal_cbtimer.r51</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\services\saddr\saddr.h</file>
-      <file>$PROJ_DIR$\CC2541EM\List\SimpleBLECentral.map</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\Cc112x.pbi</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\hal_led.pbi</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\osal\include\osal_cbTimer.h</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\hal_flash.r51</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\osal_bufmgr.pbi</file>
-      <file>$PROJ_DIR$\CC2541EM\Exe\SimpleBLECentral.hex</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\osal\include\osal_snv.h</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\hal_uart.r51</file>
-      <file>$TOOLKIT_DIR$\inc\clib\limits.h</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\osal\include\OSAL_Timers.h</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\osal_snv.pbi</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\OSAL_PwrMgr.r51</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\hal_dma.r51</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\OSAL_ClockBLE.pbi</file>
-      <file>$TOOLKIT_DIR$\inc\clib\sysmac.h</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\hal\target\CC2540EB\_hal_uart_isr.c</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\hal_aes.r51</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\ble\hci\hci_tl.h</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\OSAL.r51</file>
-      <file>$PROJ_DIR$\..\..\Profiles\Roles\gapperiphbondmgr.c</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\central.r51</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\gatt_uuid.pbi</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\hal_uart.pbi</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\npi.r51</file>
-      <file>$PROJ_DIR$\..\..\Profiles\Roles\central.h</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\Com433.r51</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\ble\controller\include\ll_timer2.h</file>
-      <file>$PROJ_DIR$\..\..\Profiles\Roles\gapperiphbondmgr.h</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\OSAL_Memory.pbi</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\ble\controller\include\ll_math.h</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\hal_drivers.pbi</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\ble\host\linkdb.h</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\hal_adc.pbi</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\OSAL_Timers.pbi</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\BLECore_Main.r51</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\Pktfmt.pbi</file>
-      <file>$PROJ_DIR$\..\..\Profiles\Roles\central.c</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\gap.pbi</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\hal_drivers.r51</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\osal_bufmgr.r51</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\GMProc.pbi</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\Pktfmt.r51</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\central.pbi</file>
->>>>>>> add GTE support
       <file>$PROJ_DIR$\CC2541EM\Obj\hal_led.r51</file>
       <file>$PROJ_DIR$\CC2541EM\Obj\OSAL_BLECore.pbi</file>
       <file>$PROJ_DIR$\..\..\..\..\Components\osal\include\OSAL_Memory.h</file>
@@ -121,10 +28,6 @@
       <file>$PROJ_DIR$\CC2541EM\Obj\npi.pbi</file>
       <file>$PROJ_DIR$\CC2541EM\Obj\OSAL_ClockBLE.r51</file>
       <file>$PROJ_DIR$\CC2541EM\Obj\gap.r51</file>
-<<<<<<< HEAD
-=======
-      <file>$PROJ_DIR$\..\..\common\cc2540\ti_51ew_cc2540b.xcl</file>
->>>>>>> add GTE support
       <file>$PROJ_DIR$\..\..\..\..\Components\osal\include\OSAL_PwrMgr.h</file>
       <file>$PROJ_DIR$\..\..\..\..\Components\ble\controller\include\ll_sleep.h</file>
       <file>$PROJ_DIR$\CC2541EM\Obj\hal_lcd.r51</file>
@@ -148,7 +51,6 @@
       <file>$PROJ_DIR$\CC2541EM\Obj\hal_lcd.pbi</file>
       <file>$PROJ_DIR$\CC2541EM\Obj\hal_i2c.r51</file>
       <file>$PROJ_DIR$\CC2541EM\Obj\OSAL.pbi</file>
-<<<<<<< HEAD
       <file>$PROJ_DIR$\CC2541EM\Obj\GMProc.r51</file>
       <file>$PROJ_DIR$\CC2541EM\Obj\hal_i2c.pbi</file>
       <file>$PROJ_DIR$\CC2541EM\Obj\hal_flash.pbi</file>
@@ -242,11 +144,6 @@
       <file>$PROJ_DIR$\..\..\..\..\Components\hal\target\CC2540EB\hal_adc.c</file>
       <file>$PROJ_DIR$\..\..\..\..\Components\hal\target\CC2540EB\hal_aes.c</file>
       <file>$PROJ_DIR$\..\..\..\..\Components\hal\target\CC2540EB\hal_dma.c</file>
-=======
-      <file>$PROJ_DIR$\CC2541EM\Obj\gapbondmgr.pbi</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\ble\hci\hci_event.h</file>
-      <file>$PROJ_DIR$\..\..\..\..\Components\hal\target\CC2540EB\hal_flash.c</file>
->>>>>>> add GTE support
       <file>$PROJ_DIR$\..\..\..\..\Components\hal\target\CC2540EB\hal_sleep.c</file>
       <file>$PROJ_DIR$\..\..\..\..\Components\hal\target\CC2540EB\hal_i2c.c</file>
       <file>$PROJ_DIR$\..\..\..\..\Components\hal\target\CC2540EB\hal_key.c</file>
@@ -292,24 +189,15 @@
       <file>$PROJ_DIR$\buildConfig.cfg</file>
       <file>$PROJ_DIR$\..\..\common\cc2540\OnBoard.c</file>
       <file>$PROJ_DIR$\..\..\common\cc2540\OnBoard.h</file>
-<<<<<<< HEAD
       <file>$PROJ_DIR$\..\..\..\..\Components\osal\include\osal_bufmgr.h</file>
       <file>$PROJ_DIR$\..\..\common\cc2540\ti_51ew_cc2540b.xcl</file>
-=======
-      <file>$PROJ_DIR$\..\..\..\..\Components\osal\include\OSAL_Tasks.h</file>
-      <file>$PROJ_DIR$\CC2541EM\Obj\hal_timer.pbi</file>
->>>>>>> add GTE support
     </outputs>
     <file>
       <name>[ROOT_NODE]</name>
       <outputs>
         <tool>
           <name>XLINK</name>
-<<<<<<< HEAD
           <file> 38 50 58</file>
-=======
-          <file> 128 42 48</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
     </file>
@@ -317,13 +205,8 @@
       <name>$PROJ_DIR$\CC2541EM\Obj\SimpleBLECentral.pbd</name>
       <inputs>
         <tool>
-<<<<<<< HEAD
           <name>BILINK</name>
           <file> 47 34 53 97 100 41 1 66 79 11 84 96 88 92 90 74 83 46 24 81 44 43 30 39 55 35 15 51 75 18 57 45 63 98</file>
-=======
-          <name>BICOMP</name>
-          <file> 39</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
@@ -331,28 +214,14 @@
       <name>$PROJ_DIR$\CC2541EM\Exe\SimpleBLECentral.d51</name>
       <outputs>
         <tool>
-<<<<<<< HEAD
           <name>XLINK</name>
           <file> 50 58</file>
-=======
-          <name>ICC8051</name>
-          <file> 3</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
         <tool>
-<<<<<<< HEAD
           <name>XLINK</name>
           <file> 181 95 85 25 87 42 71 93 19 27 64 10 32 101 20 94 3 26 68 65 104 56 40 37 23 0 12 7 13 60 76 103 49 9 14 155 156 5</file>
-=======
-          <name>BICOMP</name>
-          <file> 159 94 143 20 121 51 57 89 52 110 179 147 123 28 26 21 30 25 146 18 6 12 27 14 17</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 176 177 159 94 143 20 121 51 57 89 52 110 179 147 123 28 26 21 30 25 146 18 6 12 27 14 17</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
@@ -361,37 +230,21 @@
       <outputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 17</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 99</file>
-=======
-          <file> 124</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 77</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 159 8 143 120 31 61 67 2 62 59 149 154 82 150 148 153 174 171 77</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 176 177 159 8 143 120 31 61 67 2 62 59 149 154 82 150 148 153 174 171 77</file>
-=======
-          <file> 143 23 21 30 147 20 123 29 22 26 121 51 57 94 89 52 180 110 49 179 28 6</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 176 177 143 23 21 30 147 20 123 29 22 26 121 51 57 94 89 52 180 110 49 179 28 6</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
@@ -400,37 +253,21 @@
       <outputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 102</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 73</file>
-=======
-          <file> 87</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 1</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 159 8 143 120 31 61 67 2 62 54 59 70 151 29 119 127 121 130 147 33 28 180 91 153 82 149 154 170 86</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 176 177 159 8 143 120 31 61 67 2 62 54 59 70 151 29 119 127 121 130 147 33 28 180 91 153 82 149 154 170 86</file>
-=======
-          <file> 143 121 51 57 94 20 89 52 180 120 159 22 45 60 151 19 27 21 30 147 123 118 113 133 153 149 154 171 170 150 148 174 175 6</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 176 177 143 121 51 57 94 20 89 52 180 120 159 22 45 60 151 19 27 21 30 147 123 118 113 133 153 149 154 171 170 150 148 174 175 6</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
@@ -439,37 +276,21 @@
       <outputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 47</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 95</file>
-=======
-          <file> 43</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 115</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 159 8 143 120 31 61 67 2 62 21 179 147 33 128 126 121 130 125 146 118 106 112 127 114 117</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 176 177 159 8 143 120 31 61 67 2 62 21 179 147 33 128 126 121 130 125 146 118 106 112 127 114 117</file>
-=======
-          <file> 121 51 57 94 143 20 89 52 12 27 21 30 147 123 10 6 17 159</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 176 177 121 51 57 94 143 20 89 52 12 27 21 30 147 123 10 6 17 159</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
@@ -478,37 +299,21 @@
       <outputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 34</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 85</file>
-=======
-          <file> 0</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 68</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 143 123 121 130 147 120 33 129 122 126 31 61 67 8 2 62 52 21 59 179 128 106</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 176 177 143 123 121 130 147 120 33 129 122 126 31 61 67 8 2 62 52 21 59 179 128 106</file>
-=======
-          <file> 159 94 143 20 121 51 57 89 52 110 179 147 123 28 25 21 30 12 27</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 176 177 159 94 143 20 121 51 57 89 52 110 179 147 123 28 25 21 30 12 27</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
@@ -517,42 +322,25 @@
       <outputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 1</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 93</file>
-=======
-          <file> 83</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 35</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 143 31 61 67 8 120 2 62 52 29 159 122 54 70 151 119 127 121 130 147 33 28 180 91 153 149 154 171 170 150 148 174 175 106</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 176 177 143 31 61 67 8 120 2 62 52 29 159 122 54 70 151 119 127 121 130 147 33 28 180 91 153 149 154 171 170 150 148 174 175 106</file>
-=======
-          <file> 49 143 6 12 27 21 30 147 20 123 14 159 94 17</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 176 177 49 143 6 12 27 21 30 147 20 123 14 159 94 17</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
     <file>
-<<<<<<< HEAD
       <name>$PROJ_DIR$\..\Source\Cc112x.c</name>
       <outputs>
         <tool>
@@ -562,40 +350,20 @@
         <tool>
           <name>ICC8051</name>
           <file> 25</file>
-=======
-      <name>$PROJ_DIR$\..\..\..\..\Components\hal\common\hal_drivers.c</name>
-      <outputs>
-        <tool>
-          <name>BICOMP</name>
-          <file> 73</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 81</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 31 61 67 8 143 120 2 62 112 127 121 130 147 33 110 106 117 159</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 176 177 31 61 67 8 143 120 2 62 112 127 121 130 147 33 110 106 117 159</file>
-=======
-          <file> 18 143 21 30 147 20 123 144 145 22 23 25 26 28 29 27 121 51 57 94 89 52 110</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 176 177 18 143 21 30 147 20 123 144 145 22 23 25 26 28 29 27 121 51 57 94 89 52 110</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
     <file>
-<<<<<<< HEAD
       <name>$PROJ_DIR$\..\Source\Com433.c</name>
       <outputs>
         <tool>
@@ -605,40 +373,20 @@
         <tool>
           <name>ICC8051</name>
           <file> 87</file>
-=======
-      <name>$PROJ_DIR$\..\Source\Pktfmt.c</name>
-      <outputs>
-        <tool>
-          <name>BICOMP</name>
-          <file> 78</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 84</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 159 8 143 120 31 61 67 2 62 21 179 147 33 128 125 121 130 112 127</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 176 177 159 8 143 120 31 61 67 2 62 21 179 147 33 128 125 121 130 112 127</file>
-=======
-          <file> 94 143 20 179 147 123 28 121 51 57 89 52 92 12 27 21 30 17 159 14 6</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 176 177 94 143 20 179 147 123 28 121 51 57 89 52 92 12 27 21 30 17 159 14 6</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
     <file>
-<<<<<<< HEAD
       <name>$PROJ_DIR$\..\Source\GMProc.c</name>
       <outputs>
         <tool>
@@ -648,40 +396,20 @@
         <tool>
           <name>ICC8051</name>
           <file> 42</file>
-=======
-      <name>$PROJ_DIR$\..\..\..\..\Components\hal\target\CC2540EB\hal_dma.c</name>
-      <outputs>
-        <tool>
-          <name>BICOMP</name>
-          <file> 114</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 55</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 59 143 106 112 127 121 130 147 120 33 114 159 8 117</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 176 177 59 143 106 112 127 121 130 147 120 33 114 159 8 117</file>
-=======
-          <file> 145 21 30 147 20 143 123 27</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 176 177 145 21 30 147 20 143 123 27</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
     <file>
-<<<<<<< HEAD
       <name>$PROJ_DIR$\..\..\..\..\Components\hal\common\hal_drivers.c</name>
       <outputs>
         <tool>
@@ -691,40 +419,20 @@
         <tool>
           <name>ICC8051</name>
           <file> 104</file>
-=======
-      <name>$PROJ_DIR$\..\..\..\..\Components\hal\target\CC2540EB\hal_adc.c</name>
-      <outputs>
-        <tool>
-          <name>BICOMP</name>
-          <file> 75</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 116</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 118 143 121 130 147 120 33 144 145 122 123 125 126 128 129 127 31 61 67 8 2 62 21</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 176 177 118 143 121 130 147 120 33 144 145 122 123 125 126 128 129 127 31 61 67 8 2 62 21</file>
-=======
-          <file> 18 143 21 30 147 20 123</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 176 177 18 143 21 30 147 20 123</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
     <file>
-<<<<<<< HEAD
       <name>$PROJ_DIR$\..\Source\Pktfmt.c</name>
       <outputs>
         <tool>
@@ -734,17 +442,6 @@
         <tool>
           <name>ICC8051</name>
           <file> 101</file>
-=======
-      <name>$PROJ_DIR$\..\..\..\..\Components\hal\target\CC2540EB\hal_aes.c</name>
-      <outputs>
-        <tool>
-          <name>BICOMP</name>
-          <file> 38</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 59</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
@@ -4312,7 +4009,6 @@
       <outputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 25</file>
         </tool>
         <tool>
@@ -4326,48 +4022,27 @@
           <file> 172 173</file>
         </tool>
       </inputs>
-=======
-          <file> 47</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 79</file>
-        </tool>
-      </outputs>
->>>>>>> add GTE support
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\..\..\Components\hal\target\CC2540EB\hal_uart.c</name>
       <outputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 119</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 95</file>
-=======
-          <file> 46</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 81</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 123 141 68 136 10 70 120 69 9 16 18 3 0 17 5 4 11 67 139 19</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 172 173 123 141 68 136 10 70 120 69 9 16 18 3 0 17 5 4 11 67 139 19</file>
-=======
-          <file> 25 136 15 132 103 17 22 16 102 85 87 95 93 86 97 96 104 14 134 88</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
@@ -4376,33 +4051,20 @@
       <outputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 26</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 94</file>
-=======
-          <file> 45</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 80</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 136 69 123 141 68 10 152 120</file>
         </tool>
         <tool>
           <name>ICC8051</name>
-          <file> 172 173 136 69 123 141 68 10 152 120</file>
-=======
-          <file> 132 16 25 136 15 103 145 22</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
@@ -4411,33 +4073,21 @@
       <outputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 33</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 92</file>
-=======
-          <file> 48</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 107</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 11 18 3 136 68 69 123 141 10 9 16 0 17 13 5 2 175 121 70</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 172 173 11 18 3 136 68 69 123 141 10 9 16 0 17 13 5 2 175 121 70</file>
-=======
-          <file> 104 87 95 132 15 16 25 136 103 102 85 93 86 165 97 94 164 23 17</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
@@ -4446,33 +4096,21 @@
       <outputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 34</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 93</file>
-=======
-          <file> 49</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 82</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 9 16 18 3 136 68 0 17 175 141 10 121 176</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 172 173 9 16 18 3 136 68 0 17 175 141 10 121 176</file>
-=======
-          <file> 102 85 87 95 132 15 93 86 164 136 103 23 99</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
@@ -4481,33 +4119,21 @@
       <outputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 118</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 90</file>
-=======
-          <file> 50</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 73</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 9 16 18 3 136 68 0 17 13 14</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 172 173 9 16 18 3 136 68 0 17 13 14</file>
-=======
-          <file> 102 85 87 95 132 15 93 86 165 83</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
@@ -4516,11 +4142,7 @@
       <outputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 29</file>
-=======
-          <file> 51</file>
->>>>>>> add GTE support
         </tool>
         <tool>
           <name>ICC8051</name>
@@ -4530,15 +4152,11 @@
       <inputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 3 136 68 175 141 10 121 9 16 18 0 17 2</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 172 173 3 136 68 175 141 10 121 9 16 18 0 17 2</file>
-=======
-          <file> 95 132 15 164 136 103 23 102 85 87 93 86 94</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
@@ -4547,33 +4165,21 @@
       <outputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 32</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 89</file>
-=======
-          <file> 52</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 112</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 3 136 68 9 16 18 0 17 175 141 10 121 67</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 172 173 3 136 68 9 16 18 0 17 175 141 10 121 67</file>
-=======
-          <file> 95 132 15 102 85 87 93 86 164 136 103 23 14</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
@@ -4582,33 +4188,21 @@
       <outputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 35</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 88</file>
-=======
-          <file> 53</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 78</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 3 136 68 175 141 10 121 9 16 18 0 17 13 5</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 172 173 3 136 68 175 141 10 121 9 16 18 0 17 13 5</file>
-=======
-          <file> 95 132 15 164 136 103 23 102 85 87 93 86 165 97</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
@@ -4617,33 +4211,21 @@
       <outputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 36</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 87</file>
-=======
-          <file> 54</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 74</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 66 136 69 123 141 68 10 72 3 9 16 18 0 17 15 67 12</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 172 173 66 136 69 123 141 68 10 72 3 9 16 18 0 17 15 67 12</file>
-=======
-          <file> 13 132 16 25 136 15 103 19 95 102 85 87 93 86 84 14 29</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
@@ -4652,33 +4234,21 @@
       <outputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 38</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 86</file>
-=======
-          <file> 55</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 115</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 3 136 68 175 141 10 121 9 16 18 0 17 122 69 123</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 172 173 3 136 68 175 141 10 121 9 16 18 0 17 122 69 123</file>
-=======
-          <file> 95 132 15 164 136 103 23 102 85 87 93 86 24 16 25</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
@@ -4687,33 +4257,21 @@
       <outputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 39</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 84</file>
-=======
-          <file> 56</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 118</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 155 3 136 68 143 9 16 18 0 17 148</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 172 173 155 3 136 68 143 9 16 18 0 17 148</file>
-=======
-          <file> 146 95 132 15 138 102 85 87 93 86 143</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
@@ -4722,33 +4280,21 @@
       <outputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 42</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 85</file>
-=======
-          <file> 57</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 116</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 155 3 136 68 9 16 18 0 17 15 143 148 23 144 142 147 146 145 8 67 170 167 166</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 172 173 155 3 136 68 9 16 18 0 17 15 143 148 23 144 142 147 146 145 8 67 170 167 166</file>
-=======
-          <file> 146 95 132 15 102 85 87 93 86 84 138 143 92 139 137 142 141 140 101 14 161 158 157</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
@@ -4757,33 +4303,21 @@
       <outputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 40</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 83</file>
-=======
-          <file> 58</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 114</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 3 136 68 9 16 18 0 17 144 155 142 147 146</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 172 173 3 136 68 9 16 18 0 17 144 155 142 147 146</file>
-=======
-          <file> 95 132 15 102 85 87 93 86 139 146 137 142 141</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
@@ -4792,33 +4326,21 @@
       <outputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 41</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 82</file>
-=======
-          <file> 59</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 121</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 155 3 136 68 9 16 18 0 17 20 145 8 67 120 69 123 141 10 7 176 24 147 143 148 23 142 144 15 171 166</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 172 173 155 3 136 68 9 16 18 0 17 20 145 8 67 120 69 123 141 10 7 176 24 147 143 148 23 142 144 15 171 166</file>
-=======
-          <file> 146 95 132 15 102 85 87 93 86 89 140 101 14 22 16 25 136 103 100 99 105 142 138 143 92 137 139 84 162 157</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
@@ -4827,33 +4349,21 @@
       <outputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 37</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 80</file>
-=======
-          <file> 60</file>
-        </tool>
-        <tool>
-          <name>ICC8051</name>
-          <file> 120</file>
->>>>>>> add GTE support
         </tool>
       </outputs>
       <inputs>
         <tool>
           <name>BICOMP</name>
-<<<<<<< HEAD
           <file> 155 3 136 68 175 141 10 121 9 16 18 0 17 74 69 123 71</file>
         </tool>
         <tool>
           <name>ICC8051</name>
           <file> 172 173 155 3 136 68 175 141 10 121 9 16 18 0 17 74 69 123 71</file>
-=======
-          <file> 146 95 132 15 164 136 103 23 102 85 87 93 86 21 16 25 18</file>
->>>>>>> add GTE support
         </tool>
       </inputs>
     </file>
