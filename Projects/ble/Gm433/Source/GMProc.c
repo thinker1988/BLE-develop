@@ -1,3 +1,4 @@
+
 #include "osal_snv.h"
 
 #include "BLECore.h"
@@ -5,9 +6,15 @@
 #include "GMProc.h"
 #include "Pktfmt.h"
 
+/*********************************************************************
+ * MACROS
+ */
+// define weight value in this program
+#define GET_WEIGHT(a)			(a)
 
-#define IN_ARRAY_BOUND(a,bnd)	((bnd)>(a)?(a):((a)-(bnd)))
-
+/*********************************************************************
+ * CONSTANTS
+ */
 // NV id (>0x80 available)
 #define GM_STATE_NV_ID		0xA0
 
@@ -23,7 +30,25 @@
 
 // Resend times
 #define MAX_RESEND_TIMES	3
+/*********************************************************************
+ * TYPEDEFS
+ */
 
+/*********************************************************************
+ * GLOBAL VARIABLES
+ */
+
+/*********************************************************************
+ * EXTERNAL VARIABLES
+ */
+extern uint32 hrtbt_timeout;
+/*********************************************************************
+ * EXTERNAL FUNCTIONS
+ */
+
+/*********************************************************************
+ * LOCAL VARIABLES
+ */
 // GM data send type
 sendtype_t sndtyp = SEND_NOTHG;
 
@@ -35,11 +60,9 @@ static gmstatus_t gmst;
 // Pevious GM state, only used in first boot
 static gmstatus_t prevgmst;
 
-// Threshold
+
 // GM car detect threshold
-uint8 carthrhld = 40;
-uint8 noisethrhld = 10;
-uint32 sqrthrhld = 1000;
+uint32 sqrthrhld[] = {600,1000,1500};
 
 // Read counts when no car detect, save data in temporary benchmark array every 120s
 static uint8 readcnt;
@@ -66,7 +89,7 @@ static bool checkcarin(int16 tmpX, int16 tmpY, int16 tmpZ);
 
 static bool initbnchmk(gmstatus_t gmstts,int16 xVal,int16 yVal, int16 zVal);
 
-static gmstatus_t ChangeGMstate(gmstatus_t curstate);
+static gmstatus_t changeGMstate(gmstatus_t curstate);
 
 static void normrgltGMbenchmk(int16 xVal,int16 yVal, int16 zVal);
 /*
@@ -119,7 +142,19 @@ void initGMstate(void)
 	gmst = prevgmst;
 }
 
+bool setGMparam(uint8 hrtbtmin, uint8 dtval, uint8 alg, uint8 status)
+{
+	VOID alg;
 
+	if ( hrtbtmin==0 || dtval>sizeof(thrshldval)-1 )
+		return FALSE;
+	
+	hrtbt_timeout = hrtbtmin*MILSEC_IN_MIN;
+	carthrhld = thrshldval[dtval];	// 1=low:30, 2=mid:50, 3=high: 70
+	modifybenchmk(status);
+
+	return TRUE;
+}
 void set_heart_beat(void)
 {
 	// send heart beat when nothing wait sent
@@ -147,9 +182,9 @@ void gm_data_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 		case GMNoCar:
 			if (checkcarin(tmpX,tmpY,tmpZ) == TRUE)
 			{
-				gmst = ChangeGMstate(gmst);
+				gmst = changeGMstate(gmst);
 				// Reinit detect benchmark every time
-				initbnchmk(gmst, tmpX, tmpY, tmpZ);
+				initbnchmk(gmst,tmpX, tmpY, tmpZ);
 			}
 			/*else if (CALC_ABS(tmpZ-Zbenchmk)>noisethrhld)
 			{
@@ -172,8 +207,8 @@ void gm_data_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 		case GMGetCar:
 			if (checkcarin(tmpX,tmpY,tmpZ) == FALSE)
 			{
-				gmst = ChangeGMstate(gmst);
-				initbnchmk(gmst,tmpX,tmpY,tmpZ);
+				gmst = changeGMstate(gmst);
+				normrgltGMbenchmk(tmpX,tmpY,tmpZ);
 			}
 			/*else if (CALC_ABS(tmpZ-Zbenchmk)<carthrhld && CALC_ABS(tmpZ-Zbenchmk)>noisethrhld)
 			{
@@ -187,12 +222,12 @@ void gm_data_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 			/*if (prevgmst == GMNoCar)
 			{
 				if (CALC_ABS(tmpZ-Zbenchmk)>carthrhld)
-					gmst = ChangeGMstate(prevgmst);
+					gmst = changeGMstate(prevgmst);
 			}
 			else if (prevgmst == GMGetCar )
 			{
 				if (CALC_ABS(tmpZ-Zdtctval)>carthrhld && CALC_ABS(tmpZ-Zbenchmk)<=noisethrhld )
-					gmst = ChangeGMstate(prevgmst);
+					gmst = changeGMstate(prevgmst);
 				
 			}*/
 			break;
@@ -214,18 +249,16 @@ void gm_data_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 	{
 		uint8 prcnt;
 		int8 gdetmpr;
-
-//		RFwakeup();
 		
 		prcnt = CalcBatteryPercent();
 		gdetmpr = GetGDETmpr();
-		send_gde_data(prcnt,gdetmpr,tmpX,tmpY,tmpZ);
+		if (gdetmpr != GM_INVALID_TEMPR)
+			send_gde_data(prcnt,gdetmpr,tmpX,tmpY,tmpZ);
 	}
 	else
 	{
 		if (gettmsync() == TRUE)
 		{
-//			RFwakeup();
 			syncUTCtimereq();
 		}
 	}
@@ -250,6 +283,9 @@ void send_gde_data(uint8 prcnt, uint8 tmpr,int16 tmpX, int16 tmpY, int16 tmpZ)
 	
 	hrtbtdata[HRT_BT_STAT_POS]=gmst;
 
+	if ( gmst!=GMNoCar && gmst!=GMGetCar)
+		return;
+
 	if (sndtyp == SEND_HRTBY)
 	{
 		rfdataform(GDE_ST_HRTBEAT_REQ,hrtbtdata,GDE_HRTBT_LEN);
@@ -271,6 +307,12 @@ void stopresend(uint8 *data, uint8 len)
 	clear_send();
 }
 
+static gmstatus_t changeGMstate(gmstatus_t curstate)
+{
+	set_data_change();
+	return (curstate==GMNoCar? GMGetCar: GMNoCar);
+}
+
 static bool checkcarin(int16 tmpX, int16 tmpY, int16 tmpZ)
 {
 	uint32 xdev,ydev,zdev,devsqrsum;
@@ -282,10 +324,31 @@ static bool checkcarin(int16 tmpX, int16 tmpY, int16 tmpZ)
 	devsqrsum = xdev*xdev+ydev*ydev+zdev*zdev;
 
 	// >800 means error
-	if (devsqrsum > sqrthrhld && devsqrsum < 640000)
+	if (devsqrsum > sqrthrhld[2] && devsqrsum < 640000)
 		return TRUE;
 
 	return FALSE;
+
+
+static void modifybenchmk(gmstatus_t newstts)
+{
+	if (gmst == newstts)
+		return;
+
+	if (newstts > GMGetCar)
+		return;
+
+	set_data_change();
+	
+	// No Car--> Get Car
+	if (newstts == GMGetCar)
+	{
+		initbnchmk(newstts,Xbenchmk,Ybenchmk,Zbenchmk);
+		tmpbenchcnt = 0;	// previous benchmark invalid, when perform checkCarOut
+	}
+	// Get Car-->No Car
+	else
+		initbnchmk(newstts,Xdtctval,Ydtctval,Zdtctval);
 }
 
 static bool initbnchmk(gmstatus_t gmstts,int16 xVal,int16 yVal, int16 zVal)
@@ -294,20 +357,16 @@ static bool initbnchmk(gmstatus_t gmstts,int16 xVal,int16 yVal, int16 zVal)
 	{
 		case GMFirstBoot:	// Assume no car
 		case GMNoCar:
-			normrgltGMbenchmk(xVal,yVal,zVal); 
-
+			// clear previous benchmark
+			tmpbenchcnt = 0;
+			normrgltGMbenchmk(xVal,yVal,zVal);
 			gmst = GMNoCar;
+			
 			break;
 		case GMGetCar:
-			Xdtctval = tmpXdtctval[0] = xVal;
-			Ydtctval = tmpYdtctval[0] = yVal;
-			Zdtctval = tmpZdtctval[0] = zVal;
-
-			tmpdtctcnt = 1;
-			dtctcnt = 0;
-			PrintGMvalue(COM433_DEBUG_PORT, "\r\nDTInit", Xdtctval, Ydtctval, Zdtctval);
-			
+			wghtrgltGMCbenchmk(xVal,yVal,zVal);
 			gmst = GMGetCar;
+			
 			break;
 		case GMUnknow:
 			break;
@@ -317,14 +376,6 @@ static bool initbnchmk(gmstatus_t gmstts,int16 xVal,int16 yVal, int16 zVal)
 
 	return TRUE;
 }
-
-
-static gmstatus_t ChangeGMstate(gmstatus_t curstate)
-{
-	set_data_change();
-	return (curstate==GMNoCar? GMGetCar:GMNoCar);
-}
-
 
 static void normrgltGMbenchmk(int16 xVal,int16 yVal, int16 zVal)
 {
@@ -365,9 +416,14 @@ static void storeGMstate(void)
 	 if(osal_snv_write(GM_STATE_NV_ID, sizeof(gmst),&gmst)==NV_OPER_FAILED)
 	 	Com433WriteStr(COM433_DEBUG_PORT,"\r\n!!!NV Failed!!!");
 }
+*/
 
 static void wghtrgltGMCbenchmk(int16 xVal,int16 yVal, int16 zVal)
 {
+#if 1
+	tmpdtctcnt = 1;
+	dtctcnt = 0;
+#else
 	// adjust benchmark ervery 10s
 	if ( ++dtctcnt < 2 )
 		return;
@@ -389,6 +445,7 @@ static void wghtrgltGMCbenchmk(int16 xVal,int16 yVal, int16 zVal)
 		Zdtctval = calc_weight(tmpXdtctval,tmpdtctcnt,BENCH_WEIGHT_LEN);
 	}
 	else
+#endif
 	{
 		tmpXdtctval[tmpdtctcnt-1]=xVal;
 		tmpYdtctval[tmpdtctcnt-1]=yVal;
@@ -401,8 +458,18 @@ static void wghtrgltGMCbenchmk(int16 xVal,int16 yVal, int16 zVal)
 
 	PrintGMvalue(COM433_DEBUG_PORT, "\r\nDT bench:", Xdtctval, Ydtctval, Zdtctval);
 }
-*/
 
+
+/*********************************************************************
+ * @fn		calc_avrg
+ *
+ * @brief	Calculate arithmetic average of int16 buffer.
+ *
+ * @param	buf - int16 buffer
+ * @param	n - counts in buffer
+ *
+ * @return	arithmetic average
+ */
 static int16 calc_avrg(int16 *buf, uint8 n)
 {
 	uint8 i;
@@ -414,20 +481,31 @@ static int16 calc_avrg(int16 *buf, uint8 n)
 	return sum/n;	
 }
 
+/*********************************************************************
+ * @fn		calc_weight
+ *
+ * @brief	Calculate weight average of int16 buffer. High weight index calculate by length automatically
+ *
+ * @param	buf - int16 buffer
+ * @param	len - current data recieve(current highest weight index)
+ * @param	bound - array bound
+ *
+ * @return	arithmetic average
+ */
+
 static int16 calc_weight(int16 *buf, uint8 len, uint8 bound)
 {
-	uint8 i;
-	int32 sum=0,nsum=0;
+	uint8 i,weight;
+	int32 sum=0,nweight=0;
 	
 	for (i=0;i<bound;i++)
 	{
-		if (len > bound)
-			sum += (i+1)*buf[IN_ARRAY_BOUND(len%bound+i,bound)];
-		else
-			sum += (i+1)*buf[i];
-		nsum += i+1;
+		weight = GET_WEIGHT(i+1);
+		// restrict index in bound
+		sum += weight*buf[(i+len)%bound];
+		nweight += weight;
 	}
 
-	return sum/nsum;	
+	return sum/nweight;	
 }
 

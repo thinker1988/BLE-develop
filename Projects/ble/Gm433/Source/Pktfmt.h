@@ -11,10 +11,9 @@ extern "C"
 
 /********************************************************************************
 | ID | Tot len | Sub type | reserved | chk sum | src ID | dest ID | version | payload |
-| 1  |    1    |    1     |    2     |    1    |    2   |    2    |    2    |  128-12 |
+| 1  |    1     |    1     |    2     |    1    |    2   |    2    |    2    |  128-12 |
 */
-#define GMS_PKT_MAX_LEN	128
-
+/****************RF ID*******************/
 #define GMS_ID_POS		0
 #define GMS_ID_SIZE		1
 
@@ -22,11 +21,13 @@ extern "C"
 #define GDE_SRC_ID		0x55
 #define GTE_SRC_ID		0x66
 
-
+/**************total length*******************/
 #define GMS_TOT_LEN_POS		(GMS_ID_POS+GMS_ID_SIZE)	//0+1
 #define GMS_TOT_LEN_SIZE	1
 
+#define GMS_PKT_MAX_LEN	128
 
+/**************sub type*******************/
 #define GMS_SUB_TYPE_POS	(GMS_TOT_LEN_POS+GMS_TOT_LEN_SIZE)
 #define GMS_SUB_TYPE_SIZE	1
 
@@ -45,7 +46,7 @@ extern "C"
 #define GTE_ST_PARAM_SET	41
 #define GTE_ST_UPGD_REQ		42
 
-
+/**************reserved*******************/
 #define GMS_RESERVE_POS		(GMS_SUB_TYPE_POS+GMS_SUB_TYPE_SIZE)
 #define GMS_RESERVE_SIZE	2
 #define GMS_RESERVE_STR		"RF"
@@ -86,11 +87,11 @@ extern "C"
 #define EID_GMS_UPGD		9
 #define EID_GDE_UPGD_ACK	10
 
-#define UTCL_EVAL_LEN		6
-#define GDE_HRTBT_LEN		9
+#define UTCL_EVAL_LEN		(UTCL_YEAR_POS+ UTCL_YEAR_SIZE)// 6
+#define GDE_HRTBT_LEN		(HRT_BT_STAT_POS+HRT_BT_STAT_SIZE)// 9
 #define GDE_CAR_INFO_LEN	9
 #define GME_INFO_ACK_LEN	1
-#define GTE_SET_LEN			15
+#define GTE_SET_LEN			(ST_VERSION_L_POS+ST_VERSION_L_SIZE)// 15
 #define GDE_SET_ACK_LEN		1
 #define GDE_TMSYN_LEN		1
 #define GME_TMSYN_ACK_LEN	6
@@ -98,25 +99,93 @@ extern "C"
 #define GDE_UPGD_ACK_LEN	1
 
 /**********************************************************************
-
+ * UTC local element position define
 */
-#define HRT_BT_BATT_POS		0
+#define UTCL_HOUR_POS		0
+#define UTCL_HOUR_SIZE		1
+
+#define UTCL_MINTS_POS		(UTCL_HOUR_POS+UTCL_HOUR_SIZE)	// 1
+#define UTCL_MINTS_SIZE		1
+
+#define UTCL_SECND_POS		(UTCL_MINTS_POS+UTCL_MINTS_SIZE)	// 2
+#define UTCL_SECND_SIZE		1
+
+#define UTCL_DAY_POS		(UTCL_SECND_POS+UTCL_SECND_SIZE)	// 3
+#define UTCL_DAY_SIZE		1
+
+#define UTCL_MONTH_POS		(UTCL_DAY_POS+UTCL_DAY_SIZE)	// 4
+#define UTCL_MONTH_SIZE		1
+
+#define UTCL_YEAR_POS		(UTCL_MONTH_POS+UTCL_MONTH_SIZE)	// 5
+#define UTCL_YEAR_SIZE		1
+
+
+/**********************************************************************
+ * Heart beat data element position define
+*/
+#define HRT_BT_BATT_POS		0	// 0
 #define HRT_BT_BATT_SIZE	1
 
-#define HRT_BT_TMPR_POS		(HRT_BT_BATT_POS+HRT_BT_BATT_SIZE)
+#define HRT_BT_TMPR_POS		(HRT_BT_BATT_POS+HRT_BT_BATT_SIZE)	// 1
 #define HRT_BT_TMPR_SIZE	1
 
-#define HRT_BT_XVAL_POS		(HRT_BT_TMPR_POS+HRT_BT_TMPR_SIZE)
+#define HRT_BT_XVAL_POS		(HRT_BT_TMPR_POS+HRT_BT_TMPR_SIZE)	// 2
 #define HRT_BT_XVAL_SIZE	2
 
-#define HRT_BT_YVAL_POS		(HRT_BT_XVAL_POS+HRT_BT_XVAL_SIZE)
+#define HRT_BT_YVAL_POS		(HRT_BT_XVAL_POS+HRT_BT_XVAL_SIZE)	// 4
 #define HRT_BT_YVAL_SIZE	2
 
-#define HRT_BT_ZVAL_POS		(HRT_BT_YVAL_POS+HRT_BT_YVAL_SIZE)
+#define HRT_BT_ZVAL_POS		(HRT_BT_YVAL_POS+HRT_BT_YVAL_SIZE)	// 6
 #define HRT_BT_ZVAL_SIZE	2
 
-#define HRT_BT_STAT_POS		(HRT_BT_ZVAL_POS+HRT_BT_ZVAL_SIZE)
+#define HRT_BT_STAT_POS		(HRT_BT_ZVAL_POS+HRT_BT_ZVAL_SIZE)	// 8
 #define HRT_BT_STAT_SIZE	1
+
+/**********************************************************************
+ * GTE set data element position define
+*/
+#define ST_RF_FREQ_POS		0	// 0
+#define ST_RF_FREQ_SIZE		1
+
+#define ST_RF_ST_FREQ_POS		(ST_RF_FREQ_POS+ST_RF_FREQ_SIZE)	// 1
+#define ST_RF_ST_FREQ_SIZE		1
+
+#define ST_RF_UPGD_FREQ_POS		(ST_RF_ST_FREQ_POS+ST_RF_ST_FREQ_SIZE)	// 2
+#define ST_RF_UPGD_FREQ_SIZE	1
+
+#define ST_RF_BAUD_POS		(ST_RF_UPGD_FREQ_POS+ST_RF_UPGD_FREQ_SIZE)	// 3
+#define ST_RF_BAUD_SIZE		1
+
+#define ST_RF_PWR_LVL_POS	(ST_RF_BAUD_POS+ST_RF_BAUD_SIZE)	// 4
+#define ST_RF_PWR_LVL_SIZE	1
+
+#define ST_GM_HB_FREQ_POS	(ST_RF_PWR_LVL_POS+ST_RF_PWR_LVL_SIZE)	// 5
+#define ST_GM_HB_FREQ_SIZE	1
+
+#define ST_GM_DTCT_VAL_POS	(ST_GM_HB_FREQ_POS+ST_GM_HB_FREQ_SIZE)	// 6
+#define ST_GM_DTCT_VAL_SIZE	1
+
+#define ST_GM_DTCT_ALG_POS	(ST_GM_DTCT_VAL_POS+ST_GM_DTCT_VAL_SIZE)	// 7
+#define ST_GM_DTCT_ALG_SIZE	1
+
+#define ST_GM_STATUS_POS	(ST_GM_DTCT_ALG_POS+ST_GM_DTCT_ALG_SIZE)	// 8
+#define ST_GM_STATUS_SIZE	1
+
+#define ST_GDE_ADDR_H_POS	(ST_GM_STATUS_POS+ST_GM_STATUS_SIZE) 	// 9
+#define ST_GDE_ADDR_H_SIZE	1
+#define ST_GDE_ADDR_L_POS	(ST_GDE_ADDR_H_POS+ST_GDE_ADDR_H_SIZE)	// 10
+#define ST_GDE_ADDR_L_SIZE	1
+
+#define ST_GME_ADDR_H_POS	(ST_GDE_ADDR_L_POS+ST_GDE_ADDR_L_SIZE)	// 11
+#define ST_GME_ADDR_H_SIZE	1
+#define ST_GME_ADDR_L_POS	(ST_GME_ADDR_H_POS+ST_GME_ADDR_H_SIZE)	// 12
+#define ST_GME_ADDR_L_SIZE	1
+
+#define ST_VERSION_H_POS	(ST_GME_ADDR_L_POS+ST_GME_ADDR_L_SIZE)	// 13
+#define ST_VERSION_H_SIZE	1
+#define ST_VERSION_L_POS	(ST_VERSION_H_POS+ST_VERSION_H_SIZE)	// 14
+#define ST_VERSION_L_SIZE	1
+
 
 
 typedef enum rferr

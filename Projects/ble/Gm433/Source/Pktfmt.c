@@ -30,19 +30,35 @@
     }while(0)
 
 
+#if (defined GDE_RELEASE)
 
 #ifndef GDE_DEV_ID
 #define GDE_DEV_ID		1
-#endif
+#endif	// GDE_DEV_ID
 
 #ifndef GME_DEV_ID
 #define GME_DEV_ID		1001
-#endif
+#endif	// GME_DEV_ID
+
+#elif (defined GTE_RELEASE)
+
+#ifndef GTE_DEV_ID
+#define GTE_DEV_ID		2001
+#endif	//GTE_DEV_ID
+
+#endif	//GDE_RELEASE
 
 // Default version 1.0
 #ifndef VERSION_NUMBER
 #define VERSION_NUMBER		0x0100
 #endif
+
+
+#define GDE_ADV_ID		999
+
+#define GME_ADV_ID		1999
+
+#define GTE_ADV_ID		2999
 
 // Stop time synchronise after 5 times
 #define TIME_SYNC_AUTO_STOP			5
@@ -164,13 +180,15 @@ rferr_t rfdataparse(uint8 *rfdata,uint8 len)
 	if (osal_memcmp(rfdata+GMS_RESERVE_POS, GMS_RESERVE_STR, GMS_RESERVE_SIZE) == FALSE)
 		return PKT_DENY;
 	
-	if (GET_RF_DEST_ADDR(rfdata) != RFdevID)
+	if (GET_RF_DEST_ADDR(rfdata) != RFdevID && GET_RF_DEST_ADDR(rfdata) != GDE_ADV_ID)
 		return BAD_ADDR;
 		
 	if (calcGMchksum(rfdata,len) != rfdata[GMS_CHK_SUM_POS])
 		return CHKSUM_ERR;
 
 	RFdestID = GET_RF_SRC_ADDR(rfdata);
+
+#if (defined GDE_RELEASE)
 
 	if (rfdata[GMS_ID_POS] == GME_SRC_ID)
 	{
@@ -200,6 +218,7 @@ rferr_t rfdataparse(uint8 *rfdata,uint8 len)
 		{
 			case GTE_ST_PARAM_SET:
 				// set GDE params
+				setGDEparam(rfdata+GMS_PKT_PAYLOAD_POS,rfdata[GMS_PKT_PAYLOAD_POS+EID_SIZE]);
 				break;
 			case GTE_ST_UPGD_REQ:
 				// upgrade process
@@ -208,7 +227,10 @@ rferr_t rfdataparse(uint8 *rfdata,uint8 len)
 				return SUB_TYPE_ERR;
 		}
 	}
+#elif ( defined GTE_RELEASE )
 
+
+#endif	// GDE_RELEASE
 	return RF_SUCCESS;
 }
 
@@ -309,21 +331,23 @@ static uint8 filltime(uint8 *buf)
 */
 static void syncUTCtimeresp(uint8 *data, uint8 len)
 {
+	uint8 *pVal = data+ELM_HDR_SIZE;
+
 	if (data[0]!=EID_GME_TMSYN_ACK || len!=GME_TMSYN_ACK_LEN)
 		return;
 
 	// time overflow
-	if (data[ELM_HDR_SIZE+5] > 136)
+	if (data[ELM_HDR_SIZE+UTCL_YEAR_POS] > 136)
 		return;
 
 	UTCTimeStruct settmst;
 	
-	settmst.hour = data[ELM_HDR_SIZE];
-	settmst.minutes = data[ELM_HDR_SIZE+1];
-	settmst.seconds = data[ELM_HDR_SIZE+2];
-	settmst.day = data[ELM_HDR_SIZE+3]-1;
-	settmst.month = data[ELM_HDR_SIZE+4]-1;
-	settmst.year = 2000+data[ELM_HDR_SIZE+5];
+	settmst.hour = pVal[UTCL_HOUR_POS];
+	settmst.minutes = pVal[UTCL_MINTS_POS];
+	settmst.seconds = pVal[UTCL_SECND_POS];
+	settmst.day = pVal[UTCL_DAY_POS]-1;
+	settmst.month = pVal[UTCL_MONTH_POS]-1;
+	settmst.year = 2000+pVal[UTCL_YEAR_POS];
 	
 	osal_setClock(osal_ConvertUTCSecs(&settmst));
 
@@ -345,6 +369,41 @@ static uint8 calcGMchksum(uint8* chkbuf, uint16 len)
 	}
 	return sum;
 }
+
+
+static bool setGDEparam(uint8 *setdata, uint8 len)
+{
+	uint8 *pVal = setdata+ELM_HDR_SIZE;
+	bool flag = FALSE;
+	
+	if (setdata[0]!=EID_GTE_SET || len!=GTE_SET_LEN)
+		return flag;
+
+	flag = setRFparam(pVal[ST_RF_FREQ_POS],pVal[ST_RF_ST_FREQ_POS],pVal[ST_RF_UPGD_FREQ_POS],\
+			pVal[ST_RF_BAUD_POS],pVal[ST_RF_PWR_LVL_POS]);
+	flag &= setGMparam(pVal[ST_GM_HB_FREQ_POS],pVal[ST_GM_DTCT_VAL_POS],pVal[ST_GM_DTCT_ALG_POS],\
+			pVal[ST_GM_STATUS_POS]);
+	flag &= setIDparam(BUILD_UINT16(pVal[ST_GDE_ADDR_L_POS],pVal[ST_GDE_ADDR_H_POS]),\
+			BUILD_UINT16(pVal[ST_GME_ADDR_L_POS],pVal[ST_GME_ADDR_H_POS])\
+			BUILD_UINT16(pVal[ST_VERSION_L_POS],pVal[ST_VERSION_H_POS]));
+
+	return flag;
+}
+
+static bool setIDparam(uint16 GDEaddr, uint16 GMEaddr, uint16 vern)
+{
+	if (GDEaddr>GDE_ADV_ID || GMEaddr>GME_ADV_ID);
+		return FALSE;
+
+#if (defined GDE_RELEASE)
+	RFdevID = GDEaddr;
+	RFdestID = GMEaddr;
+#endif
+	version = vern;
+
+	return TRUE;
+}
+
 
 static rferr_t rfdatasend(uint8 *buf, uint8 len)
 {

@@ -240,7 +240,7 @@ static uint32 next=1;
 
 static uint32 randwait;
 
-static bool SysWakeup = FALSE;
+static sysstate_t Devstate = SYS_WORKING;
 
 static bool synctm;
 
@@ -357,10 +357,6 @@ void BLECore_Init( uint8 task_id )
 	//HalLedBlink( HAL_LED_ALL,5,50,1000);
 	Com433_Init();
 
-#if ( defined USE_CC112X_RF )
-	initRFcfg();
-#endif	// USE_CC112X_RF
-
 	ReadBLEMac(BleMac);
 
 	c_srand(BUILD_UINT32(BleMac[0],BleMac[1],BleMac[2],BleMac[3]));
@@ -406,7 +402,11 @@ uint16 BLECore_ProcessEvent( uint8 task_id, uint16 events )
 	if ( events & BLE_CORE_START_EVT )
 	{
 #if ( defined TEST_433 )
-		//RFwakeup();
+
+#if ( defined USE_CC112X_RF )
+		initRFcfg();
+#endif	// USE_CC112X_RF
+
 #if 1
 		rx_test();
 #else
@@ -414,7 +414,7 @@ uint16 BLECore_ProcessEvent( uint8 task_id, uint16 events )
 #endif
 #else
 		SYS_WS_INT_Cfg();
-		if ( SysWakeup == FALSE )
+		if ( Devstate == FALSE )
 		{
 			powerhold(task_id);
 			osal_stop_timerEx(task_id, READ_GM_DATA_EVT);
@@ -512,6 +512,20 @@ uint16 BLECore_ProcessEvent( uint8 task_id, uint16 events )
 #endif	// USE_CC112X_RF
 
 	return 0;
+}
+
+void sys_working( sysstate_t newDevstate)
+{
+	switch (Devstate)
+	{
+		case SYS_WORKING:
+			initRFcfg();
+			powerhold(BLECore_TaskId);
+
+		case SYS_WAITING:
+			
+			
+	}
 }
 
 
@@ -619,7 +633,8 @@ int8 GetGDETmpr(void)
 	int16 fulltmprval = 0;
 	int8 tmpr;
 	
-	gm_read_reg(GM_TEMPR_MSB_REG, tmprval, sizeof(tmprval));
+	if (gm_read_reg(GM_TEMPR_MSB_REG, tmprval, sizeof(tmprval)) == FALSE)
+		return GM_INVALID_TEMPR;
 	
 	fulltmprval = BUILD_UINT16(tmprval[1], tmprval[0]);
 	tmpr = (int8)(fulltmprval/128) + GM_BASE_TEMPR;
@@ -760,17 +775,9 @@ static void prepare_gm_read(void)
 static void read_gm_data(void)
 {
 	uint8 tmp_data[6]={0};
-	uint16 len=0;
 	int16 xval,yval,zval;
-
-	len = gm_read_reg(GM_X_AXIS_MSB_REG, tmp_data, sizeof(tmp_data));
 	
-	if (len <= 0)
-	{
-		Com433WriteStr(COM433_DEBUG_PORT,"\r\nI2C read failed!!!");
-		osal_stop_timerEx(BLECore_TaskId, READ_GM_DATA_EVT);
-	}
-	else
+	if (gm_read_reg(GM_X_AXIS_MSB_REG, tmp_data, sizeof(tmp_data)) == TRUE)
 	{
 		xval = BUILD_UINT16(tmp_data[1],tmp_data[0]);
 		yval = BUILD_UINT16(tmp_data[5],tmp_data[4]);
@@ -778,10 +785,18 @@ static void read_gm_data(void)
 
 		gm_data_proc(xval,yval,zval);
 	}
-	// RF have no data send, sleep 100 for serial output;
+	else
+	{
+#if ( defined ALLOW_DEBUG_OUTPUT )
+		Com433WriteStr(COM433_DEBUG_PORT,"\r\nI2C read failed!!!");
+		//osal_stop_timerEx(BLECore_TaskId, READ_GM_DATA_EVT);
+#endif
+	}
+
 	if (RFrxtx == FALSE)
 	{
 #if ( defined ALLOW_DEBUG_OUTPUT )
+		// RF have no data send, sleep 100 for serial output;
 		osal_start_timerEx(BLECore_TaskId, CORE_PWR_SAVING_EVT,100);
 #else
 		osal_set_event(BLECore_TaskId, CORE_PWR_SAVING_EVT);
@@ -882,13 +897,13 @@ static void SYS_WS_INT_Cfg(void)
 	// Low to deep sleep
 	if (DEV_EN_INT_PIN == 0)
 	{
-		SysWakeup = FALSE;
+		Devstate = SYS_SLEEPING;
 		// Rising edge detect
 		SET_P0_INT_RISING_EDGE();
 	}
 	else
 	{
-		SysWakeup = TRUE;
+		Devstate = SYS_WORKING;
 		SET_P0_INT_FALLING_EDGE();
 	}
 

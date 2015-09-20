@@ -10,6 +10,10 @@ extern "C" {
 
 #define CALC_ABS(x)	((x)>0?(x):-(x))
 
+#define GM_INVALID_TEMPR		0x7F
+
+#define MILSEC_IN_MIN	60000UL
+
 typedef enum gmstatus
 {
 	GMNoCar=0,

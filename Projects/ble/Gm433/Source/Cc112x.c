@@ -4,6 +4,9 @@
 #include "BLECore.h"
 #include "Pktfmt.h"
 
+/*********************************************************************
+ * CONSTANTS
+ */
 #define PKTLEN				64
 #define RX_FIFO_ERROR		0x11
 
@@ -37,14 +40,44 @@ enum RFworkingmode{
 	RF_RX_M
 };
 
+/*********************************************************************
+ * TYPEDEFS
+ */
 
+/*********************************************************************
+ * GLOBAL VARIABLES
+ */
+
+/*********************************************************************
+ * EXTERNAL VARIABLES
+ */
 extern uint8 BLECore_TaskId;
+/*********************************************************************
+ * EXTERNAL FUNCTIONS
+ */
 
-
+/*********************************************************************
+ * LOCAL VARIABLES
+ */
+// Radio mode
 static uint8 RFmode = RF_IDLE_M;
 
+// Test ready
 static bool RFrxtxRdy;
 
+
+static uint8 RFwkfrq = 0x07,RFstfrq = 0x01,RFupgfrq = 0x0C;
+
+static uint8 RFairbaud = 0x04; //  default 9600
+
+static uint8 RFpwr = 0x08;
+
+/*********************************************************************
+ * LOCAL FUNCTIONS
+ */
+#if ( defined USE_CC112X_RF )
+static void createPacket(uint8 txBuffer[]);
+#endif
 static void trxSyncIntCfg(void);
 
 static void registerConfig(void);
@@ -62,14 +95,18 @@ static uint8 trxSingleRX(void);
 
 static void manualCalibration(void);
 
-
+/*********************************************************************
+ * PUBLIC FUNCTIONS
+ */
 void initRFcfg(void)
 {
+#if ( defined USE_CC112X_RF )
 	uint8 rfvern;
 	
-	registerConfig();
 	cc112xSpiReadReg(CC112X_PARTNUMBER, &rfvern, 1);
 	Com433WriteInt(COM433_DEBUG_PORT, "\r\nDEV", rfvern, 16);
+	registerConfig();
+
 	cc112xSpiReadReg(CC112X_PARTVERSION, &rfvern, 1);
 	Com433WriteInt(COM433_DEBUG_PORT, "\r\nVERN", rfvern, 16);
 
@@ -83,12 +120,48 @@ void initRFcfg(void)
 	// enter low power mode
 	//RFentersleep();
 //	Com433WriteStr(COM433_DEBUG_PORT,"\r\nOK!");
+#else
+	uint8 header[]={0xFF,0x56,0xAE,0x35,0xA9,0x55,0x90,0x06,0x9B,0x68,RFairbaud,RFpwr-1,0x03,0x00,0x05};
+
+	Com433WriteStr(COM433_WORKING_PORT, header, sizeof(header));
+
+#endif
+}
+
+
+bool setRFparam(uint8 wkfreq, uint8 setfreq, uint8 upgdfreq, uint8 baud, uint8 pwlvl)
+{
+	bool flag = FALSE;
+
+	if (pwlvl > 7 || baud >11 )
+		return flag;
+	
+#if ( defined USE_CC112X_RF )
+	RFwkfrq = wkfreq;
+	RFstfrq = setfreq;
+	RFupgfrq = upgdfreq;
+	RFairbaud = baud;
+#else
+	VOID wkfreq;
+	VOID setfreq;
+	VOID upgdfreq;
+
+	if ( baud != 0 && baud < 6 )
+	{
+		 RFairbaud = baud;
+		 flag = TRUE;
+	}
+#endif
+	RFpwr = pwlvl;
+
+	return flag;
 }
 
 void RFentersleep(void)
 {
 	RFmode = RF_IDLE_M;
 	trxSpiCmdStrobe(CC112X_SIDLE);
+	trxSpiCmdStrobe(CC112X_SPWD);
 }
 
 void RFmodechange(void)
@@ -239,9 +312,11 @@ void rx_test(void)
 		trxSpiCmdStrobe(CC112X_SRX);
 	}
 }
-#if ( defined TEST_433 )
-static void createPacket(uint8 txBuffer[]);
 
+/*********************************************************************
+* Private functions
+*/
+#if ( defined USE_CC112X_RF )
 static void createPacket(uint8 txBuffer[])
 {
 	txBuffer[0] = PKTLEN; // Length byte
@@ -253,7 +328,6 @@ static void createPacket(uint8 txBuffer[])
 	if (++val > '9')
 		val= '0';
 }
-#endif
 
 void trxSyncIntCfg(void)
 {
@@ -283,17 +357,29 @@ static void registerConfig(void)
 	trxSpiCmdStrobe(CC112X_SRES);
 
 	// Write registers to radio
-#if defined CC1120
+#if ( defined CC1120 )
 	for( i=0;i<(sizeof(rfRadioCfgCm)/sizeof(registerSetting_t));i++)
 	{
 		writeByte = rfRadioCfgCm[i].data;
 		cc112xSpiWriteReg(rfRadioCfgCm[i].addr, &writeByte, 1);
 	}
 
+	for( i=0;i<(sizeof(rfFreqCfgSp)/sizeof(rfFreqCfgSp[0]));i++)
+	{
+		writeByte = rfFreqCfgSp[i][0];
+		cc112xSpiWriteReg(rfFreqCfgSp[i][12], &writeByte, 1);
+	}
+
 	for( i=0;i<(sizeof(rfRadioCfgSp)/sizeof(rfRadioCfgSp[0]));i++)
 	{
-		writeByte = rfRadioCfgSp[i][0];
+		writeByte = rfRadioCfgSp[i][RFairbaud-1];
 		cc112xSpiWriteReg(rfRadioCfgSp[i][10], &writeByte, 1);
+	}
+
+	for( i=0;i<(sizeof(rfPowerCfgSp)/sizeof(rfPowerCfgSp[0]));i++)
+	{
+		writeByte = rfPowerCfgSp[i][RFpwr-1];
+		cc112xSpiWriteReg(rfPowerCfgSp[i][8], &writeByte, 1);
 	}
 #else
 #if 1
@@ -822,7 +908,6 @@ static void manualCalibration(void)
 	}
 }
 
-#if ( defined USE_CC112X_RF )
 HAL_ISR_FUNCTION(RF_RTX_RDY_Isr, P1INT_VECTOR)
 {
 	HAL_ENTER_ISR();

@@ -100,6 +100,19 @@ extern "C"
 
 
 /*********************************************************************
+ * TYPEDEFS
+ */
+typedef enum
+{
+	SYS_WORKING,
+	SYS_WAITING,
+	SYS_SLEEPING,
+	SYS_SETUP,
+	SYS_UPGRADE
+}sysstate_t;
+
+
+/*********************************************************************
  * FUNCTIONS
  */
 
