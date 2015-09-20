@@ -39,6 +39,7 @@ static gmstatus_t prevgmst;
 // GM car detect threshold
 uint8 carthrhld = 40;
 uint8 noisethrhld = 10;
+uint32 sqrthrhld = 1000;
 
 // Read counts when no car detect, save data in temporary benchmark array every 120s
 static uint8 readcnt;
@@ -60,6 +61,8 @@ int16 Xdtctval,Ydtctval,Zdtctval;
 int16 tmpXdtctval[BENCH_WEIGHT_LEN],tmpYdtctval[BENCH_WEIGHT_LEN],tmpZdtctval[BENCH_WEIGHT_LEN];
 uint8 tmpdtctcnt;
 
+
+static bool checkcarin(int16 tmpX, int16 tmpY, int16 tmpZ);
 
 static bool initbnchmk(gmstatus_t gmstts,int16 xVal,int16 yVal, int16 zVal);
 
@@ -136,35 +139,7 @@ void clear_send(void)
 	rsndcnt = 0;
 	sndtyp = SEND_NOTHG;
 }
-static bool checkcarin(int16 tmpX, int16 tmpY, int16 tmpZ);
-static bool checkcarin(int16 tmpX, int16 tmpY, int16 tmpZ)
-{
-	uint16 xdev,ydev,zdev;
 
-	xdev = CALC_ABS(tmpX-Xbenchmk);
-	ydev = CALC_ABS(tmpY-Ybenchmk);
-	zdev = CALC_ABS(tmpZ-Zbenchmk);
-
-	// >800 means error
-	if (xdev+ydev+zdev>carthrhld && zdev>noisethrhld && zdev<800)
-		return TRUE;
-
-	return FALSE;
-}
-static bool checkcarout(int16 tmpX, int16 tmpY, int16 tmpZ);
-static bool checkcarout(int16 tmpX, int16 tmpY, int16 tmpZ)
-{
-	uint16 xdev,ydev,zdev;
-
-	xdev = CALC_ABS(tmpX-Xbenchmk);
-	ydev = CALC_ABS(tmpY-Ybenchmk);
-	zdev = CALC_ABS(tmpZ-Zbenchmk);
-	
-	if (xdev+ydev+zdev<noisethrhld || zdev<noisethrhld)
-		return TRUE;
-
-	return FALSE;
-}
 void gm_data_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 {	
 	switch(gmst)
@@ -195,7 +170,7 @@ void gm_data_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 			
 			break;
 		case GMGetCar:
-			if (checkcarout(tmpX,tmpY,tmpZ) == TRUE)
+			if (checkcarin(tmpX,tmpY,tmpZ) == FALSE)
 			{
 				gmst = ChangeGMstate(gmst);
 				initbnchmk(gmst,tmpX,tmpY,tmpZ);
@@ -296,6 +271,22 @@ void stopresend(uint8 *data, uint8 len)
 	clear_send();
 }
 
+static bool checkcarin(int16 tmpX, int16 tmpY, int16 tmpZ)
+{
+	uint32 xdev,ydev,zdev,devsqrsum;
+
+	xdev = CALC_ABS(tmpX-Xbenchmk);
+	ydev = CALC_ABS(tmpY-Ybenchmk);
+	zdev = CALC_ABS(tmpZ-Zbenchmk);
+
+	devsqrsum = xdev*xdev+ydev*ydev+zdev*zdev;
+
+	// >800 means error
+	if (devsqrsum > sqrthrhld && devsqrsum < 640000)
+		return TRUE;
+
+	return FALSE;
+}
 
 static bool initbnchmk(gmstatus_t gmstts,int16 xVal,int16 yVal, int16 zVal)
 {

@@ -106,7 +106,7 @@
 #define GM_READ_EVT_PERIOD 			5000		//1000-> 1s
 
 // Heart beat
-#define HEART_BEAT_EVT_PERIOD 		120000	//600s = 10min heart beat now 2min
+#define HEART_BEAT_EVT_PERIOD 		300000	//600s = 10min heart beat now 2min
 
 //G-Sensor I2C address
 #define GM_I2C_ADDR					0x1E
