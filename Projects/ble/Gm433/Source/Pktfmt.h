@@ -31,20 +31,28 @@ extern "C"
 #define GMS_SUB_TYPE_POS	(GMS_TOT_LEN_POS+GMS_TOT_LEN_SIZE)
 #define GMS_SUB_TYPE_SIZE	1
 
+// Direction: GME==>GDE
 #define GME_ST_HRTBEAT_ACK	1
 #define GME_ST_CARINFO_ACK	2
 #define GME_ST_TMSYN_ACK	3
 #define GME_ST_UPGD_REQ		4
 
+// Direction: GDE==>GME
 #define GDE_ST_HRTBEAT_REQ	21
 #define GDE_ST_CARINFO_REQ	22
 #define GDE_ST_TMSYN_REQ	23
-#define GDE_ST_M_UPGD_ACK	24
-#define GDE_ST_T_UPGD_ACK	25
-#define GDE_ST_T_SET_ACK	26
+#define GDE_ST_UPGD_REQ_ACK	24
+#define GDE_ST_UPGD_ACK		25
+// Direction: GDE==>GTE
+#define GDE_ST_T_REQ_ACK	26
+#define GDE_ST_T_READ_ACK	27
+#define GDE_ST_T_SET_ACK	28
 
-#define GTE_ST_PARAM_SET	41
-#define GTE_ST_UPGD_REQ		42
+// Direction: GTE==>GDE
+#define GTE_ST_PARAM_REQ	41
+#define GTE_ST_PARAM_READ	42
+#define GTE_ST_PARAM_SET	43
+#define GTE_ST_UPGD_REQ		44
 
 /**************reserved*******************/
 #define GMS_RESERVE_POS		(GMS_SUB_TYPE_POS+GMS_SUB_TYPE_SIZE)
@@ -74,8 +82,9 @@ extern "C"
 
 #define EID_SIZE			1
 #define EVAL_LEN_SIZE		1
-#define ELM_HDR_SIZE		(EID_SIZE+EVAL_LEN_SIZE)
+#define ELM_HDR_SIZE		(EID_SIZE+EVAL_LEN_SIZE)	// 2
 
+// List of element ID
 #define EID_UTCL			1
 #define EID_GDE_HRTBT		2
 #define EID_GDE_CAR_INFO	3
@@ -86,21 +95,44 @@ extern "C"
 #define EID_GME_TMSYN_ACK	8
 #define EID_GMS_UPGD		9
 #define EID_GDE_UPGD_ACK	10
+#define EID_GTE_SET_REQ		11
+#define EID_GDE_SET_RESP	12
+#define EID_GTE_READ		13
+#define EID_GDE_READ_ACK	14
 
+
+// Element length of different ID
+// EID = 1
 #define UTCL_EVAL_LEN		(UTCL_YEAR_POS+ UTCL_YEAR_SIZE)// 6
+// EID = 2
 #define GDE_HRTBT_LEN		(HRT_BT_STAT_POS+HRT_BT_STAT_SIZE)// 9
-#define GDE_CAR_INFO_LEN	9
+// EID = 3
+#define GDE_CAR_INFO_LEN	GDE_HRTBT_LEN
+// EID = 4
 #define GME_INFO_ACK_LEN	1
+// EID = 5
 #define GTE_SET_LEN			(ST_VERSION_L_POS+ST_VERSION_L_SIZE)// 15
+// EID = 6
 #define GDE_SET_ACK_LEN		1
+// EID = 7
 #define GDE_TMSYN_LEN		1
+// EID = 8
 #define GME_TMSYN_ACK_LEN	6
+// EID = 9
 #define GMS_UPGD_LEN		7
+// EID = 10
 #define GDE_UPGD_ACK_LEN	1
+// EID = 11
+#define GDE_PREREQ_LEN		(ST_PREUPGD_FREQ_POS+ST_PREUPGD_FREQ_SIZE)// 1
+// EID = 12
+#define GDE_PREREQ_ACK_LEN	GDE_PREREQ_LEN
+// EID = 13
+#define GDE_READ_LEN		1
+// EID = 14
+#define GDE_READ_ACK_LEN	GTE_SET_LEN
 
-/**********************************************************************
- * UTC local element position define
-*/
+// UTC local element position define
+// Element ID = 1
 #define UTCL_HOUR_POS		0
 #define UTCL_HOUR_SIZE		1
 
@@ -120,9 +152,8 @@ extern "C"
 #define UTCL_YEAR_SIZE		1
 
 
-/**********************************************************************
- * Heart beat data element position define
-*/
+// Heart beat data element position define
+// Element ID = 2 & 3
 #define HRT_BT_BATT_POS		0	// 0
 #define HRT_BT_BATT_SIZE	1
 
@@ -141,9 +172,8 @@ extern "C"
 #define HRT_BT_STAT_POS		(HRT_BT_ZVAL_POS+HRT_BT_ZVAL_SIZE)	// 8
 #define HRT_BT_STAT_SIZE	1
 
-/**********************************************************************
- * GTE set data element position define
-*/
+// GTE set or read data element position define
+// Element ID = 5
 #define ST_RF_FREQ_POS		0	// 0
 #define ST_RF_FREQ_SIZE		1
 
@@ -186,6 +216,10 @@ extern "C"
 #define ST_VERSION_L_POS	(ST_VERSION_H_POS+ST_VERSION_H_SIZE)	// 14
 #define ST_VERSION_L_SIZE	1
 
+// GTE set or read data element position define
+// Element ID = 11 & 12
+#define ST_PREUPGD_FREQ_POS		0	// 0
+#define ST_PREUPGD_FREQ_SIZE	1
 
 
 typedef enum rferr
@@ -199,6 +233,8 @@ typedef enum rferr
 	DATA_ERR
 }rferr_t;
 
+
+extern void initDevID(void);
 
 extern void syncUTCtimereq(void);
 

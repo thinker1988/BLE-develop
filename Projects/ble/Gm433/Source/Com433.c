@@ -1,3 +1,6 @@
+/*********************************************************************
+ * INCLUDES
+ */
 #include "bcomdef.h"
 #include "OSAL.h"
 #include "OSAL_PwrMgr.h"
@@ -6,10 +9,43 @@
 #include "hal_lcd.h"
 #include "Com433.h"
 
+/*********************************************************************
+ * MACROS
+ */
 
+/*********************************************************************
+ * CONSTANTS
+ */
+
+/*********************************************************************
+ * TYPEDEFS
+ */
+
+/*********************************************************************
+ * GLOBAL VARIABLES
+ */
+
+/*********************************************************************
+ * EXTERNAL VARIABLES
+ */
+ 
+/*********************************************************************
+ * EXTERNAL FUNCTIONS
+ */
+
+/*********************************************************************
+ * LOCAL VARIABLES
+ */
+ 
+/*********************************************************************
+ * LOCAL FUNCTIONS
+ */
+ 
+// Call back function of serial port
 static void com433_CB(uint8 port, uint8 event);
-
-static uint16 numBytes;
+/*********************************************************************
+ * PUBLIC FUNCTIONS
+ */
 
 void Com433_Init(void)
 {
@@ -32,17 +68,6 @@ void Com433_Init(void)
 	return;
 }
 
-static void com433_CB(uint8 port, uint8 event)
-{
-	uint8	pktBuffer[COM433_UART_RX_BUF_SIZE]={0};
-
-	if ((numBytes = Hal_UART_RxBufLen(port)) > 0 )
-	{
-		(void)HalUARTRead (port, pktBuffer, numBytes);
-		Com433Handle(port,pktBuffer, numBytes);
-	}
-	VOID event;
-}
 
 void Com433Read(uint8 port, uint8 *pBuffer, uint16 length)
 {
@@ -104,3 +129,20 @@ void PrintGMvalue(uint8 port, char *pBuffer, int16 xval, int16 yval, int16 zval)
 	VOID zval;
 #endif
 }
+
+/*********************************************************************
+* PRIVATE FUNCTIONS
+*/
+static void com433_CB(uint8 port, uint8 event)
+{
+	uint8	pktBuffer[COM433_UART_RX_BUF_SIZE]={0};
+	uint16 numBytes;
+
+	if ((numBytes = Hal_UART_RxBufLen(port)) > 0 )
+	{
+		(void)HalUARTRead (port, pktBuffer, numBytes);
+		Com433Handle(port,pktBuffer, numBytes);
+	}
+	VOID event;
+}
+

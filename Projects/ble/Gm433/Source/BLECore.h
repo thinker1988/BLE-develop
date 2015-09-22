@@ -55,25 +55,25 @@ extern "C"
 
 
 // Simple BLE Central Task Events
-#define BLE_CORE_START_EVT				0x0001
-#define READ_GM_DATA_EVT				0x0002
-#define GM_DRDY_INT_INT_EVT				0x0004
-#define HEART_BEAT_EVT					0x0008
-#define CORE_PWR_SAVING_EVT				0x0010
+#define BLE_CORE_START_EVT			0x0001
+#define READ_GM_DATA_EVT			0x0002
+#define GM_DRDY_INT_INT_EVT			0x0004
+#define HEART_BEAT_EVT				0x0008
+#define CORE_PWR_SAVING_EVT			0x0010
+#define RF_RXTX_RDY_EVT				0x0020
 
-#if ( defined USE_CC112X_RF )
-#define RF_RXTX_RDY_EVT					0x0020
-#else
-#define TEN_TX_RDY_EVT					0x0020
-#endif
+#define GM_DEV_WORKING_EVT			0x8000
 
-#define GM_DEV_WORKING_EVT				0x8000
+#define ALL_EVENT_ID				0xFFFF
 
+// Geomagnetic sensor read period
+#define GM_READ_EVT_PERIOD 			5000		//1000-> 1s
 
-#define ALL_EVENT_ID					0xFFFF
-
-
+// Idle hold period after RF send
 #define IDLE_PWR_HOLD_PERIOD		1000
+
+// No operation wait period
+#define NO_OPERATION_WAIT_PERIOD	5000
 
 
 /*********************************************************************
@@ -116,15 +116,19 @@ typedef enum
  * FUNCTIONS
  */
 
-/*
- * Task Initialization for the BLE Application
- */
+// Task Initialization for the BLE Application
 extern void BLECore_Init( uint8 task_id );
 
-/*
- * Task Event Processor for the BLE Application
- */
+// Task Event Processor for the BLE Application
 extern uint16 BLECore_ProcessEvent( uint8 task_id, uint16 events );
+
+extern void sys_working(uint8 task_id, sysstate_t newDevstate);
+extern void setsysstate(sysstate_t newDevstate);
+extern sysstate_t getsysstate(void);
+
+
+// Init RF config
+extern void initRFcfg(sysstate_t state);
 
 extern void powersave(uint8 task_id);
 extern void powerhold(uint8 task_id);

@@ -1,8 +1,15 @@
+/*********************************************************************
+ * INCLUDES
+ */
 #include "OSAL.h"
 #include "Com433.h"
 #include "Cc112x.h"
 #include "BLECore.h"
 #include "Pktfmt.h"
+
+/*********************************************************************
+ * MACROS
+ */
 
 /*********************************************************************
  * CONSTANTS
@@ -47,6 +54,14 @@ enum RFworkingmode{
 /*********************************************************************
  * GLOBAL VARIABLES
  */
+// Default RF frequency params
+// TEN308: work 433 set 433 upgrade 470
+// CC1120: work 434 set 428 upgrade 470
+#if ( defined USE_CC112X_RF )
+uint8 RFwkfrq = 0x07,RFstfrq = 0x01,RFupgfrq = 0x0C;
+#else
+uint8 RFwkfrq = SET_TEN_RF_FREQ(0),RFstfrq = SET_TEN_RF_FREQ(0),RFupgfrq = SET_TEN_RF_FREQ(1);
+#endif	// USE_CC112X_RF
 
 /*********************************************************************
  * EXTERNAL VARIABLES
@@ -59,28 +74,31 @@ extern uint8 BLECore_TaskId;
 /*********************************************************************
  * LOCAL VARIABLES
  */
+#if ( defined USE_CC112X_RF )
 // Radio mode
 static uint8 RFmode = RF_IDLE_M;
 
 // Test ready
 static bool RFrxtxRdy;
+#endif	// USE_CC112X_RF
 
+// Default RF air baud rate
+// TEN308 & CC1120: 9600
+static uint8 RFairbaud = 0x04;
 
-static uint8 RFwkfrq = 0x07,RFstfrq = 0x01,RFupgfrq = 0x0C;
-
-static uint8 RFairbaud = 0x04; //  default 9600
-
-static uint8 RFpwr = 0x08;
+// Default RF air baud rate
+// TEN308: 20dBm
+// CC1120: 15dBm
+static uint8 RFpwr = 0x08;	// Max level
 
 /*********************************************************************
  * LOCAL FUNCTIONS
  */
+static void registerConfig(sysstate_t state);
+
 #if ( defined USE_CC112X_RF )
 static void createPacket(uint8 txBuffer[]);
-#endif
 static void trxSyncIntCfg(void);
-
-static void registerConfig(void);
 
 static rfStatus_t trxSpiCmdStrobe(uint8 cmd);
 
@@ -95,21 +113,31 @@ static uint8 trxSingleRX(void);
 
 static void manualCalibration(void);
 
+#else
+static uint8 fromTENcmd(bool wrDir, uint8 *wrbuf, uint8 freq);
+
+#endif
 /*********************************************************************
  * PUBLIC FUNCTIONS
  */
-void initRFcfg(void)
+void initRFcfg(sysstate_t state)
 {
+	registerConfig(state);
+
 #if ( defined USE_CC112X_RF )
 	uint8 rfvern;
 	
 	cc112xSpiReadReg(CC112X_PARTNUMBER, &rfvern, 1);
-	Com433WriteInt(COM433_DEBUG_PORT, "\r\nDEV", rfvern, 16);
-	registerConfig();
+	//Com433WriteInt(COM433_DEBUG_PORT, "\r\nDEV", rfvern, 16);
+
+	// Chip ID is not CC1120
+	if ( rfvern != 0x48 )
+		return;
 
 	cc112xSpiReadReg(CC112X_PARTVERSION, &rfvern, 1);
-	Com433WriteInt(COM433_DEBUG_PORT, "\r\nVERN", rfvern, 16);
+	//Com433WriteInt(COM433_DEBUG_PORT, "\r\nVERN", rfvern, 16);
 
+	// CC1120 version is 0x21, need calibration
 	if ( rfvern == 0x21 )
 		manualCalibration();
 	else
@@ -120,15 +148,41 @@ void initRFcfg(void)
 	// enter low power mode
 	//RFentersleep();
 //	Com433WriteStr(COM433_DEBUG_PORT,"\r\nOK!");
-#else
-	uint8 header[]={0xFF,0x56,0xAE,0x35,0xA9,0x55,0x90,0x06,0x9B,0x68,RFairbaud,RFpwr-1,0x03,0x00,0x05};
+#endif	// USE_CC112X_RF
+}
 
-	Com433WriteStr(COM433_WORKING_PORT, header, sizeof(header));
-
-#endif
+/*********************************************************************
+ * @fn		readRFparam
+ *
+ * @brief	Read GDE RF parameters.
+ *
+ * @param	rdbuf -params save buffer
+ *
+ * @return	none
+ */
+void readRFparam(uint8 * rdbuf)
+{
+	rdbuf[ST_RF_FREQ_POS] = RFwkfrq;
+	rdbuf[ST_RF_ST_FREQ_POS] = RFstfrq;
+	rdbuf[ST_RF_UPGD_FREQ_POS] = RFupgfrq;
+	rdbuf[ST_RF_BAUD_POS] = RFairbaud;
+	rdbuf[ST_RF_PWR_LVL_POS] = RFpwr;
 }
 
 
+/*********************************************************************
+ * @fn		setRFparam
+ *
+ * @brief	Set GDE RF parameters.
+ *
+ * @param	wkfreq - working frequency
+ * @param	stfreq - setup frequency
+ * @param	upgdfreq - upgrade frequency
+ * @param	baud - air baud rate
+ * @param	pwlvl - send power level
+ *
+ * @return	TRUE - setup result OK
+ */
 bool setRFparam(uint8 wkfreq, uint8 setfreq, uint8 upgdfreq, uint8 baud, uint8 pwlvl)
 {
 	bool flag = FALSE;
@@ -140,45 +194,73 @@ bool setRFparam(uint8 wkfreq, uint8 setfreq, uint8 upgdfreq, uint8 baud, uint8 p
 	RFwkfrq = wkfreq;
 	RFstfrq = setfreq;
 	RFupgfrq = upgdfreq;
-	RFairbaud = baud;
-#else
-	VOID wkfreq;
-	VOID setfreq;
-	VOID upgdfreq;
 
-	if ( baud != 0 && baud < 6 )
+	
+	if ( baud != 0 && baud < sizeof(rfRadioCfgSp[0]) )
+	{
+		RFairbaud = baud;
+		flag = TRUE;
+	}
+	if (pwlvl !=0 && RFpwr < sizeof(rfPowerCfgSp[0]) )
+	{
+		RFpwr = pwlvl;
+		flag = TRUE;
+	}
+
+	flag = TRUE;
+#else
+	RFwkfrq = SET_TEN_RF_FREQ(wkfreq);
+	RFstfrq = SET_TEN_RF_FREQ(setfreq);
+	RFupgfrq = SET_TEN_RF_FREQ(upgdfreq);
+
+	if ( baud != 0 && baud < sizeof(tenRFairbaud)+1 )
 	{
 		 RFairbaud = baud;
 		 flag = TRUE;
 	}
+	if ( pwlvl != 0 && RFpwr < sizeof(tenRFpwr)+1 )
+	{
+		RFpwr = pwlvl;
+		flag = TRUE;
+	}
 #endif
-	RFpwr = pwlvl;
 
 	return flag;
 }
 
-void RFentersleep(void)
+void tx_test(void)
 {
-	RFmode = RF_IDLE_M;
-	trxSpiCmdStrobe(CC112X_SIDLE);
-	trxSpiCmdStrobe(CC112X_SPWD);
+#if ( defined USE_CC112X_RF )
+	uint8 txBuffer[PKTLEN+1] = {0};
+
+	createPacket(txBuffer);
+	// Write packet to TX FIFO
+	cc112xSpiWriteTxFifo(txBuffer, sizeof(txBuffer));
+	Com433WriteInt(COM433_DEBUG_PORT,"\r\nT:",PKTLEN+1,10);
+	Com433WriteInt(COM433_DEBUG_PORT," V:",txBuffer[1]-'0',10);
+	// Strobe TX to send packet
+	trxSpiCmdStrobe(CC112X_STX);
+
+	while(RFrxtxRdy == FALSE);
+	RFrxtxRdy = FALSE;
+#else
+	uint8 txBuffer[PKTLEN+1]="123456789012345678901234567890123456789012345678901234567890";
+	Com433WriteStr(COM433_WORKING_PORT, txBuffer);
+#endif
 }
 
-void RFmodechange(void)
-{
-	if ( RFmode == RF_TX_M )
-	{
-//		RFentersleep();
-		// begin to RX after TX over
-		RFmode = RF_RX_M;
-		trxSpiCmdStrobe(CC112X_SRX);
+#if ( defined USE_CC112X_RF )
 
-		// leave 1000 ms recieve
-		osal_start_timerEx(BLECore_TaskId, CORE_PWR_SAVING_EVT, IDLE_PWR_HOLD_PERIOD);
-	}
-	else if ( RFmode == RF_RX_M )
-		rxdata();
-}
+/*********************************************************************
+ * @fn		txdata
+ *
+ * @brief	RF send data.
+ *
+ * @param	txbuf - RF send buf.
+ * @param	len - send length.
+ *
+ * @return	none
+ */
 void txdata(uint8 *txbuf, uint8 len)
 {
 #if 1
@@ -197,6 +279,15 @@ void txdata(uint8 *txbuf, uint8 len)
 #endif
 }
 
+/*********************************************************************
+ * @fn		rxdata
+ *
+ * @brief	RF recieve data.
+ *
+ * @param	none
+ *
+ * @return	none
+ */
 void rxdata(void)
 {
 	uint8 rxBuffer[GMS_PKT_MAX_LEN] = {0};
@@ -232,27 +323,6 @@ void rxdata(void)
 		}
 	}
 	trxSpiCmdStrobe(CC112X_SRX);
-}
-
-void tx_test(void)
-{
-#if ( defined USE_CC112X_RF )
-	uint8 txBuffer[PKTLEN+1] = {0};
-
-	createPacket(txBuffer);
-	// Write packet to TX FIFO
-	cc112xSpiWriteTxFifo(txBuffer, sizeof(txBuffer));
-	Com433WriteInt(COM433_DEBUG_PORT,"\r\nT:",PKTLEN+1,10);
-	Com433WriteInt(COM433_DEBUG_PORT," V:",txBuffer[1]-'0',10);
-	// Strobe TX to send packet
-	trxSpiCmdStrobe(CC112X_STX);
-
-	while(RFrxtxRdy == FALSE);
-	RFrxtxRdy = FALSE;
-#else
-	uint8 txBuffer[PKTLEN+1]="123456789012345678901234567890123456789012345678901234567890";
-	Com433WriteStr(COM433_WORKING_PORT, txBuffer);
-#endif
 }
 
 void rx_test(void)
@@ -313,10 +383,130 @@ void rx_test(void)
 	}
 }
 
+
+/*********************************************************************
+ * @fn		RFentersleep
+ *
+ * @brief	CC1120 enter sleep
+ *
+ * @param	none.
+ *
+ * @return	none.
+ */
+ void RFentersleep(void)
+{
+	RFmode = RF_IDLE_M;
+	trxSpiCmdStrobe(CC112X_SIDLE);
+	trxSpiCmdStrobe(CC112X_SPWD);
+}
+
+/*********************************************************************
+ * @fn		RFmodechange
+ *
+ * @brief	Change RF mode.
+ *
+ * @param	none.
+ *
+ * @return	none.
+ */
+void RFmodechange(void)
+{
+	if ( RFmode == RF_TX_M )
+	{
+//		RFentersleep();
+		// begin to RX after TX over
+		RFmode = RF_RX_M;
+		trxSpiCmdStrobe(CC112X_SRX);
+
+		// leave 1000 ms recieve
+		osal_start_timerEx(BLECore_TaskId, CORE_PWR_SAVING_EVT, IDLE_PWR_HOLD_PERIOD);
+	}
+	else if ( RFmode == RF_RX_M )
+		rxdata();
+}
+
+#endif	// USE_CC112X_RF
+
+
 /*********************************************************************
 * Private functions
 */
+
+/*********************************************************************
+ * @fn		registerConfig
+ *
+ * @brief	write config register config based on current state
+ *
+ * @param	state - current state of device.
+ *
+ * @return	none.
+ */
+static void registerConfig(sysstate_t state)
+{
+	uint8 freqsel;
+
+	switch (state)
+	{
+		case SYS_WORKING: freqsel = RFwkfrq; break;
+		case SYS_SETUP: freqsel = RFstfrq; break;
+		case SYS_UPGRADE: freqsel = RFupgfrq; break;
+		case SYS_SLEEPING:
+		default: return;
+	}
+
 #if ( defined USE_CC112X_RF )
+	uint8 writeByte;
+	uint16 i;
+	
+	// Reset radio
+	trxSpiCmdStrobe(CC112X_SRES);
+
+	// Write registers to radio
+	for( i=0;i<(sizeof(rfRadioCfgCm)/sizeof(registerSetting_t));i++)
+	{
+		writeByte = rfRadioCfgCm[i].data;
+		cc112xSpiWriteReg(rfRadioCfgCm[i].addr, &writeByte, 1);
+	}
+
+	for( i=0;i<(sizeof(rfFreqCfgSp)/sizeof(rfFreqCfgSp[0]));i++)
+	{
+		writeByte = rfFreqCfgSp[i][freqsel];
+		cc112xSpiWriteReg(rfFreqCfgSp[i][12], &writeByte, 1);
+	}
+
+	for( i=0;i<(sizeof(rfRadioCfgSp)/sizeof(rfRadioCfgSp[0]));i++)
+	{
+		writeByte = rfRadioCfgSp[i][RFairbaud-1];
+		cc112xSpiWriteReg(rfRadioCfgSp[i][10], &writeByte, 1);
+	}
+
+	for( i=0;i<(sizeof(rfPowerCfgSp)/sizeof(rfPowerCfgSp[0]));i++)
+	{
+		writeByte = rfPowerCfgSp[i][RFpwr-1];
+		cc112xSpiWriteReg(rfPowerCfgSp[i][8], &writeByte, 1);
+	}
+
+#else
+
+	uint8 len,tenwrbuf[TEN_RF_CMD_MAX_LEN]={0};
+	
+	len = fromTENcmd(TRUE, tenwrbuf, freqsel);
+
+	Com433Write(COM433_WORKING_PORT, tenwrbuf, len);
+#endif	// !defined USE_CC112X_RF
+}
+
+#if ( defined USE_CC112X_RF )
+
+/*********************************************************************
+ * @fn		createPacket
+ *
+ * @brief	Create test packet, 64 bytes.
+ *
+ * @param	state - current state of device.
+ *
+ * @return	none.
+ */
 static void createPacket(uint8 txBuffer[])
 {
 	txBuffer[0] = PKTLEN; // Length byte
@@ -347,71 +537,6 @@ void trxSyncIntCfg(void)
 	// P1 Int enable
 	SET_P1_INT_ENABLE();
 }
-
-static void registerConfig(void)
-{
-	uint8 writeByte;
-	uint16 i;
-	
-	// Reset radio
-	trxSpiCmdStrobe(CC112X_SRES);
-
-	// Write registers to radio
-#if ( defined CC1120 )
-	for( i=0;i<(sizeof(rfRadioCfgCm)/sizeof(registerSetting_t));i++)
-	{
-		writeByte = rfRadioCfgCm[i].data;
-		cc112xSpiWriteReg(rfRadioCfgCm[i].addr, &writeByte, 1);
-	}
-
-	for( i=0;i<(sizeof(rfFreqCfgSp)/sizeof(rfFreqCfgSp[0]));i++)
-	{
-		writeByte = rfFreqCfgSp[i][0];
-		cc112xSpiWriteReg(rfFreqCfgSp[i][12], &writeByte, 1);
-	}
-
-	for( i=0;i<(sizeof(rfRadioCfgSp)/sizeof(rfRadioCfgSp[0]));i++)
-	{
-		writeByte = rfRadioCfgSp[i][RFairbaud-1];
-		cc112xSpiWriteReg(rfRadioCfgSp[i][10], &writeByte, 1);
-	}
-
-	for( i=0;i<(sizeof(rfPowerCfgSp)/sizeof(rfPowerCfgSp[0]));i++)
-	{
-		writeByte = rfPowerCfgSp[i][RFpwr-1];
-		cc112xSpiWriteReg(rfPowerCfgSp[i][8], &writeByte, 1);
-	}
-#else
-#if 1
-	for( i=0;i<(sizeof(preferredSettings434)/sizeof(registerSetting_t));i++)
-	{
-		writeByte = preferredSettings434[i].data;
-		cc112xSpiWriteReg(preferredSettings434[i].addr, &writeByte, 1);
-	}
-#else
-	for( i=0;i<(sizeof(preferredSettings470)/sizeof(registerSetting_t));i++)
-	{
-		writeByte = preferredSettings470[i].data;
-		cc112xSpiWriteReg(preferredSettings470[i].addr, &writeByte, 1);
-	}
-#if 0
-	for ( i=0;i<(sizeof(br_1200_cfg)/sizeof(registerSetting_t));i++)
-	{
-		writeByte = br_1200_cfg[i].data;
-		cc112xSpiWriteReg(br_1200_cfg[i].addr, &writeByte, 1);
-	}
-#else
-	for ( i=0;i<(sizeof(br_9600_cfg)/sizeof(registerSetting_t));i++)
-	{
-		writeByte = br_9600_cfg[i].data;
-		cc112xSpiWriteReg(br_9600_cfg[i].addr, &writeByte, 1);
-	}
-#endif
-#endif
-
-#endif
-}
-
 
 
 /******************************************************************************
@@ -928,5 +1053,45 @@ HAL_ISR_FUNCTION(RF_RTX_RDY_Isr, P1INT_VECTOR)
 	CLEAR_SLEEP_MODE();
 	
 	HAL_EXIT_ISR();
+}
+
+#else
+
+/*********************************************************************
+ * @fn		fromTENcmd
+ *
+ * @brief	Form TEN308 serial command.
+ *
+ * @param	wrDir - Write/read direction, TRUE to write, false to read.
+ * @param	wrbuf - Write/read buffer.
+ * @param	freq - set frequency(only used in write mode).
+ *
+ * @return	Length of cmd buf.
+ */
+static uint8 fromTENcmd(bool wrDir, uint8 *wrbuf, uint8 freq)
+{
+	uint8 header[]={0xFF,0x56,0xAE,0x35,0xA9,0x55};
+	uint8 curlen = sizeof(header);
+
+	osal_memcpy(wrbuf, header, curlen);
+
+	if (wrDir == TRUE)
+	{
+		wrbuf[curlen++] = tenRFfreq[freq][0];
+		wrbuf[curlen++] = tenRFfreq[freq][1];
+		wrbuf[curlen++] = tenRFfreq[freq][2];
+		wrbuf[curlen++] = tenRFairbaud[RFairbaud];
+		wrbuf[curlen++] = tenRFpwr[RFpwr-1];
+		wrbuf[curlen++] = 0x03;	// serial baud 9600
+		wrbuf[curlen++] = 0x00;
+		wrbuf[curlen++] = 0x05;	// wakeup time 50ms
+	}
+	else
+	{
+		VOID freq;
+		wrbuf[curlen++] = 0xF0;
+	}
+
+	return curlen;
 }
 #endif	// USE_CC112X_RF
