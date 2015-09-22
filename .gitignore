@@ -64,6 +64,10 @@ Thermometer/
 TimeApp/
 util/
 
+# IAR irrelevant files
 Exe/
 List/
 Obj/
+*.dep
+*.dni
+*.wsdt
