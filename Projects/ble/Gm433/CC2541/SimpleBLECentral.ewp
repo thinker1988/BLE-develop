@@ -1342,18 +1342,17 @@
           <state>xALLOW_DEBUG_OUTPUT</state>
           <state>NOT_USE_BLE_STACK</state>
           <state>HW_VERN=1</state>
-          <state>GDE_DEV_ID=11</state>
+          <state>GDE_DEV_ID=2</state>
           <state>GME_DEV_ID=1001</state>
           <state>VERSION_NUMBER=0x0100</state>
           <state>xTEST_433</state>
           <state>xUSE_CC112X_RF</state>
-          <state>xSPI_USE_DMA</state>
           <state>xHAL_UART_SPI=2</state>
           <state>xHAL_SPI_MASTER</state>
           <state>xHAL_UART_PORT=1</state>
           <state>POWER_SAVING</state>
           <state>IMAGE_VERSION_NUM=1</state>
-          <state>INT_HEAP_LEN=2000</state>
+          <state>INT_HEAP_LEN=1500</state>
           <state>HALNODEBUG</state>
           <state>OSAL_CBTIMER_NUM_TASKS=1</state>
           <state>HAL_DMA=TRUE</state>
@@ -1367,6 +1366,7 @@
           <state>HAL_I2C_MASTER</state>
           <state>HAL_KEY=FALSE</state>
           <state>HAL_LCD=FALSE</state>
+          <state>xSPI_USE_DMA</state>
         </option>
         <option>
           <name>CCPreprocFile</name>

@@ -60,13 +60,21 @@ enum RFworkingmode{
 #if ( defined USE_CC112X_RF )
 uint8 RFwkfrq = 0x07,RFstfrq = 0x01,RFupgfrq = 0x0C;
 #else
-uint8 RFwkfrq = SET_TEN_RF_FREQ(0),RFstfrq = SET_TEN_RF_FREQ(0),RFupgfrq = SET_TEN_RF_FREQ(1);
+uint8 RFwkfrq = 0x02,RFstfrq = 0x02,RFupgfrq = 0x02;
 #endif	// USE_CC112X_RF
 
 /*********************************************************************
  * EXTERNAL VARIABLES
  */
 extern uint8 BLECore_TaskId;
+
+#if ( !defined USE_CC112X_RF )
+extern tenRFstate_t TENRFst;
+
+extern uint8 rfsndbuf[];
+extern uint8 rfsndlen;
+#endif	// ! USE_CC112X_RF
+
 /*********************************************************************
  * EXTERNAL FUNCTIONS
  */
@@ -80,11 +88,16 @@ static uint8 RFmode = RF_IDLE_M;
 
 // Test ready
 static bool RFrxtxRdy;
+#else
+uint8 setrfbuf[20];
+uint8 setrflen;
+
 #endif	// USE_CC112X_RF
 
 // Default RF air baud rate
-// TEN308 & CC1120: 9600
-static uint8 RFairbaud = 0x04;
+// CC1120 & TEN308 : 9600
+static uint8 RFairbaud = 0x05;
+
 
 // Default RF air baud rate
 // TEN308: 20dBm
@@ -185,47 +198,24 @@ void readRFparam(uint8 * rdbuf)
  */
 bool setRFparam(uint8 wkfreq, uint8 setfreq, uint8 upgdfreq, uint8 baud, uint8 pwlvl)
 {
-	bool flag = FALSE;
-
-	if (pwlvl > 7 || baud >11 )
-		return flag;
-	
-#if ( defined USE_CC112X_RF )
-	RFwkfrq = wkfreq;
-	RFstfrq = setfreq;
-	RFupgfrq = upgdfreq;
-
-	
-	if ( baud != 0 && baud < sizeof(rfRadioCfgSp[0]) )
+	if (CHECK_FREQ_VALID(wkfreq) && CHECK_FREQ_VALID(setfreq) && CHECK_FREQ_VALID(upgdfreq))
 	{
-		RFairbaud = baud;
-		flag = TRUE;
-	}
-	if (pwlvl !=0 && RFpwr < sizeof(rfPowerCfgSp[0]) )
-	{
-		RFpwr = pwlvl;
-		flag = TRUE;
+		if ( CHECK_BAUD_VALID(baud))
+		{
+			if (CHECK_PWR_VALID(pwlvl))
+			{
+				RFwkfrq = wkfreq;
+				RFstfrq = setfreq;
+				RFupgfrq = upgdfreq;
+				RFairbaud = baud;
+				RFpwr = pwlvl;
+
+				return TRUE;
+			}
+		}
 	}
 
-	flag = TRUE;
-#else
-	RFwkfrq = SET_TEN_RF_FREQ(wkfreq);
-	RFstfrq = SET_TEN_RF_FREQ(setfreq);
-	RFupgfrq = SET_TEN_RF_FREQ(upgdfreq);
-
-	if ( baud != 0 && baud < sizeof(tenRFairbaud)+1 )
-	{
-		 RFairbaud = baud;
-		 flag = TRUE;
-	}
-	if ( pwlvl != 0 && RFpwr < sizeof(tenRFpwr)+1 )
-	{
-		RFpwr = pwlvl;
-		flag = TRUE;
-	}
-#endif
-
-	return flag;
+	return FALSE;
 }
 
 void tx_test(void)
@@ -236,10 +226,9 @@ void tx_test(void)
 	createPacket(txBuffer);
 	// Write packet to TX FIFO
 	cc112xSpiWriteTxFifo(txBuffer, sizeof(txBuffer));
-	Com433WriteInt(COM433_DEBUG_PORT,"\r\nT:",PKTLEN+1,10);
-	Com433WriteInt(COM433_DEBUG_PORT," V:",txBuffer[1]-'0',10);
+	Com433WriteInt(COM433_DEBUG_PORT,"\r\nV:",txBuffer[1]-'0',10);
 	// Strobe TX to send packet
-	trxSpiCmdStrobe(CC112X_STX);
+	Com433WriteInt(COM433_DEBUG_PORT," ",trxSpiCmdStrobe(CC112X_STX),16);
 
 	while(RFrxtxRdy == FALSE);
 	RFrxtxRdy = FALSE;
@@ -447,11 +436,12 @@ static void registerConfig(sysstate_t state)
 
 	switch (state)
 	{
-		case SYS_WORKING: freqsel = RFwkfrq; break;
-		case SYS_SETUP: freqsel = RFstfrq; break;
-		case SYS_UPGRADE: freqsel = RFupgfrq; break;
+		case SYS_WORKING: freqsel = RFwkfrq-1; break;
+		case SYS_SETUP: freqsel = RFstfrq-1; break;
+		case SYS_UPGRADE: freqsel = RFupgfrq-1; break;
 		case SYS_SLEEPING:
-		default: return;
+		default: 
+			return;
 	}
 
 #if ( defined USE_CC112X_RF )
@@ -488,11 +478,11 @@ static void registerConfig(sysstate_t state)
 
 #else
 
-	uint8 len,tenwrbuf[TEN_RF_CMD_MAX_LEN]={0};
-	
-	len = fromTENcmd(TRUE, tenwrbuf, freqsel);
+	// Set RF at each boot
+	TENRFst = TEN_RF_SET;
+	osal_start_timerEx(BLECore_TaskId, TEN_RF_SET_EVT,200);
 
-	Com433Write(COM433_WORKING_PORT, tenwrbuf, len);
+	setrflen = fromTENcmd(TRUE, setrfbuf, freqsel);
 #endif	// !defined USE_CC112X_RF
 }
 
@@ -1077,10 +1067,11 @@ static uint8 fromTENcmd(bool wrDir, uint8 *wrbuf, uint8 freq)
 
 	if (wrDir == TRUE)
 	{
+		wrbuf[curlen++] = 0x90;
 		wrbuf[curlen++] = tenRFfreq[freq][0];
 		wrbuf[curlen++] = tenRFfreq[freq][1];
 		wrbuf[curlen++] = tenRFfreq[freq][2];
-		wrbuf[curlen++] = tenRFairbaud[RFairbaud];
+		wrbuf[curlen++] = tenRFairbaud[RFairbaud-1];
 		wrbuf[curlen++] = tenRFpwr[RFpwr-1];
 		wrbuf[curlen++] = 0x03;	// serial baud 9600
 		wrbuf[curlen++] = 0x00;

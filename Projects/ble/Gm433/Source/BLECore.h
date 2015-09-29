@@ -62,7 +62,9 @@ extern "C"
 #define CORE_PWR_SAVING_EVT			0x0010
 #define RF_RXTX_RDY_EVT				0x0020
 
-#define GM_DEV_WORKING_EVT			0x8000
+#if ( !defined USE_CC112X_RF )
+#define TEN_RF_SET_EVT				0x0040
+#endif	// USE_CC112X_RF
 
 #define ALL_EVENT_ID				0xFFFF
 
@@ -73,7 +75,7 @@ extern "C"
 #define IDLE_PWR_HOLD_PERIOD		1000
 
 // No operation wait period
-#define NO_OPERATION_WAIT_PERIOD	5000
+#define NO_OPERATION_WAIT_PERIOD	6000
 
 
 /*********************************************************************
@@ -102,6 +104,18 @@ extern "C"
 /*********************************************************************
  * TYPEDEFS
  */
+#if ( !defined USE_CC112X_RF )
+typedef enum
+{
+	TEN_RF_SET,
+	TEN_RF_RESET,
+	TEN_RF_WAIT,
+	TEN_RF_WORK
+}tenRFstate_t;
+#endif	// ! USE_CC112X_RF
+
+
+// System working state
 typedef enum
 {
 	SYS_WORKING,
@@ -110,7 +124,6 @@ typedef enum
 	SYS_SETUP,
 	SYS_UPGRADE
 }sysstate_t;
-
 
 /*********************************************************************
  * FUNCTIONS
@@ -143,10 +156,6 @@ extern bool gettmsync(void);
 extern uint8 CalcBatteryPercent(void);
 
 extern int8 GetGDETmpr(void);
-
-#if ( !defined USE_CC112X_RF )
-extern void prepare_TEN_send(void);
-#endif
 
 /*********************************************************************
 *********************************************************************/

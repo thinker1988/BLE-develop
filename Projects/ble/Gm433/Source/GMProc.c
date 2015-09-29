@@ -32,6 +32,9 @@
 
 // Resend times
 #define MAX_RESEND_TIMES	3
+
+// Impossible value, should be caused by some iron materials, not car
+#define GM_ERROR_VALUE			640000
 /*********************************************************************
  * TYPEDEFS
  */
@@ -40,16 +43,16 @@
  * GLOBAL VARIABLES
  */
 // Heart beat in minutes
-// Default 5 min
+// Default 10 min
 uint32 hrtbt_inmin = 10;
 
 // battery power remain percentage
 uint8 btprcnt = 100;
 
 // GM car detect threshold
-uint32 sqrthrhld[] = {600,1000,1500};
+uint32 sqrthrhld[] = {600,900,1200};
 
-// default use level 2, i.e. 1000
+// default use level 2, i.e. 900
 uint32 dtdetectlvl = 2;
 
 /*********************************************************************
@@ -70,7 +73,7 @@ static sendtype_t sndtyp = SEND_NOTHG;
 static uint8 rsndcnt;
 
 // Current GM state
-static gmstatus_t gmst;
+static gmstatus_t gmst = GMFirstBoot;
 // Pevious GM state, only used in first boot
 static gmstatus_t prevgmst;
 
@@ -97,13 +100,13 @@ static uint8 tmpdtctcnt;
 /*********************************************************************
  * LOCAL FUNCTIONS
  */
-static bool checkcarin(int16 tmpX, int16 tmpY, int16 tmpZ);
+static gmstatus_t checkcarin(int16 tmpX, int16 tmpY, int16 tmpZ);
+static gmstatus_t checkcarout(int16 tmpX, int16 tmpY, int16 tmpZ);
+
 
 static void modifybenchmk(gmstatus_t newstts);
 
 static bool initbnchmk(gmstatus_t gmstts,int16 xVal,int16 yVal, int16 zVal);
-
-static gmstatus_t changeGMstate(gmstatus_t curstate);
 
 static void normrgltGMbenchmk(int16 xVal,int16 yVal, int16 zVal);
 
@@ -158,7 +161,8 @@ void initGMstate(void)
 		//Com433WriteStr(COM433_DEBUG_PORT,"\r\n!!!NV read failed!!!");
 		prevgmst = GMFirstBoot;
 	}
-	gmst = prevgmst;
+	if (gmst != GMGetCar && gmst != GMNoCar)
+		gmst = prevgmst;
 }
 
 /*********************************************************************
@@ -194,7 +198,7 @@ bool setGMparam(uint8 hrtbtmin, uint8 dtval, uint8 alg, uint8 status)
 {
 	VOID alg;
 
-	if ( hrtbtmin==0 || dtval>sizeof(sqrthrhld) )
+	if ( hrtbtmin==0 || dtval==0 || dtval>sizeof(sqrthrhld))
 		return FALSE;
 	
 	hrtbt_inmin = hrtbtmin;
@@ -261,24 +265,24 @@ void clear_send(void)
  * @return	none
  */
 void gm_data_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
-{	
+{
+	gmstatus_t tmpgmst;
+
 	switch(gmst)
 	{
 		case GMNoCar:
-			if (checkcarin(tmpX,tmpY,tmpZ) == TRUE)
+		{
+			tmpgmst = checkcarin(tmpX,tmpY,tmpZ);
+			if ( tmpgmst == GMGetCar )
 			{
-				gmst = changeGMstate(gmst);
+				gmst = tmpgmst;
+				set_data_change();
 				// Reinit detect benchmark every time
 				initbnchmk(gmst,tmpX, tmpY, tmpZ);
 			}
-			/*else if (CALC_ABS(tmpZ-Zbenchmk)>noisethrhld)
+			else if ( tmpgmst == GMNoCar)
 			{
-				prevgmst = GMNoCar;
-				gmst = GMUnknow;
-			}*/
-			else
-			{
-				// adjust benchmark at first and fill the array
+				// adjust benchmark at first 10 times and fill the array
 				if ( tmpbenchcnt < BENCH_AVG_LEN)
 					normrgltGMbenchmk(tmpX,tmpY,tmpZ);
 				// adjust benchmark ervery 5*120=10min
@@ -287,35 +291,36 @@ void gm_data_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 				else
 					PrintGMvalue(COM433_DEBUG_PORT, "\r\nR:",tmpX,tmpY,tmpZ);
 			}
+			else if ( tmpgmst == GMError )
+			{
+				// Send error data
+				set_heart_beat();
+			}
+			else
+			{
+				// GMUnknow do nothing
+			}
 			
 			break;
+		}
 		case GMGetCar:
-			if (checkcarin(tmpX,tmpY,tmpZ) == FALSE)
+		{
+			tmpgmst = checkcarout(tmpX,tmpY,tmpZ);
+			if ( tmpgmst == GMNoCar)
 			{
-				gmst = changeGMstate(gmst);
+				gmst = tmpgmst;
+				set_data_change();
 				normrgltGMbenchmk(tmpX,tmpY,tmpZ);
 			}
-			/*else if (CALC_ABS(tmpZ-Zbenchmk)<sqrthrhld[dtdetectlvl-1] && CALC_ABS(tmpZ-Zbenchmk)>noisethrhld)
+			else if ( tmpgmst == GMError )
 			{
-				prevgmst = GMGetCar;
-				gmst = GMUnknow;
-			}*/
+				// Send error data
+				set_heart_beat();
+			}
 			else
 				PrintGMvalue(COM433_DEBUG_PORT, "\r\nDR:",tmpX,tmpY,tmpZ);
 			break;
-		case GMUnknow:
-			/*if (prevgmst == GMNoCar)
-			{
-				if (CALC_ABS(tmpZ-Zbenchmk)>sqrthrhld[dtdetectlvl-1])
-					gmst = changeGMstate(prevgmst);
-			}
-			else if (prevgmst == GMGetCar )
-			{
-				if (CALC_ABS(tmpZ-Zdtctval)>sqrthrhld[dtdetectlvl-1] && CALC_ABS(tmpZ-Zbenchmk)<=noisethrhld )
-					gmst = changeGMstate(prevgmst);
-				
-			}*/
-			break;
+		}
 		case GMFirstBoot:
 			// Discard first data and set second data to no car benchmark
 			if ( ++readcnt == 2 )
@@ -325,6 +330,8 @@ void gm_data_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 				set_heart_beat();
 			}
 			break;
+		case GMUnknow:
+		case GMError:
 		default:
 			break;
 	}
@@ -408,21 +415,6 @@ void stopresend(uint8 *data, uint8 len)
  */
 
 /*********************************************************************
- * @fn		changeGMstate
- *
- * @brief	Change GM & lot status.
- *
- * @param	curstate - current state.
- *
- * @return	new state
- */
-static gmstatus_t changeGMstate(gmstatus_t curstate)
-{
-	set_data_change();
-	return (curstate==GMNoCar? GMGetCar: GMNoCar);
-}
-
-/*********************************************************************
  * @fn		checkcarin
  *
  * @brief	Check lot status.
@@ -433,7 +425,7 @@ static gmstatus_t changeGMstate(gmstatus_t curstate)
  *
  * @return	none
  */
-static bool checkcarin(int16 tmpX, int16 tmpY, int16 tmpZ)
+static gmstatus_t checkcarin(int16 tmpX, int16 tmpY, int16 tmpZ)
 {
 	uint32 xdev,ydev,zdev,devsqrsum;
 
@@ -443,13 +435,64 @@ static bool checkcarin(int16 tmpX, int16 tmpY, int16 tmpZ)
 
 	devsqrsum = xdev*xdev+ydev*ydev+zdev*zdev;
 
+	if (devsqrsum >= sqrthrhld[dtdetectlvl-1] && devsqrsum < GM_ERROR_VALUE)
+		return GMGetCar;
+	else if (devsqrsum < sqrthrhld[dtdetectlvl-1]/2)
+		return GMNoCar;
+	else if (devsqrsum >= sqrthrhld[dtdetectlvl-1]/2 && devsqrsum < sqrthrhld[dtdetectlvl-1] )
+		return GMUnknow;
 	// >800 means error
-	if (devsqrsum > sqrthrhld[dtdetectlvl-1] && devsqrsum < 640000)
-		return TRUE;
-
-	return FALSE;
-
+	else
+		return GMError;
 }
+
+/*********************************************************************
+ * @fn		checkcarout
+ *
+ * @brief	Check lot status.
+ *
+ * @param	tmpX - X axis read value.
+ * @param	tmpY - Y axis read value.
+ * @param	tmpZ - Z axis read value.
+ *
+ * @return	none
+ */
+static gmstatus_t checkcarout(int16 tmpX, int16 tmpY, int16 tmpZ)
+{
+	uint32 xdev,ydev,zdev,devsqrsum;
+
+	// normal check
+	if ( tmpbenchcnt != 0 )
+	{
+		xdev = CALC_ABS(tmpX-Xbenchmk);
+		ydev = CALC_ABS(tmpY-Ybenchmk);
+		zdev = CALC_ABS(tmpZ-Zbenchmk);
+
+		devsqrsum = xdev*xdev+ydev*ydev+zdev*zdev;
+
+		if (devsqrsum < sqrthrhld[dtdetectlvl-1]/2)
+			return GMNoCar;
+		else if (devsqrsum >= GM_ERROR_VALUE)
+			return GMError;
+		else
+			return GMGetCar;
+	}
+	// gmstatus modified by GTE
+	else
+	{
+		xdev = CALC_ABS(tmpX-Xdtctval);
+		ydev = CALC_ABS(tmpY-Ydtctval);
+		zdev = CALC_ABS(tmpZ-Zdtctval);
+
+		devsqrsum = xdev*xdev+ydev*ydev+zdev*zdev;
+
+		if ( devsqrsum >= sqrthrhld[dtdetectlvl-1] )
+			return GMNoCar;
+		else
+			return GMGetCar;
+	}
+}
+
 
 /*********************************************************************
  * @fn		modifybenchmk
@@ -474,7 +517,7 @@ static void modifybenchmk(gmstatus_t newstts)
 	if (newstts == GMGetCar)
 	{
 		initbnchmk(newstts,Xbenchmk,Ybenchmk,Zbenchmk);
-		tmpbenchcnt = 0;	// previous benchmark invalid, when perform checkCarOut
+		tmpbenchcnt = 0;	// previous benchmark invalid, when perform checkcarout
 	}
 	// Get Car-->No Car
 	else

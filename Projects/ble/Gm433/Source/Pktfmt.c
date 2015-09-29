@@ -489,8 +489,14 @@ static void presetParamresp(uint8 *data, uint8 len)
 {
 	uint8 stfreq;
 
-	if (data[0] != EID_GTE_SET_REQ || len != GDE_PREREQ_LEN)
+	if ( getsysstate() == SYS_SETUP)
 		return;
+
+	if ( data[0] != EID_GTE_SET_REQ || len != GDE_PREREQ_LEN )
+		return;
+
+	// Change dest ID to GTE ID
+	RFdestID = RFGTEID;
 	
 	stfreq = data[ELM_HDR_SIZE];
 	// Use device own setup frequency if set value is 0 else change setup frequency
@@ -498,10 +504,7 @@ static void presetParamresp(uint8 *data, uint8 len)
 
 	rfdataform(GDE_ST_T_REQ_ACK, &RFstfrq, sizeof(RFstfrq));
 	// change system state after data send
-	setsysstate(SYS_SETUP);
-
-	// Change dest ID to GTE ID
-	RFdestID = RFGTEID;
+	setsysstate(SYS_WAITING);
 }
 
 
@@ -600,9 +603,10 @@ static rferr_t rfdatasend(uint8 *buf, uint8 len)
 #if ( defined USE_CC112X_RF )
 	txdata(buf,len);
 #else
+	//Copy send data to buffer and wait 250ms for TEN308 RF wake up
 	osal_memcpy(rfsndbuf,buf,len);
 	rfsndlen = len;
-	prepare_TEN_send();
+	osal_start_timerEx(BLECore_TaskId,RF_RXTX_RDY_EVT,250);
 #endif	// USE_CC112X_RF
 
 	return RF_SUCCESS;

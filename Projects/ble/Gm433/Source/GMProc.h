@@ -12,6 +12,8 @@ extern "C" {
 
 #define GM_INVALID_TEMPR		0x7F
 
+
+#define SEC_IN_MIN		60UL
 #define MILSEC_IN_MIN	60000UL
 
 typedef enum gmstatus
@@ -19,7 +21,8 @@ typedef enum gmstatus
 	GMNoCar=0,
 	GMGetCar,
 	GMUnknow,
-	GMFirstBoot
+	GMFirstBoot,
+	GMError
 }gmstatus_t;
 
 typedef enum sendtype
