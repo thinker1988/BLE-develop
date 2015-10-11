@@ -47,6 +47,7 @@ extern void Com433WriteBoth(uint8 *pBuffer, uint16 length);
 extern void Com433WriteIntBoth( char *title, int16 value, uint8 format);
 
 extern void PrintGMvalue(uint8 port, char * pBuffer, int16 xval, int16 yval, int16 zval);
+extern void IntConvertString(uint8 *buf, int16 val);
 #ifdef __cplusplus
 }
 #endif

@@ -17,6 +17,22 @@
 #define PKTLEN				64
 #define RX_FIFO_ERROR		0x11
 
+/**********TEN308 RF GPIO define**********/
+#if ( !defined USE_CC112X_RF )
+#define TEN308_DIOA_PINSEL			P0SEL
+#define TEN308_DIOA_PINDIR			P0DIR
+#define TEN308_DIOA_PININP			P0INP
+#define TEN308_DIOA_GPIO			BV(6)
+#define TEN308_DIOA_PIN				P0_6
+
+#define TEN308_DIOB_PINSEL			P1SEL
+#define TEN308_DIOB_PINDIR			P1DIR
+#define TEN308_DIOB_PININP			P1INP
+#define TEN308_DIOB_GPIO			BV(2)
+#define TEN308_DIOB_PIN				P1_2
+#endif	// !USE_CC112X_RF
+
+
 //modified by lan 15.8.3, control by app
 #define SPI_CSN_PXDIR				P1DIR
 #define SPI_CSN_PIN					P1_4
@@ -60,7 +76,7 @@ enum RFworkingmode{
 #if ( defined USE_CC112X_RF )
 uint8 RFwkfrq = 0x07,RFstfrq = 0x01,RFupgfrq = 0x0C;
 #else
-uint8 RFwkfrq = 0x02,RFstfrq = 0x02,RFupgfrq = 0x02;
+uint8 RFwkfrq = 0x01,RFstfrq = 0x01,RFupgfrq = 0x02;
 #endif	// USE_CC112X_RF
 
 /*********************************************************************
@@ -88,9 +104,10 @@ static uint8 RFmode = RF_IDLE_M;
 
 // Test ready
 static bool RFrxtxRdy;
+
 #else
-uint8 setrfbuf[20];
-uint8 setrflen;
+// TEN RF state
+static tenRFstate_t TENRFst=TEN_RF_PRESET;
 
 #endif	// USE_CC112X_RF
 
@@ -104,9 +121,13 @@ static uint8 RFairbaud = 0x05;
 // CC1120: 15dBm
 static uint8 RFpwr = 0x08;	// Max level
 
+static bool RFrxtx=FALSE; 
+
 /*********************************************************************
  * LOCAL FUNCTIONS
  */
+static void InitRFCfg(sysstate_t state);
+
 static void registerConfig(sysstate_t state);
 
 #if ( defined USE_CC112X_RF )
@@ -127,45 +148,78 @@ static uint8 trxSingleRX(void);
 static void manualCalibration(void);
 
 #else
-static uint8 fromTENcmd(bool wrDir, uint8 *wrbuf, uint8 freq);
+static void TENRFwakeup(void);
+static void TENRFsleep(void);
 
-#endif
+static uint8 FromTENCmd(bool wrDir, uint8 *wrbuf, uint8 freq);
+
+
+#endif	// USE_CC112X_RF
 /*********************************************************************
  * PUBLIC FUNCTIONS
  */
-void initRFcfg(sysstate_t state)
+
+void SetRFstate(tenRFstate_t ntenRFst)
 {
-	registerConfig(state);
+	TENRFst = ntenRFst;
+}
 
-#if ( defined USE_CC112X_RF )
-	uint8 rfvern;
-	
-	cc112xSpiReadReg(CC112X_PARTNUMBER, &rfvern, 1);
-	//Com433WriteInt(COM433_DEBUG_PORT, "\r\nDEV", rfvern, 16);
+tenRFstate_t GetRFstate(void)
+{
+	return TENRFst;
+}
 
-	// Chip ID is not CC1120
-	if ( rfvern != 0x48 )
-		return;
+void RF_working(uint8 task_id, tenRFstate_t ntenRFst)
+{
+	TENRFst = ntenRFst;
+	switch (TENRFst)
+	{
+		case TEN_RF_PRESET:
+			RFwakeup();
+			InitRFCfg(GetSysState());
+			TENRFst = TEN_RF_SET;
+			osal_start_timerEx(task_id, RF_DATA_PROC_EVT,WAIT_TEN_START_PERIOD);
+			break;
+		case TEN_RF_SET:
+			if ( rfsndlen > 0 )
+			{
+				Com433Write(COM433_WORKING_PORT, rfsndbuf, rfsndlen);
+				rfsndlen = 0;
+			}
+			TENRFst = TEN_RF_WAIT_SET;
+			osal_start_timerEx(task_id, RF_DATA_PROC_EVT, WAIT_TEN_CMD_PERIOD);
+			break;
+		case TEN_RF_WAIT_SET:
+			RFsleep();
+			TENRFst = TEN_RF_WAKEUP;
+			osal_start_timerEx(task_id, RF_DATA_PROC_EVT, WAIT_TEN_STOP_PERIOD);
+			break;
+		case TEN_RF_WAKEUP:
+			if (osal_get_timeoutEx(task_id, RF_DATA_PROC_EVT) == 0)
+			{
+				RFwakeup();
+				TENRFst = TEN_RF_WORK;
+				osal_start_timerEx(task_id, RF_DATA_PROC_EVT, WAIT_TEN_RF_RDY_PERIOD);
+			}
+			break;
+		case TEN_RF_WORK:
+			if ( rfsndlen > 0 )
+			{
+				Com433Write(COM433_WORKING_PORT, rfsndbuf, rfsndlen);
+				rfsndlen = 0;
+			}
+			break;
+		case TEN_RF_SLEEPING:
+			RFsleep();
+		default:
+			break;
+	}
 
-	cc112xSpiReadReg(CC112X_PARTVERSION, &rfvern, 1);
-	//Com433WriteInt(COM433_DEBUG_PORT, "\r\nVERN", rfvern, 16);
-
-	// CC1120 version is 0x21, need calibration
-	if ( rfvern == 0x21 )
-		manualCalibration();
-	else
-		trxSpiCmdStrobe(CC112X_SCAL);
-	
-	trxSyncIntCfg();
-
-	// enter low power mode
-	//RFentersleep();
-//	Com433WriteStr(COM433_DEBUG_PORT,"\r\nOK!");
-#endif	// USE_CC112X_RF
+	return;
 }
 
 /*********************************************************************
- * @fn		readRFparam
+ * @fn		ReadRFParam
  *
  * @brief	Read GDE RF parameters.
  *
@@ -173,7 +227,7 @@ void initRFcfg(sysstate_t state)
  *
  * @return	none
  */
-void readRFparam(uint8 * rdbuf)
+void ReadRFParam(uint8 * rdbuf)
 {
 	rdbuf[ST_RF_FREQ_POS] = RFwkfrq;
 	rdbuf[ST_RF_ST_FREQ_POS] = RFstfrq;
@@ -184,7 +238,7 @@ void readRFparam(uint8 * rdbuf)
 
 
 /*********************************************************************
- * @fn		setRFparam
+ * @fn		SetRFParam
  *
  * @brief	Set GDE RF parameters.
  *
@@ -196,7 +250,7 @@ void readRFparam(uint8 * rdbuf)
  *
  * @return	TRUE - setup result OK
  */
-bool setRFparam(uint8 wkfreq, uint8 setfreq, uint8 upgdfreq, uint8 baud, uint8 pwlvl)
+bool SetRFParam(uint8 wkfreq, uint8 setfreq, uint8 upgdfreq, uint8 baud, uint8 pwlvl)
 {
 	if (CHECK_FREQ_VALID(wkfreq) && CHECK_FREQ_VALID(setfreq) && CHECK_FREQ_VALID(upgdfreq))
 	{
@@ -217,6 +271,60 @@ bool setRFparam(uint8 wkfreq, uint8 setfreq, uint8 upgdfreq, uint8 baud, uint8 p
 
 	return FALSE;
 }
+
+
+void RFwakeup(void)
+{
+	if (RFrxtx == TRUE)
+		return;
+
+	RFrxtx = TRUE;
+#if ( !defined USE_CC112X_RF )
+	TENRFwakeup();
+#endif	// !USE_CC112X_RF
+}
+
+void RFsleep(void)
+{
+	if (RFrxtx == FALSE)
+		return;
+
+	RFrxtx = FALSE;
+#if ( defined USE_CC112X_RF )
+	RFentersleep();
+#else
+	TENRFsleep();
+#endif	// USE_CC112X_RF
+}
+
+#if ( !defined USE_CC112X_RF )
+static void TENRFwakeup(void)
+{
+	TEN308_DIOA_PINSEL &= (uint8) ~TEN308_DIOA_GPIO;
+	TEN308_DIOA_PINDIR |= (uint8) TEN308_DIOA_GPIO;
+	TEN308_DIOA_PIN = 0;
+
+	TEN308_DIOB_PINSEL &= (uint8) ~(TEN308_DIOB_GPIO);
+	TEN308_DIOB_PINDIR |= (uint8) (TEN308_DIOB_GPIO);
+	TEN308_DIOB_PIN = 0;
+}
+
+static void TENRFsleep(void)
+{
+	TEN308_DIOA_PINSEL &= (uint8) ~(TEN308_DIOA_GPIO);
+	TEN308_DIOA_PINDIR &= (uint8) ~(TEN308_DIOA_GPIO);
+	//TEN308_DIOA_PINDIR |= (uint8) (TEN308_DIOA_GPIO);
+	TEN308_DIOA_PININP |= (uint8)(TEN308_DIOA_GPIO);
+	//TEN308_DIOA_PIN = 1;
+
+	TEN308_DIOB_PINSEL &= (uint8) ~(TEN308_DIOB_GPIO);
+	TEN308_DIOB_PINDIR &= (uint8) ~(TEN308_DIOB_GPIO);
+	//TEN308_DIOB_PINDIR |= (uint8) (TEN308_DIOB_GPIO);
+	TEN308_DIOB_PININP |= (uint8) (TEN308_DIOB_GPIO);
+	//TEN308_DIOB_PIN = 1;
+}
+#endif	// !USE_CC112X_RF
+
 
 void tx_test(void)
 {
@@ -421,6 +529,37 @@ void RFmodechange(void)
 * Private functions
 */
 
+static void InitRFCfg(sysstate_t state)
+{
+	registerConfig(state);
+
+#if ( defined USE_CC112X_RF )
+	uint8 rfvern;
+	
+	cc112xSpiReadReg(CC112X_PARTNUMBER, &rfvern, 1);
+	//Com433WriteInt(COM433_DEBUG_PORT, "\r\nDEV", rfvern, 16);
+
+	// Chip ID is not CC1120
+	if ( rfvern != 0x48 )
+		return;
+
+	cc112xSpiReadReg(CC112X_PARTVERSION, &rfvern, 1);
+	//Com433WriteInt(COM433_DEBUG_PORT, "\r\nVERN", rfvern, 16);
+
+	// CC1120 version is 0x21, need calibration
+	if ( rfvern == 0x21 )
+		manualCalibration();
+	else
+		trxSpiCmdStrobe(CC112X_SCAL);
+	
+	trxSyncIntCfg();
+
+	// enter low power mode
+	//RFentersleep();
+//	Com433WriteStr(COM433_DEBUG_PORT,"\r\nOK!");
+#endif	// USE_CC112X_RF
+}
+
 /*********************************************************************
  * @fn		registerConfig
  *
@@ -436,11 +575,23 @@ static void registerConfig(sysstate_t state)
 
 	switch (state)
 	{
-		case SYS_WORKING: freqsel = RFwkfrq-1; break;
-		case SYS_SETUP: freqsel = RFstfrq-1; break;
-		case SYS_UPGRADE: freqsel = RFupgfrq-1; break;
+		case SYS_BOOTUP:
+			freqsel = 0;	// always use 433 for bootup
+			break;
+		case SYS_WORKING:
+		case SYS_WAITING:
+			freqsel = RFwkfrq-1;
+			break;
+		case SYS_SETUP:
+			freqsel = RFstfrq-1;
+			break;
+		case SYS_UPGRADE:
+			freqsel = RFupgfrq-1;
+			break;
 		case SYS_SLEEPING:
-		default: 
+		case SYS_DORMANT:
+		default:
+			RFsleep();
 			return;
 	}
 
@@ -478,11 +629,7 @@ static void registerConfig(sysstate_t state)
 
 #else
 
-	// Set RF at each boot
-	TENRFst = TEN_RF_SET;
-	osal_start_timerEx(BLECore_TaskId, TEN_RF_SET_EVT,200);
-
-	setrflen = fromTENcmd(TRUE, setrfbuf, freqsel);
+	rfsndlen = FromTENCmd(TRUE, rfsndbuf, freqsel);
 #endif	// !defined USE_CC112X_RF
 }
 
@@ -1048,7 +1195,7 @@ HAL_ISR_FUNCTION(RF_RTX_RDY_Isr, P1INT_VECTOR)
 #else
 
 /*********************************************************************
- * @fn		fromTENcmd
+ * @fn		FromTENCmd
  *
  * @brief	Form TEN308 serial command.
  *
@@ -1058,7 +1205,7 @@ HAL_ISR_FUNCTION(RF_RTX_RDY_Isr, P1INT_VECTOR)
  *
  * @return	Length of cmd buf.
  */
-static uint8 fromTENcmd(bool wrDir, uint8 *wrbuf, uint8 freq)
+static uint8 FromTENCmd(bool wrDir, uint8 *wrbuf, uint8 freq)
 {
 	uint8 header[]={0xFF,0x56,0xAE,0x35,0xA9,0x55};
 	uint8 curlen = sizeof(header);

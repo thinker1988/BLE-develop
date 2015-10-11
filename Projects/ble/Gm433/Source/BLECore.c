@@ -1,41 +1,9 @@
-/**************************************************************************************************
-	Filename:			 simpleBLECentral.c
-	Revised:				$Date: 2011-06-20 11:57:59 -0700 (Mon, 20 Jun 2011) $
-	Revision:			 $Revision: 28 $
+/********************************************************************
+	Filename:	BLECore.c
+	Revised:		Date: 2015-08-12
+	Revision:	1.0 
 
-	Description:		This file contains the Simple BLE Central sample application 
-									for use with the CC2540 Bluetooth Low Energy Protocol Stack.
-
-	Copyright 2010 Texas Instruments Incorporated. All rights reserved.
-
-	IMPORTANT: Your use of this Software is limited to those specific rights
-	granted under the terms of a software license agreement between the user
-	who downloaded the software, his/her employer (which must be your employer)
-	and Texas Instruments Incorporated (the "License").	You may not use this
-	Software unless you agree to abide by the terms of the License. The License
-	limits your use, and you acknowledge, that the Software may not be modified,
-	copied or distributed unless embedded on a Texas Instruments microcontroller
-	or used solely and exclusively in conjunction with a Texas Instruments radio
-	frequency transceiver, which is integrated into your product.	Other than for
-	the foregoing purpose, you may not use, reproduce, copy, prepare derivative
-	works of, modify, distribute, perform, display or sell this Software and/or
-	its documentation for any purpose.
-
-	YOU FURTHER ACKNOWLEDGE AND AGREE THAT THE SOFTWARE AND DOCUMENTATION ARE
-	PROVIDED “AS IS?WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED,
-	INCLUDING WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, TITLE,
-	NON-INFRINGEMENT AND FITNESS FOR A PARTICULAR PURPOSE. IN NO EVENT SHALL
-	TEXAS INSTRUMENTS OR ITS LICENSORS BE LIABLE OR OBLIGATED UNDER CONTRACT,
-	NEGLIGENCE, STRICT LIABILITY, CONTRIBUTION, BREACH OF WARRANTY, OR OTHER
-	LEGAL EQUITABLE THEORY ANY DIRECT OR INDIRECT DAMAGES OR EXPENSES
-	INCLUDING BUT NOT LIMITED TO ANY INCIDENTAL, SPECIAL, INDIRECT, PUNITIVE
-	OR CONSEQUENTIAL DAMAGES, LOST PROFITS OR LOST DATA, COST OF PROCUREMENT
-	OF SUBSTITUTE GOODS, TECHNOLOGY, SERVICES, OR ANY CLAIMS BY THIRD PARTIES
-	(INCLUDING BUT NOT LIMITED TO ANY DEFENSE THEREOF), OR OTHER SIMILAR COSTS.
-
-	Should you have any questions regarding your right to use this Software,
-	contact Texas Instruments Incorporated at www.TI.com.
-**************************************************************************************************/
+*********************************************************************/
 
 /*********************************************************************
  * INCLUDES
@@ -48,8 +16,6 @@
 
 #include "hal_led.h"
 #include "hal_lcd.h"
-#include "hal_i2c.h"
-#include "hal_adc.h"
 
 #include "BLECore.h"
 #include "Com433.h"
@@ -72,133 +38,40 @@
 /*********************************************************************
  * MACROS
  */
-#define CLAC_GM_TEMPR(HiBt,LoBt)			(((HiBt)<<8+(LoBt))>>7+GM_BASE_TEMPR)
 
 /*********************************************************************
  * CONSTANTS
  */
+ 
+/********** BLE peripheral params define**********/
 #if ( !defined NOT_USE_BLE_STACK && defined ALLOW_BLE_ADV )
-#define BLE_CORE_DEV_TYPE				0xC9C9
+// Adv type
+#define BLE_CORE_DEV_TYPE			0xC9C9
 
-#define BLE_CORE_ADV_INTVL				8000		//(units of 625us, 8000*0.625
+// Adv interval (*0.625ms)
+#define BLE_CORE_ADV_INTVL			8000		//(units of 625us, 8000*0.625
 
-#define BLE_CORE_MIN_CON_INTVL			80
+// Min connect event interval (*1.25ms)
+#define BLE_CORE_MIN_CON_INTVL		80
 
-#define BLE_CORE_MAX_CON_INTVL			80
+// Max connect event interval (*1.25ms)
+#define BLE_CORE_MAX_CON_INTVL		80
 
-#define BLE_CORE_SLAVE_LATENCY			0
+// Slave latency = slave ignore event times
+#define BLE_CORE_SLAVE_LATENCY		0
 
-#define BLE_CORE_CON_TIMEOUT			50
+// Connection time out (*10ms)
+#define BLE_CORE_CON_TIMEOUT		50
 
-#define BLE_CORE_UPDATE_FLAG			TRUE
+// Enable connection parameter update
+#define BLE_CORE_UPDATE_FLAG		TRUE
 
-#define BLE_CORE_UPDATE_PAUSE			1
-#endif
+// Begin update parameters after connection (*1s)
+#define BLE_CORE_UPDATE_PAUSE		1
+#endif	// !NOT_USE_BLE_STACK && ALLOW_BLE_ADV
 
-
-//  Geomagnetic sensor ID
-#define GM_ID_STR						"H43"
-
-//G-Sensor I2C address
-#define GM_I2C_ADDR					0x1E
-
-//G-Sensor register address
-#define GM_CONFIG_A_REG				0x00
-#define GM_CONFIG_B_REG				0x01
-#define GM_MODE_REG					0x02
-#define GM_X_AXIS_MSB_REG				0x03
-#define GM_X_AXIS_LSB_REG				0x04
-#define GM_Z_AXIS_MSB_REG				0x05
-#define GM_Z_AXIS_LSB_REG				0x06
-#define GM_Y_AXIS_MSB_REG				0x07
-#define GM_Y_AXIS_LSB_REG				0x08
-#define GM_STATUS_REG					0x09
-#define GM_ID_A_REG					0x0A
-#define GM_ID_B_REG					0x0B
-#define GM_ID_C_REG					0x0C
-#define GM_TEMPR_MSB_REG				0x31
-#define GM_TEMPR_LSB_REG				0x32
-
-//GM base temperature
-#define GM_BASE_TEMPR 					25
-
-// enable temperature sensor, 8 average 15Hzoutput rate
-#define SET_GM_NORMAL				0xF0
-
-// Gaim =5
-#define SET_GM_GAIN					0xA0
-
-// Single measurement
-#define SET_GM_READ_ONCE			0x21
-
-// Sleep mode
-#define SET_GM_SLEEP_MODE			0x03
-
-
-
-/******************************
-	HW_VERN  0:	use Dupont line connect GM detector
-	HW_VERN  1:	use TEN308 as RF
-	HW_VERN  2:	use TI CC1121 as RF
-*******************************/
-
-/***************GM detector define********************/
-#if ( !defined HW_VERN ) || ( HW_VERN == 0 )
-#define GM_DRDY_INT_PINSEL 			P1SEL
-#define GM_DRDY_INT_PINDIR			P1DIR
-#define GM_DRDY_INT_PXIFG			P1IFG
-#define GM_DRDY_INT_PXIF 			P1IF
-#define GM_DRDY_INT_PXIEN 			P1IEN
-
-#define GM_DRDY_INT_IE				BV(6)
-
-#elif ( HW_VERN >= 1 )
-
-#define GM_DRDY_INT_PINSEL 			P0SEL
-#define GM_DRDY_INT_PINDIR			P0DIR
-#define GM_DRDY_INT_PXIFG			P0IFG
-#define GM_DRDY_INT_PXIF 			P0IF
-#define GM_DRDY_INT_PXIEN 			P0IEN
-#define GM_DRDY_INT_IE				BV(1)
-
-// Hgswitch high:deep sleep; low:working
-#define DEV_EN_INT_PINSEL 			P0SEL
-#define DEV_EN_INT_PINDIR			P0DIR
-#define DEV_EN_INT_PXIEN 			P0IEN
-#define DEV_EN_INT_IE				BV(4)
-#define DEV_EN_INT_PXIFG			P0IFG
-
-#define DEV_EN_INT_PIN				P0_4
-
-#endif
-#define GM_DRDY_INT_ENABLE()		st( GM_DRDY_INT_PXIEN |= GM_DRDY_INT_IE; )
-#define GM_DRDY_INT_DISABLE()		st( GM_DRDY_INT_PXIEN &= ~GM_DRDY_INT_IE; )
-
-#define DEV_EN_INT_ENABLE()			st( DEV_EN_INT_PXIEN |= DEV_EN_INT_IE; )
-#define DEV_EN_INT_DISABLE()		st( DEV_EN_INT_PXIEN &= ~DEV_EN_INT_IE; )
-
-
-/***************TEN308 RF define********************/
-#if ( !defined USE_CC112X_RF )
-#define TEN308_DIOA_PINSEL				P0SEL
-#define TEN308_DIOA_PINDIR				P0DIR
-#define TEN308_DIOA_PININP				P0INP
-#define TEN308_DIOA_GPIO				BV(6)
-#define TEN308_DIOA_PIN					P0_6
-
-#define TEN308_DIOB_PINSEL				P1SEL
-#define TEN308_DIOB_PINDIR				P1DIR
-#define TEN308_DIOB_PININP				P1INP
-#define TEN308_DIOB_GPIO				BV(2)
-#define TEN308_DIOB_PIN					P1_2
-#endif	// !USE_CC112X_RF
-
-
-// ADC expected value : (V*100/370)/1.25*2047
-// MAX : 3.8~1682		MIN : 2.5~1106
-#define BATT_ADC_VAL_MAX					1682
-#define BATT_ADC_VAL_MIN					1106
-
+/**********Other params define**********/
+// BLE MAC store address in FLASH
 #define BLE_MAC_ADDR_IN_FLASH		0x780E
 
 /*********************************************************************
@@ -212,25 +85,18 @@
 // Task ID for internal task/event processing
 uint8 BLECore_TaskId;
 
-#if ( !defined USE_CC112X_RF )
-tenRFstate_t TENRFst=TEN_RF_SET;
-#endif	// ! USE_CC112X_RF
 
 /*********************************************************************
  * EXTERNAL VARIABLES
  */
-// Heart beat time out
-extern uint32 hrtbt_inmin;
-extern uint8 btprcnt;
 
 #if ( !defined USE_CC112X_RF )
+// TEN RF send data buf & length
 extern uint8 rfsndbuf[];
 extern uint8 rfsndlen;
 
-extern uint8 setrfbuf[];
-extern uint8 setrflen;
-
 #endif	// ! USE_CC112X_RF
+
 /*********************************************************************
  * EXTERNAL FUNCTIONS
  */
@@ -238,22 +104,17 @@ extern uint8 setrflen;
 /*********************************************************************
  * LOCAL VARIABLES
  */
+// Random seeds
 static uint32 next=1;
 
-// Random wait time in ms, calculate by last 4 MAC bytes.
-static uint32 randwait_inms;
+// Device state refer to desiged state machine
+static sysstate_t Devstate = SYS_BOOTUP;
 
-static sysstate_t Devstate = SYS_WORKING;
-
-static bool synctm;
-
-static i2cClock_t i2cclk = i2cClock_123KHZ;
-
-static bool RFrxtx=FALSE; 
-
+// Already in setup mode flag
+static bool setupflg = FALSE;
 
 #if ( !defined NOT_USE_BLE_STACK && defined ALLOW_BLE_ADV )
-// GAP - Advertisement data (max size = 31 bytes, though this is best kept short to conserve power while advertisting)
+// Advertisement data (max size = 31 bytes, though this is best kept short to conserve power while advertisting)
 static uint8 BLECoreAdvData[] =
 {
 	// Flags; this sets the device to use limited discoverable mode (advertises for 30 seconds at a time),
@@ -269,7 +130,7 @@ static uint8 BLECoreAdvData[] =
 	HI_UINT16(BLE_CORE_DEV_TYPE),
 };
 
-// GAP - SCAN RSP data (max size = 31 bytes)
+// Scan response data (max size = 31 bytes)
 static uint8 BLECoreScanRespData[] =
 {
 	// complete name
@@ -285,36 +146,20 @@ static uint8 BLECoreScanRespData[] =
 	LO_UINT16( BLE_CORE_MAX_CON_INTVL ),
 	HI_UINT16( BLE_CORE_MAX_CON_INTVL ),
 };
-#endif
+#endif	// !NOT_USE_BLE_STACK && ALLOW_BLE_ADV
 
 /*********************************************************************
  * LOCAL FUNCTIONS
  */
-#if ( !defined USE_CC112X_RF )
-static void TENRFwakeup(void);
-static void TENRFsleep(void);
-#endif	// !USE_CC112X_RF
 
-static void stopAlltimer(uint8 task_id);
+static void StopAllTimer(uint8 task_id);
 
-static bool GM_dev_init(void);
-static void GM_dev_stop(void);
+static void SYS_WS_INT_PIN_Enable(void);
+static void SYS_WS_INT_Cfg(uint8 task_id, sysstate_t cursysst);
+static void SYS_WS_INT_PIN_Disable(void);
 
-static void prepare_gm_read(void);
-static void read_gm_data(void);
-
-static bool gm_read_reg(uint8 addr,uint8 * pBuf,uint8 nBytes);
-static bool gm_write_reg(uint8 addr, uint8 *pBuf, uint8 nBytes);
-
-#if 0
-static void GM_DRDY_INT_Cfg(void);
-#endif
-
-static sysstate_t SYS_WS_INT_Cfg(void);
-static void SYS_WS_INT_disable(void);
-
-static uint32 c_rand(void);
 static void c_srand(uint32 seed);
+static uint32 c_rand(void);
 
 static void ReadBLEMac(uint8 * mac_addr);
 
@@ -322,33 +167,30 @@ static void ReadBLEMac(uint8 * mac_addr);
 static void init_gap_periph_role(void);
 static void init_gap_periph_params(void);
 static void BLECorePeriphNotiCB(gaprole_States_t newState);
-#endif
+#endif	// !NOT_USE_BLE_STACK && ALLOW_BLE_ADV
 
 /*********************************************************************
  * PROFILE CALLBACKS
  */
+// BLE peripheral profile callbacks
 #if ( !defined NOT_USE_BLE_STACK && defined ALLOW_BLE_ADV )
 static gapRolesCBs_t BLECore_PeriphCBs =
 {
 	BLECorePeriphNotiCB,	// Profile State Change Callbacks
-	NULL							// When a valid RSSI is read from controller (not used by application)
+	NULL					// When a valid RSSI is read from controller (not used by application)
 };
-#endif
+#endif	// !NOT_USE_BLE_STACK && ALLOW_BLE_ADV
+
 /*********************************************************************
  * PUBLIC FUNCTIONS
  */
 
 /*********************************************************************
- * @fn			BLECore_Init
+ * @fn		BLECore_Init
  *
- * @brief	 Initialization function for the Simple BLE Central App Task.
- *					This is called during initialization and should contain
- *					any application specific initialization (ie. hardware
- *					initialization/setup, table initialization, power up
- *					notification).
+ * @brief	Initialization function for the BLECore app task.
  *
- * @param	 task_id - the ID assigned by OSAL.	This ID should be
- *										used to send messages and set timers.
+ * @param	task_id - the ID assigned by OSAL. This ID should be used to send messages and set timers.
  *
  * @return	none
  */
@@ -357,13 +199,10 @@ void BLECore_Init( uint8 task_id )
 	uint8 BleMac[B_ADDR_LEN];
 	BLECore_TaskId = task_id;
 
-	// Do not enter power saving
-	powerhold(task_id);
-
-	//HalLedBlink( HAL_LED_ALL,5,50,1000);
+	// Init debug port and RF port
 	Com433_Init();
 
-	// Read reverse order MAC address into buffer
+	// Read reverse order MAC address into buffer, use it as random seed
 	ReadBLEMac(BleMac);
 	c_srand(BUILD_UINT32(BleMac[0],BleMac[1],BleMac[2],BleMac[3]));
 	
@@ -373,9 +212,10 @@ void BLECore_Init( uint8 task_id )
 	init_gap_periph_role();
 	init_gap_periph_params();
 	VOID GAPRole_StartDevice( &BLECore_PeriphCBs );
-#endif
+#endif	// ALLOW_BLE_ADV & !NOT_USE_BLE_STACK
+
 	// Start working
-	osal_set_event( BLECore_TaskId, BLE_CORE_START_EVT );
+	osal_set_event( task_id, BLE_SYS_WORKING_EVT );
 
 	return;
 }
@@ -383,13 +223,11 @@ void BLECore_Init( uint8 task_id )
 /*********************************************************************
  * @fn		BLECore_ProcessEvent
  *
- * @brief	 Simple BLE Central Application Task event processor.	This function
- *					is called to process all events for the task.	Events
- *					include timers, messages and any other user defined events.
+ * @brief	BLECore task event processor.	This function is called to process all events for the task.
+ *				Events include timers, messages and any other user defined events.
  *
- * @param	 task_id	- The OSAL assigned task ID.
- * @param	 events - events to process.	This is a bit map and can
- *									 contain more than one event.
+ * @param	task_id - The OSAL assigned task ID.
+ * @param	events - events to process. This is a bit map and can contain more than one event.
  *
  * @return	events not processed
  */
@@ -403,187 +241,126 @@ uint16 BLECore_ProcessEvent( uint8 task_id, uint16 events )
 		return (events ^ SYS_EVENT_MSG);
 	}
 
-	if ( events & BLE_CORE_START_EVT )
+	if ( events & BLE_SYS_WORKING_EVT )
 	{
-#if ( defined TEST_433 )
-		initRFcfg(SYS_WORKING);
-#if 0
-		rx_test();
-#else
-		osal_start_reload_timer(task_id,HEART_BEAT_EVT,5000);
-#endif
+		sys_working(task_id, GetSysState());
 
-#else
-		Devstate = SYS_WS_INT_Cfg();
-		sys_working(task_id, Devstate);
-#endif
-
-		return ( events ^ BLE_CORE_START_EVT );
+		return ( events ^ BLE_SYS_WORKING_EVT );
 	}
 
-	if ( events & READ_GM_DATA_EVT)
+	if ( events & RF_DATA_PROC_EVT)
 	{
-		powerhold(task_id);
-		prepare_gm_read();
-/*		Com433WriteStr(COM433_WORKING_PORT,"\r\nTEST...");
-		Com433WriteStr(COM433_DEBUG_PORT,"\r\nTEST...");
+		RF_working(task_id, GetRFstate());
 
-		osal_start_timerEx(BLECore_TaskId, CORE_PWR_SAVING_EVT,500);*/
-
-		return (events ^ READ_GM_DATA_EVT);
+		return (events ^ RF_DATA_PROC_EVT);
 	}
+
+	if ( events & GM_DATA_PROC_EVT)
+	{
+		GM_working(task_id, GetGMSnState());
+
+		return (events ^ GM_DATA_PROC_EVT);
+	}
+
 	
-	if ( events & GM_DRDY_INT_INT_EVT)
+	if (events & HG_SWITCH_EVT)
 	{
-		read_gm_data();
+		SYS_WS_INT_Cfg(task_id, GetSysState());
 
-		return (events ^ GM_DRDY_INT_INT_EVT);
+		return (events ^ HG_SWITCH_EVT);
 	}
-
-	if (events & HEART_BEAT_EVT)
-	{
-#if ( defined TEST_433 )
-		tx_test();
-#else
-		set_heart_beat();
-		osal_start_timerEx(task_id, HEART_BEAT_EVT, hrtbt_inmin*MILSEC_IN_MIN);
-#endif
-
-		return (events ^ HEART_BEAT_EVT);
-	}
-
-	if (events & CORE_PWR_SAVING_EVT)
-	{
-		if (getsysstate() == SYS_WORKING)
-		{
-			powersave(task_id);
-			if (RFrxtx == TRUE)
-				RFsleep();
-		}
-		else if (getsysstate() == SYS_WAITING)
-		{
-			sys_working(task_id, SYS_SETUP);
-		}
-		
-		return (events ^ CORE_PWR_SAVING_EVT);
-	}
-
-
-	if (events & RF_RXTX_RDY_EVT)
-	{
-#if ( defined USE_CC112X_RF )
-		RFmodechange();
-#else
-		Com433Write(COM433_WORKING_PORT, rfsndbuf, rfsndlen);
-
-		// leave 1000 ms recieve here when normal working
-		osal_start_timerEx(BLECore_TaskId, CORE_PWR_SAVING_EVT, IDLE_PWR_HOLD_PERIOD);
-#endif	// USE_CC112X_RF
-		return (events ^ RF_RXTX_RDY_EVT);
-	}
-
-#if ( !defined USE_CC112X_RF )
-	if (events & TEN_RF_SET_EVT)
-	{
-		switch (TENRFst)
-		{
-			case TEN_RF_SET:
-				Com433Write(COM433_WORKING_PORT, setrfbuf, setrflen);
-				TENRFst = TEN_RF_WAIT;
-				osal_start_timerEx(task_id, TEN_RF_SET_EVT, 300);
-				break;
-			case TEN_RF_WAIT:
-				RFsleep();
-				TENRFst = TEN_RF_RESET;
-				osal_start_timerEx(task_id, TEN_RF_SET_EVT, 300);
-				break;
-			case TEN_RF_RESET:
-				RFwakeup();
-				TENRFst = TEN_RF_WORK;
-				Com433WriteStr(COM433_DEBUG_PORT, "\r\nRF OK");
-
-				if (Devstate == SYS_WORKING)
-				{
-					settmsync();
-					if (GM_dev_init() == TRUE)
-					{
-						osal_start_reload_timer(task_id,READ_GM_DATA_EVT,GM_READ_EVT_PERIOD);
-
-						// c_rand:0.001~32s, then distribute in heart beat time
-						randwait_inms = c_rand()*hrtbt_inmin*SEC_IN_MIN/33;
-						// random start first heart beat
-						osal_start_timerEx(task_id, HEART_BEAT_EVT, randwait_inms);
-					}
-					else
-						Com433WriteStr(COM433_DEBUG_PORT,"\r\nGM init failed...");
-					osal_start_timerEx(task_id, CORE_PWR_SAVING_EVT, IDLE_PWR_HOLD_PERIOD);	
-				}
-				break;
-			default:
-				break;
-		}
-	
-		return (events ^ TEN_RF_SET_EVT);
-	}
-#endif	// ! USE_CC112X_RF
 
 	return 0;
 }
 
+
+/*********************************************************************
+ * @fn		sys_working
+ *
+ * @brief	Function works like a main thread which controls system working process
+ *				and main state machines.
+ *
+ * @param	task_id - The OSAL assigned task ID, like progress ID.
+ * @param	newDevstate -New system state machine.
+ *
+ * @return	none
+ *
+ */
 void sys_working(uint8 task_id, sysstate_t newDevstate)
 {
 	Devstate = newDevstate;
 
 	switch (newDevstate)
 	{
+		case SYS_BOOTUP:
+			SYS_WS_INT_PIN_Disable();
+			// Do not enter power saving
+			PowerHold(task_id);
+			RF_working(task_id, TEN_RF_PRESET);
+			GM_working(task_id, GMSnTest);
+			break;
 		case SYS_WORKING:
-			Com433WriteStr(COM433_DEBUG_PORT,"\r\nWORKING...");
-			initDevID();
-			RFwakeup();
-			initRFcfg(SYS_WORKING);
-			initGMstate();
+			PowerHold(task_id);
+			RF_working(task_id, GetRFstate());
+			SetSysState(SYS_SLEEPING);
+			osal_start_timerEx(task_id, BLE_SYS_WORKING_EVT, IDLE_PWR_HOLD_PERIOD);
 			break;
 		case SYS_SLEEPING:
-			stopAlltimer(task_id);
-			cleartmsync();
-			GM_dev_stop();
-			RFsleep();
-			powersave(task_id);
+			PowerSave(task_id);
+			RF_working(task_id, TEN_RF_SLEEPING);
+			// First start GM data normal read, use random delay
+			if (osal_get_timeoutEx(task_id, GM_DATA_PROC_EVT) == 0)
+				osal_start_timerEx(task_id, GM_DATA_PROC_EVT, c_rand()*(GM_READ_EVT_PERIOD/MILSEC_IN_SEC)/MAX_RANDOM_SECONDS);
+			break;
+		case SYS_DORMANT:
+			RF_working(task_id, TEN_RF_SLEEPING);
+			GM_working(task_id, GMSnSleep);
+			StopAllTimer(task_id);
+			PowerSave(task_id);
 			break;
 		case SYS_SETUP:
-			Com433WriteStr(COM433_DEBUG_PORT,"\r\nSETING UP...");
-			SYS_WS_INT_disable();
-			stopAlltimer(task_id);
-			cleartmsync();
-			powerhold(task_id);
-			RFwakeup();
-			initRFcfg(newDevstate);
-			osal_start_timerEx(task_id, BLE_CORE_START_EVT, NO_OPERATION_WAIT_PERIOD);
+			if (setupflg == TRUE)
+			{
+				setupflg = FALSE;
+				InitDevID();
+				SetSysState(SYS_WORKING);
+				SetRFstate(TEN_RF_PRESET);
+				osal_set_event(task_id, BLE_SYS_WORKING_EVT);
+			}
+			else
+			{
+				setupflg = TRUE;
+				StopAllTimer(task_id);
+				// Send presetup data
+				RF_working(task_id, TEN_RF_PRESET);
+				osal_start_timerEx(task_id, BLE_SYS_WORKING_EVT, NO_OPERATION_WAIT_PERIOD);
+			}
 		case SYS_UPGRADE:
 		default:
 			break;
 	}
 }
 
-void setsysstate( sysstate_t newDevstate)
+
+void SetSysState( sysstate_t newDevstate)
 {
 	Devstate = newDevstate;
 }
 
-sysstate_t getsysstate( void )
+sysstate_t GetSysState( void )
 {
 	return Devstate;
 }
 
 /*********************************************************************
- * @fn		powersave
+ * @fn		PowerSave
  *
  * @brief		Set system power mode to PM3
  *
  * @param	none
  * @return	none
  */
-void powersave(uint8 task_id)
+void PowerSave(uint8 task_id)
 {
 #if ( defined POWER_SAVING )
 	(void)osal_pwrmgr_task_state(task_id, PWRMGR_CONSERVE);
@@ -593,14 +370,15 @@ void powersave(uint8 task_id)
 }
 
 /*********************************************************************
- * @fn		powerhold
+ * @fn		PowerHold
  *
- * @brief		Hold system power
+ * @brief	Hold system power
  *
- * @param	none
+ * @param	task_id - Task to hold power
+ *
  * @return	none
  */
-void powerhold(uint8 task_id)
+void PowerHold(uint8 task_id)
 {
 #if ( defined POWER_SAVING )
 	osal_pwrmgr_device( PWRMGR_ALWAYS_ON);
@@ -610,108 +388,6 @@ void powerhold(uint8 task_id)
 }
 
 
-void RFwakeup(void)
-{
-	RFrxtx = TRUE;
-#if ( !defined USE_CC112X_RF )
-	TENRFwakeup();
-#endif	// !USE_CC112X_RF
-}
-
-void RFsleep(void)
-{
-	RFrxtx = FALSE;
-#if ( defined USE_CC112X_RF )
-	RFentersleep();
-#else
-	TENRFsleep();
-#endif	// USE_CC112X_RF
-}
-
-/*********************************************************************
- * @fn		settmsync
- *
- * @brief	set time synchronize and get battery power
- *
- * @param	none
- *
- * @return	none
- */
-void settmsync(void)
-{
-	uint8 tmpprcnt;
-	
-	synctm = TRUE;
-	tmpprcnt = CalcBatteryPercent();
-
-	// Use old percentage if new>old
-	btprcnt = (tmpprcnt>btprcnt? btprcnt: tmpprcnt);
-}
-
-void cleartmsync(void)
-{
-	synctm = FALSE;
-}
-
-bool gettmsync(void)
-{
-	return synctm;
-}
-
-/*********************************************************************
- * @fn		CalcBatteryPercent
- *
- * @brief	get battery percent
- *
- * @param	none
- *
- * @return	battery percent
- */
-uint8 CalcBatteryPercent(void)
-{
-	uint16 adc;
-	uint8 percent;
-
-	// Configure ADC and perform a read
-	HalAdcSetReference( HAL_ADC_REF_125V );
-	
-	adc = HalAdcRead( HAL_ADC_CHN_AIN0,HAL_ADC_RESOLUTION_12);
-
-	if (adc >= BATT_ADC_VAL_MAX)
-		percent = 100;
-	else if (adc <=	BATT_ADC_VAL_MIN)
-		percent = 0;
-	else
-		// make sure the calculation will not overflow
-		percent = (uint8) (((adc-BATT_ADC_VAL_MIN) * 100) / (BATT_ADC_VAL_MAX-BATT_ADC_VAL_MIN));
-
-	return percent;
-}
-
-/*********************************************************************
- * @fn		GetGDETmpr
- *
- * @brief	get temperature
- *
- * @param	none
- *
- * @return	temperature
- */
-int8 GetGDETmpr(void)
-{
-	uint8 tmprval[2] = {0};
-	int16 fulltmprval = 0;
-	int8 tmpr;
-	
-	if (gm_read_reg(GM_TEMPR_MSB_REG, tmprval, sizeof(tmprval)) == FALSE)
-		return GM_INVALID_TEMPR;
-	
-	fulltmprval = BUILD_UINT16(tmprval[1], tmprval[0]);
-	tmpr = (int8)(fulltmprval/128) + GM_BASE_TEMPR;
-
-	return tmpr;
-}
-
 /*********************************************************************
  * @fn		Com433Handle
  *
@@ -720,7 +396,6 @@ int8 GetGDETmpr(void)
  * @param	port - serial port.
  * @param	pBuffer - read buffer.
  * @param	length - read buffer length.
-
  *
  * @return	none.
  */
@@ -734,19 +409,8 @@ void Com433Handle(uint8 port,uint8 *pBuffer, uint16 length)
 #if ( defined TEN_DEBUG_MODE )
 		// Print serial data directly in debug mode
 		Com433Write(COM433_DEBUG_PORT, pBuffer, length);
-#else
-		// Discard TEN setting message when RF is not ready
-		if ( TENRFst != TEN_RF_WORK )
-			return;
-		
-		// Restart timer during setup process 
-		if (Devstate == SYS_SETUP)
-		{
-			//osal_stop_timerEx(BLECore_TaskId, BLE_CORE_START_EVT);
-			osal_start_timerEx(BLECore_TaskId, BLE_CORE_START_EVT, NO_OPERATION_WAIT_PERIOD);
-		}
-
-		gmspktform(pBuffer,length);
+#else	
+		GMSPktForm(pBuffer,length);
 #endif	// TEN_DEBUG_MODE
 
 #endif	// !USE_CC112X_RF
@@ -765,36 +429,8 @@ void Com433Handle(uint8 port,uint8 *pBuffer, uint16 length)
  * PRIVATE FUNCTIONS
  */
 
-#if ( !defined USE_CC112X_RF )
-static void TENRFwakeup(void)
-{
-	TEN308_DIOA_PINSEL &= (uint8) ~TEN308_DIOA_GPIO;
-	TEN308_DIOA_PINDIR |= (uint8) TEN308_DIOA_GPIO;
-	TEN308_DIOA_PIN = 0;
-
-	TEN308_DIOB_PINSEL &= (uint8) ~(TEN308_DIOB_GPIO);
-	TEN308_DIOB_PINDIR |= (uint8) (TEN308_DIOB_GPIO);
-	TEN308_DIOB_PIN = 0;
-}
-
-static void TENRFsleep(void)
-{
-	TEN308_DIOA_PINSEL &= (uint8) ~(TEN308_DIOA_GPIO);
-	TEN308_DIOA_PINDIR &= (uint8) ~(TEN308_DIOA_GPIO);
-	//TEN308_DIOA_PINDIR |= (uint8) (TEN308_DIOA_GPIO);
-	TEN308_DIOA_PININP |= (uint8)(TEN308_DIOA_GPIO);
-	//TEN308_DIOA_PIN = 1;
-
-	TEN308_DIOB_PINSEL &= (uint8) ~(TEN308_DIOB_GPIO);
-	TEN308_DIOB_PINDIR &= (uint8) ~(TEN308_DIOB_GPIO);
-	//TEN308_DIOB_PINDIR |= (uint8) (TEN308_DIOB_GPIO);
-	TEN308_DIOB_PININP |= (uint8) (TEN308_DIOB_GPIO);
-	//TEN308_DIOB_PIN = 1;
-}
-#endif	// !USE_CC112X_RF
-
 /*********************************************************************
- * @fn		stopAlltimer
+ * @fn		StopAllTimer
  *
  * @brief	Stop all timer in given task ID
  *
@@ -802,235 +438,139 @@ static void TENRFsleep(void)
  *
  * @return	none
  */
-static void stopAlltimer(uint8 task_id)
+static void StopAllTimer(uint8 task_id)
 {
-	osal_stop_timerEx(task_id, BLE_CORE_START_EVT);
-	osal_stop_timerEx(task_id, READ_GM_DATA_EVT);
-	osal_stop_timerEx(task_id, GM_DRDY_INT_INT_EVT);
-	osal_stop_timerEx(task_id, HEART_BEAT_EVT);
-	osal_stop_timerEx(task_id, CORE_PWR_SAVING_EVT);
-	osal_stop_timerEx(task_id, RF_RXTX_RDY_EVT);
+	//osal_start_timerEx(task_id, BLE_SYS_WORKING_EVT, MIN_IN_HOUR*MILSEC_IN_MIN);
+	osal_stop_timerEx(task_id, RF_DATA_PROC_EVT);
+	osal_stop_timerEx(task_id, GM_DATA_PROC_EVT);
 }
 
 /*********************************************************************
- * @fn		GM_dev_init
+ * @fn		SYS_WS_INT_PIN_Enable
  *
- * @brief	GM device init
+ * @brief	Enable working state interrupt.
  *
  * @param	none.
  *
- * @return	TRUE - init OK; FALSE - failed
+ * @return	none
  */
-static bool GM_dev_init(void)
+static void SYS_WS_INT_PIN_Enable(void)
 {
-	uint8 id_str[3];
-	uint8 gm_cfg = SET_GM_NORMAL;
-	uint8 gm_gain = SET_GM_GAIN;
-	
-	HalI2CInit(GM_I2C_ADDR, i2cclk);
-
-	gm_read_reg(GM_ID_A_REG,id_str,sizeof(id_str));
-
-	if (osal_memcmp(id_str,GM_ID_STR,sizeof(id_str)) == FALSE)
-		return FALSE;
-
-//	Com433WriteStr(COM433_DEBUG_PORT,"\r\nGM:");
-//	Com433Write(COM433_DEBUG_PORT,id_str,sizeof(id_str));
-	
-	gm_write_reg(GM_CONFIG_A_REG,&gm_cfg,1);
-	gm_write_reg(GM_CONFIG_B_REG,&gm_gain,1);
-
-#if 0
-	GM_DRDY_INT_Cfg();
-#endif
-
-	return TRUE;
+	DEV_EN_INT_PINSEL &= (uint8) ~DEV_EN_INT_IE;
+	DEV_EN_INT_PINDIR &= (uint8) ~DEV_EN_INT_IE;
+	DEV_EN_INT_PININP &= (uint8) ~DEV_EN_INT_IE;
 }
 
 /*********************************************************************
- * @fn		GM_dev_stop
+ * @fn		SYS_WS_INT_PIN_Enable
  *
- * @brief	GM device stop
+ * @brief	Enable working state interrupt.
  *
- * @param	none
+ * @param	none.
+ *
  * @return	none
  */
-static void GM_dev_stop(void)
+static void SYS_WS_INT_Cfg(uint8 task_id, sysstate_t cursysst)
 {
-	uint8 sleep_mode = SET_GM_SLEEP_MODE;
+	bool sleepflag = FALSE;
 
-	HalI2CInit(GM_I2C_ADDR, i2cclk);
-	gm_write_reg(GM_MODE_REG, &sleep_mode, 1);
-}
-
-static void prepare_gm_read(void)
-{
-	uint8 singl_read = SET_GM_READ_ONCE;
-
-	// reinit I2C after power saving
-	HalI2CInit(GM_I2C_ADDR, i2cclk);
-	gm_write_reg(GM_MODE_REG, &singl_read, 1);
-
-	osal_start_timerEx(BLECore_TaskId, GM_DRDY_INT_INT_EVT, 100);
-}
-
-/*********************************************************************
- * @fn			read_gm_data
- *
- * @brief	 read i2c
- *
- * @param	 none
- * @return	none
- */
-static void read_gm_data(void)
-{
-	uint8 tmp_data[6]={0};
-	int16 xval,yval,zval;
-	
-	if (gm_read_reg(GM_X_AXIS_MSB_REG, tmp_data, sizeof(tmp_data)) == TRUE)
-	{
-		xval = BUILD_UINT16(tmp_data[1],tmp_data[0]);
-		yval = BUILD_UINT16(tmp_data[5],tmp_data[4]);
-		zval = BUILD_UINT16(tmp_data[3],tmp_data[2]);
-
-		gm_data_proc(xval,yval,zval);
-	}
-	else
-	{
-#if ( defined ALLOW_DEBUG_OUTPUT )
-		Com433WriteStr(COM433_DEBUG_PORT,"\r\nI2C read failed!!!");
-		//osal_stop_timerEx(BLECore_TaskId, READ_GM_DATA_EVT);
-#endif
-	}
-
-	if (RFrxtx == FALSE)
-	{
-#if ( defined ALLOW_DEBUG_OUTPUT )
-		// RF have no data send, sleep 100 for serial output;
-		osal_start_timerEx(BLECore_TaskId, CORE_PWR_SAVING_EVT,100);
-#else
-		osal_set_event(BLECore_TaskId, CORE_PWR_SAVING_EVT);
-#endif
-	}
-
-	return;
-}
-
-
-/**************************************************************************************************
-* @fn					gm_write_reg
-* @brief			 This function implements the I2C protocol to write to a sensor. he sensor must
-*							be selected before this routine is called.
-*
-* @param			 addr - which register to write
-* @param			 pBuf - pointer to buffer containing data to be written
-* @param			 nBytes - number of bytes to write
-*
-* @return			TRUE if successful write
-*/
-static bool gm_write_reg(uint8 addr, uint8 *pBuf, uint8 nBytes)
-{
-	uint8 i;
-	uint8 buffer[24];
-
-	/* Copy address and data to local buffer for burst write */
-	buffer[0] = addr;
-	for (i = 0; i < nBytes; i++)
-		buffer[1+i] = pBuf[i];
-	nBytes++;
-
-	/* Send address and data */
-	i = HalI2CWrite(nBytes, buffer);
-
-	return (i == nBytes);
-}
-
-/**************************************************************************************************
- * @fn					gm_read_reg
- *
- * @brief			 This function implements the I2C protocol to read from a sensor. The sensor must
- *							be selected before this routine is called.
- *
- * @param			 addr - which register to read
- * @param			 pBuf - pointer to buffer to place data
- * @param			 nBytes - numbver of bytes to read
- *
- * @return			TRUE if the required number of bytes are reveived
- */
-static bool gm_read_reg(uint8 addr, uint8 *pBuf, uint8 nBytes)
-{
-	uint8 i = 0;
-
-	/* Send address we're reading from */
-	if (HalI2CWrite(1,&addr) == 1)
-	{
-		/* Now read data */
-		i = HalI2CRead(nBytes,pBuf);
-	}
-
-	return i == nBytes;
-}
-
-#if 0
-static void GM_DRDY_INT_Cfg(void)
-{
-#if ( !defined HW_VERN ) || ( HW_VERN == 0 )
-	SET_P1_INT_DISABLE();
-#else
-	SET_P0_INT_DISABLE();
-#endif
-
-	GM_DRDY_INT_DISABLE();
-	
-	//Confige CC2541 pin
-	GM_DRDY_INT_PINSEL &= (uint8) ~GM_DRDY_INT_IE;
-	GM_DRDY_INT_PINDIR &= (uint8) ~GM_DRDY_INT_IE;
-
-	GM_DRDY_INT_ENABLE();
-
-#if ( !defined HW_VERN ) || ( HW_VERN == 0 )
-	SET_P1_INT_DISABLE();
-#else
-	SET_P0_INT_ENABLE();
-#endif
-}
-#endif
-
-static sysstate_t SYS_WS_INT_Cfg(void)
-{
-	sysstate_t sysst;
+	SYS_WS_INT_PIN_Enable();
 
 	SET_P0_INT_DISABLE();
 	DEV_EN_INT_DISABLE();
-	
-	DEV_EN_INT_PINSEL &= (uint8) ~DEV_EN_INT_IE;
-	DEV_EN_INT_PINDIR &= (uint8) ~DEV_EN_INT_IE;
 
 	// Low to deep sleep
-	if (DEV_EN_INT_PIN == 0)
+	if ( DEV_EN_INT_PIN == 0 )
 	{
-		sysst = SYS_SLEEPING;
 		// Rising edge detect
+		sleepflag = TRUE;
 		SET_P0_INT_RISING_EDGE();
 	}
 	else
 	{
-		sysst = SYS_WORKING;
+		sleepflag = FALSE;
 		SET_P0_INT_FALLING_EDGE();
 	}
 
+/*	while (1)
+	{
+		// Low to deep sleep
+		if (DEV_EN_INT_PIN == 0 )
+		{
+			halSleep(SWITCH_WAIT_SHAKE_PERIOD);
+			if ( DEV_EN_INT_PIN == 0 )
+			{
+				// Rising edge detect
+				sleepflag = TRUE;
+				SET_P0_INT_RISING_EDGE();
+				break;
+			}
+		}
+		// High to wake up
+		else
+		{
+			halSleep(SWITCH_WAIT_SHAKE_PERIOD);
+			if ( DEV_EN_INT_PIN == 1 )
+			{
+				sleepflag = FALSE;
+				SET_P0_INT_FALLING_EDGE();
+				break;
+			}
+		}
+	}*/
+	if (cursysst != SYS_SETUP && cursysst != SYS_UPGRADE )
+	{
+		if (cursysst == SYS_BOOTUP && sleepflag == FALSE)
+		{
+			SetRFstate(TEN_RF_PRESET);
+			SetSysState(SYS_WORKING);
+		}
+		if (cursysst == SYS_DORMANT && sleepflag == FALSE)
+		{
+			SetSysState(SYS_BOOTUP);
+		}
+		else if (cursysst != SYS_DORMANT && sleepflag == TRUE)
+		{
+			SetSysState(SYS_DORMANT);
+		}
+		osal_set_event(task_id, BLE_SYS_WORKING_EVT);
+	}	
+	
 	DEV_EN_INT_ENABLE();
 	SET_P0_INT_ENABLE();
 
-	return sysst;
+	return;
 }
 
-static void SYS_WS_INT_disable(void)
+/*********************************************************************
+ * @fn		SYS_WS_INT_PIN_Disable
+ *
+ * @brief	Disable working state interrupt.
+ *
+ * @param	none.
+ *
+ * @return	none
+ */
+static void SYS_WS_INT_PIN_Disable(void)
 {
-	SET_P0_INT_DISABLE();
-	DEV_EN_INT_DISABLE();
+	DEV_EN_INT_PINSEL &= (uint8) ~DEV_EN_INT_IE;
+	DEV_EN_INT_PINDIR &= (uint8) ~DEV_EN_INT_IE;
+	DEV_EN_INT_PININP |= (uint8) DEV_EN_INT_IE;
 }
 
+/*********************************************************************
+ * @fn		c_srand
+ *
+ * @brief	Set random seed
+ *
+ * @param	seed - random seed
+ *
+ * @return	none
+ */
+static void c_srand(uint32 seed)
+{
+	next=seed;
+}
 
 /*********************************************************************
  * @fn		c_rand
@@ -1045,11 +585,6 @@ static uint32 c_rand(void)
 {
 	next=next*1103515245+12345;  
 	return (uint32)(next/65536)%32768;  
-}
-
-static void c_srand(uint32 seed)
-{
-	next=seed;
 }
 
 
@@ -1072,6 +607,7 @@ static void ReadBLEMac(uint8 *mac_addr)
 }
 
 #if ( !defined NOT_USE_BLE_STACK && defined ALLOW_BLE_ADV )
+
 /*********************************************************************
  * @fn		init_gap_peripheral_role
  *
@@ -1150,8 +686,12 @@ static void BLECorePeriphNotiCB( gaprole_States_t newState )
 			break;
 	} 
 }
-#endif
+#endif	// !NOT_USE_BLE_STACK && ALLOW_BLE_ADV
 
+
+/*********************************************************************
+ * ISR function
+ */
 #if ( !defined HW_VERN ) || ( HW_VERN == 0 )
 HAL_ISR_FUNCTION(GMDRDYIsr, P1INT_VECTOR)
 #elif ( HW_VERN >= 1 )
@@ -1167,7 +707,7 @@ HAL_ISR_FUNCTION(GMDRDYIsr, P0INT_VECTOR)
 
 #if ( HW_VERN >= 1 )
 	if ((DEV_EN_INT_PXIFG & DEV_EN_INT_IE) && (DEV_EN_INT_PXIEN & DEV_EN_INT_IE))
-		osal_set_event(BLECore_TaskId, BLE_CORE_START_EVT);
+		osal_set_event(BLECore_TaskId, HG_SWITCH_EVT);
 #endif
 
 	// Clear the CPU interrupt flag for Port PxIFG has to be cleared before PxIF.
@@ -1178,6 +718,3 @@ HAL_ISR_FUNCTION(GMDRDYIsr, P0INT_VECTOR)
 	
 	HAL_EXIT_ISR();
 }
-
-/*********************************************************************
-*********************************************************************/

@@ -52,8 +52,7 @@
 
 #define GTE_ADV_ID		2999
 
-// Stop time synchronise after 5 times
-#define TIME_SYNC_AUTO_STOP			5
+
 /*********************************************************************
  * TYPEDEFS
  */
@@ -100,30 +99,28 @@ static uint8 gmsrdpkt[GMS_PKT_MAX_LEN]={0};
 static uint8 currdlen=0;
 static uint8 totrdlen=0;
 
-static uint8 syncautostop;
-
+/*
 // Last time struct
-static UTCTimeStruct lasttm;
+static UTCTimeStruct lasttm;*/
 /*********************************************************************
  * LOCAL FUNCTIONS
  */
-static uint8 filltime(uint8 *buf);
-static uint8 calcGMchksum(uint8* chkbuf, uint16 len);
+static uint8 FillTimeInfo(uint8 *buf);
+static uint8 CalcGMChksum(uint8* chkbuf, uint16 len);
 
-static void syncUTCtimeresp(uint8 *data, uint8 len);
-static void presetParamresp(uint8 *data, uint8 len);
+static void SyncTMResp(uint8 *data, uint8 len);
+static void PresetParamResp(uint8 *data, uint8 len);
 
-static void readGDEparam(void);
-static void readIDparam(uint8 * rdbuf);
+static void ReadGDEParam(void);
+static void ReadIDParam(uint8 * rdbuf);
 
-static bool setGDEparam(uint8 * setdata, uint8 len);
-static bool setIDparam(uint16 GDEaddr, uint16 GMEaddr, uint16 vern);
+static bool SetGDEParam(uint8 * setdata, uint8 len);
+static bool SetIDParam(uint16 GDEaddr, uint16 GMEaddr, uint16 vern);
 
 
-static rferr_t rfdatasend(uint8 *buf, uint8 len);
+static rferr_t RFDataSend(uint8 *buf, uint8 len);
 
-static void savelasttminfo(UTCTimeStruct tm);
-static void chktmsync(UTCTimeStruct tm);
+/*static void SaveLastTMInfo(UTCTimeStruct tm);*/
 
 /*********************************************************************
  * PUBLIC FUNCTIONS
@@ -138,27 +135,14 @@ static void chktmsync(UTCTimeStruct tm);
  *
  * @return	none
  */
-void initDevID(void)
+void InitDevID(void)
 {
 	RFdevID = RFGDEID;
 	RFdestID = RFGMEID;
 }
 
-void syncUTCtimereq(void)
-{
-	uint8 tmsync=TRUE;
-
-	if (++syncautostop == TIME_SYNC_AUTO_STOP)
-	{
-		syncautostop = 0;
-		cleartmsync();
-	}
-	else
-		rfdataform(GDE_ST_TMSYN_REQ,&tmsync,sizeof(tmsync));
-}
-
 /*********************************************************************
- * @fn		gmspktform
+ * @fn		GMSPktForm
  *
  * @brief	form seperate GM system packet into one
  *
@@ -167,7 +151,7 @@ void syncUTCtimereq(void)
  *
  * @return	none
  */
-void gmspktform(uint8 *rawbuf, uint8 rawlen)
+void GMSPktForm(uint8 *rawbuf, uint8 rawlen)
 {
 	uint8 i;
 
@@ -199,7 +183,11 @@ void gmspktform(uint8 *rawbuf, uint8 rawlen)
 				gmsrdpkt[currdlen++]= rawbuf[i];
 				if (currdlen == totrdlen)
 				{
-					Com433WriteInt(COM433_DEBUG_PORT, "\r\nRF",rfdataparse(gmsrdpkt, currdlen),10);
+#if ( defined ALLOW_DEBUG_OUTPUT )
+					Com433WriteInt(COM433_DEBUG_PORT, "\r\nRF",RFDataParse(gmsrdpkt, currdlen),10);
+#else
+					RFDataParse(gmsrdpkt, currdlen);
+#endif	// ALLOW_DEBUG_OUTPUT
 					pktgmsst=PKT_GMS_ID;
 					currdlen = 0;
 				}
@@ -212,7 +200,7 @@ void gmspktform(uint8 *rawbuf, uint8 rawlen)
 
 
 /*********************************************************************
- * @fn		rfdataparse
+ * @fn		RFDataParse
  *
  * @brief	parse whole GM system packet.
  *
@@ -221,7 +209,7 @@ void gmspktform(uint8 *rawbuf, uint8 rawlen)
  *
  * @return	packet parse result
  */
-rferr_t rfdataparse(uint8 *rfdata,uint8 len)
+rferr_t RFDataParse(uint8 *rfdata,uint8 len)
 {
 	if (rfdata[GMS_ID_POS]!=GME_SRC_ID && rfdata[GMS_ID_POS]!=GTE_SRC_ID)
 		return PKT_DENY;
@@ -235,10 +223,8 @@ rferr_t rfdataparse(uint8 *rfdata,uint8 len)
 	if (GET_RF_DEST_ADDR(rfdata) != RFdevID && GET_RF_DEST_ADDR(rfdata) != GDE_ADV_ID)
 		return BAD_ADDR;
 		
-	if (calcGMchksum(rfdata,len) != rfdata[GMS_CHK_SUM_POS])
+	if (CalcGMChksum(rfdata,len) != rfdata[GMS_CHK_SUM_POS])
 		return CHKSUM_ERR;
-
-#if (defined GDE_RELEASE)
 
 	if (rfdata[GMS_ID_POS] == GME_SRC_ID)
 	{
@@ -249,11 +235,11 @@ rferr_t rfdataparse(uint8 *rfdata,uint8 len)
 				break;
 			case GME_ST_CARINFO_ACK:
 				// GME recieved carinfo successfully
-				stopresend(rfdata+GMS_PKT_PAYLOAD_POS,rfdata[GMS_PKT_PAYLOAD_POS+EID_SIZE]);
+				ClearDataResend();
 				break;
 			case GME_ST_TMSYN_ACK:
 				// set time
-				syncUTCtimeresp(rfdata+GMS_PKT_PAYLOAD_POS,rfdata[GMS_PKT_PAYLOAD_POS+EID_SIZE]);
+				SyncTMResp(rfdata+GMS_PKT_PAYLOAD_POS,rfdata[GMS_PKT_PAYLOAD_POS+EID_SIZE]);
 				break;
 			case GME_ST_UPGD_REQ:
 				// upgrade process
@@ -267,14 +253,14 @@ rferr_t rfdataparse(uint8 *rfdata,uint8 len)
 		switch(rfdata[GMS_SUB_TYPE_POS])
 		{
 			case GTE_ST_PARAM_REQ:
-				presetParamresp(rfdata+GMS_PKT_PAYLOAD_POS,rfdata[GMS_PKT_PAYLOAD_POS+EID_SIZE]);
+				PresetParamResp(rfdata+GMS_PKT_PAYLOAD_POS,rfdata[GMS_PKT_PAYLOAD_POS+EID_SIZE]);
 				break;
 			case GTE_ST_PARAM_READ:
-				readGDEparam();
+				ReadGDEParam();
 				break;
 			case GTE_ST_PARAM_SET:
 				// set GDE params
-				setGDEparam(rfdata+GMS_PKT_PAYLOAD_POS,rfdata[GMS_PKT_PAYLOAD_POS+EID_SIZE]);
+				SetGDEParam(rfdata+GMS_PKT_PAYLOAD_POS,rfdata[GMS_PKT_PAYLOAD_POS+EID_SIZE]);
 				break;
 			case GTE_ST_UPGD_REQ:
 				// upgrade process
@@ -283,15 +269,12 @@ rferr_t rfdataparse(uint8 *rfdata,uint8 len)
 				return SUB_TYPE_ERR;
 		}
 	}
-#elif ( defined GTE_RELEASE )
 
-
-#endif	// GDE_RELEASE
 	return RF_SUCCESS;
 }
 
 /*********************************************************************
- * @fn		rfdataform
+ * @fn		RFDataForm
  *
  * @brief	form whole GM system packet.
  *
@@ -301,7 +284,7 @@ rferr_t rfdataparse(uint8 *rfdata,uint8 len)
  *
  * @return	packet parse result
  */
-rferr_t rfdataform(uint8 subtype, uint8 *data, uint8 datalen)
+rferr_t RFDataForm(uint8 subtype, uint8 *data, uint8 datalen)
 {
 	uint8 rfbuf[GMS_PKT_MAX_LEN]={0};
 	uint8 curpldpos = GMS_PKT_PAYLOAD_POS;
@@ -328,14 +311,14 @@ rferr_t rfdataform(uint8 subtype, uint8 *data, uint8 datalen)
 			if (datalen != GDE_HRTBT_LEN)
 				return DATA_ERR;
 			
-			curpldpos += filltime(rfbuf+GMS_PKT_PAYLOAD_POS);
+			curpldpos += FillTimeInfo(rfbuf+GMS_PKT_PAYLOAD_POS);
 			rfbuf[curpldpos] = EID_GDE_HRTBT;
 			break;
 		case GDE_ST_CARINFO_REQ:
 			// car info request
 			if (datalen != GDE_CAR_INFO_LEN)
 				return DATA_ERR;
-			curpldpos = GMS_PKT_PAYLOAD_POS + filltime(rfbuf+GMS_PKT_PAYLOAD_POS);
+			curpldpos = GMS_PKT_PAYLOAD_POS + FillTimeInfo(rfbuf+GMS_PKT_PAYLOAD_POS);
 			rfbuf[curpldpos] = EID_GDE_CAR_INFO;
 			break;
 		case GDE_ST_TMSYN_REQ:
@@ -374,9 +357,9 @@ rferr_t rfdataform(uint8 subtype, uint8 *data, uint8 datalen)
 	
 	rfbuf[GMS_TOT_LEN_POS]=curpldpos+ELM_HDR_SIZE+datalen;
 
-	rfbuf[GMS_CHK_SUM_POS]=calcGMchksum(rfbuf, rfbuf[GMS_TOT_LEN_POS]);
+	rfbuf[GMS_CHK_SUM_POS]=CalcGMChksum(rfbuf, rfbuf[GMS_TOT_LEN_POS]);
 
-	return rfdatasend(rfbuf,rfbuf[GMS_TOT_LEN_POS]);
+	return RFDataSend(rfbuf,rfbuf[GMS_TOT_LEN_POS]);
 }
 
 
@@ -385,7 +368,7 @@ rferr_t rfdataform(uint8 subtype, uint8 *data, uint8 datalen)
  */
 
 /*********************************************************************
- * @fn		filltime
+ * @fn		FillTimeInfo
  *
  * @brief	Fill time information into buffer.
  *
@@ -393,7 +376,7 @@ rferr_t rfdataform(uint8 subtype, uint8 *data, uint8 datalen)
  *
  * @return	time buffer length, include EID and Elen
  */
-static uint8 filltime(uint8 *buf)
+static uint8 FillTimeInfo(uint8 *buf)
 {
 	UTCTime curtm = osal_getClock();
 	UTCTimeStruct curtmst;
@@ -409,14 +392,11 @@ static uint8 filltime(uint8 *buf)
 	buf[ELM_HDR_SIZE+4]=curtmst.month+1;
 	buf[ELM_HDR_SIZE+5]=curtmst.year - 2000;
 
-	// Check time sync status
-	chktmsync(curtmst);
-
 	return (ELM_HDR_SIZE + UTCL_EVAL_LEN);
 }
 
 /*********************************************************************
- * @fn		calcGMchksum
+ * @fn		CalcGMChksum
  *
  * @brief	Calculate GM packet check sum, remain check sum position.
  *
@@ -425,7 +405,7 @@ static uint8 filltime(uint8 *buf)
  *
  * @return	check sum value
  */
-static uint8 calcGMchksum(uint8* chkbuf, uint16 len)
+static uint8 CalcGMChksum(uint8* chkbuf, uint16 len)
 {
 	uint8 i,sum=0;
 
@@ -439,7 +419,7 @@ static uint8 calcGMchksum(uint8* chkbuf, uint16 len)
 }
 
 /*********************************************************************
- * @fn		syncUTCtimeresp
+ * @fn		SyncTMResp
  *
  * @brief	Synchronize time based on element data
  *
@@ -448,7 +428,7 @@ static uint8 calcGMchksum(uint8* chkbuf, uint16 len)
  *
  * @return	none
  */
-static void syncUTCtimeresp(uint8 *data, uint8 len)
+static void SyncTMResp(uint8 *data, uint8 len)
 {
 	uint8 *pVal = data+ELM_HDR_SIZE;
 
@@ -470,13 +450,13 @@ static void syncUTCtimeresp(uint8 *data, uint8 len)
 	
 	osal_setClock(osal_ConvertUTCSecs(&settmst));
 
-	savelasttminfo(settmst);
+/*	SaveLastTMInfo(settmst);*/
 
-	cleartmsync();
+	ClearSyncTMReq();
 }
 
 /*********************************************************************
- * @fn		presetParamresp
+ * @fn		PresetParamResp
  *
  * @brief	Synchronize time based on element data
  *
@@ -485,11 +465,12 @@ static void syncUTCtimeresp(uint8 *data, uint8 len)
  *
  * @return	none
  */
-static void presetParamresp(uint8 *data, uint8 len)
+static void PresetParamResp(uint8 *data, uint8 len)
 {
 	uint8 stfreq;
 
-	if ( getsysstate() == SYS_SETUP)
+	// Ignore this command when already in setup mode
+	if ( GetSysState() == SYS_SETUP)
 		return;
 
 	if ( data[0] != EID_GTE_SET_REQ || len != GDE_PREREQ_LEN )
@@ -502,14 +483,16 @@ static void presetParamresp(uint8 *data, uint8 len)
 	// Use device own setup frequency if set value is 0 else change setup frequency
 	RFstfrq = (stfreq==0? RFstfrq: stfreq);
 
-	rfdataform(GDE_ST_T_REQ_ACK, &RFstfrq, sizeof(RFstfrq));
-	// change system state after data send
-	setsysstate(SYS_WAITING);
+	RFDataForm(GDE_ST_T_REQ_ACK, &RFstfrq, sizeof(RFstfrq));
+	RF_working(BLECore_TaskId, GetRFstate());
+
+	// State will change after working state over
+	SetSysState(SYS_SETUP);
 }
 
 
 /*********************************************************************
- * @fn		readGDEparam
+ * @fn		ReadGDEParam
  *
  * @brief	read GDE parameters.
  *
@@ -517,22 +500,25 @@ static void presetParamresp(uint8 *data, uint8 len)
  *
  * @return	none
  */
-static void readGDEparam(void)
+static void ReadGDEParam(void)
 {
-	if ( getsysstate() != SYS_SETUP)
-		return;
-	
 	uint8 rddata[GDE_READ_ACK_LEN];
 
-	readRFparam(rddata);
-	readGMparam(rddata);
-	readIDparam(rddata);
+	if ( GetSysState() != SYS_SETUP)
+		return;
 
-	rfdataform(GDE_ST_T_READ_ACK, rddata, sizeof(rddata));
+	osal_start_timerEx(BLECore_TaskId, BLE_SYS_WORKING_EVT, NO_OPERATION_WAIT_PERIOD);
+
+	ReadRFParam(rddata);
+	ReadGMParam(rddata);
+	ReadIDParam(rddata);
+
+	RFDataForm(GDE_ST_T_READ_ACK, rddata, sizeof(rddata));
+	RF_working(BLECore_TaskId, GetRFstate());
 }
 
 /*********************************************************************
- * @fn		readIDparam
+ * @fn		ReadIDParam
  *
  * @brief	Read GDE ID parameters.
  *
@@ -540,7 +526,7 @@ static void readGDEparam(void)
  *
  * @return	none
  */
-static void readIDparam(uint8 *rdbuf)
+static void ReadIDParam(uint8 *rdbuf)
 {
 	rdbuf[ST_GDE_ADDR_H_POS] = HI_UINT16(RFGDEID);
 	rdbuf[ST_GDE_ADDR_L_POS] = LO_UINT16(RFGDEID);
@@ -553,7 +539,7 @@ static void readIDparam(uint8 *rdbuf)
 }
 
 /*********************************************************************
- * @fn		setGDEparam
+ * @fn		SetGDEParam
  *
  * @brief	Set GDE parameters.
  *
@@ -562,28 +548,31 @@ static void readIDparam(uint8 *rdbuf)
  *
  * @return	setup result
  */
-static bool setGDEparam(uint8 *setdata, uint8 len)
+static bool SetGDEParam(uint8 *setdata, uint8 len)
 {
 	uint8 *pVal = setdata+ELM_HDR_SIZE;
 	bool flag = FALSE;
 	
-	if (setdata[0]!=EID_GTE_SET || len!=GTE_SET_LEN || getsysstate() != SYS_SETUP)
+	if (setdata[0]!=EID_GTE_SET || len!=GTE_SET_LEN || GetSysState() != SYS_SETUP)
 		return flag;
 
-	flag = setRFparam(pVal[ST_RF_FREQ_POS],pVal[ST_RF_ST_FREQ_POS],pVal[ST_RF_UPGD_FREQ_POS],\
+	osal_start_timerEx(BLECore_TaskId, BLE_SYS_WORKING_EVT, NO_OPERATION_WAIT_PERIOD);
+
+	flag = SetRFParam(pVal[ST_RF_FREQ_POS],pVal[ST_RF_ST_FREQ_POS],pVal[ST_RF_UPGD_FREQ_POS],\
 			pVal[ST_RF_BAUD_POS],pVal[ST_RF_PWR_LVL_POS]);
-	flag &= setGMparam(pVal[ST_GM_HB_FREQ_POS],pVal[ST_GM_DTCT_VAL_POS],pVal[ST_GM_DTCT_ALG_POS],\
+	flag &= SetGMParam(pVal[ST_GM_HB_FREQ_POS],pVal[ST_GM_DTCT_VAL_POS],pVal[ST_GM_DTCT_ALG_POS],\
 			pVal[ST_GM_STATUS_POS]);
-	flag &= setIDparam(BUILD_UINT16(pVal[ST_GDE_ADDR_L_POS],pVal[ST_GDE_ADDR_H_POS]),\
+	flag &= SetIDParam(BUILD_UINT16(pVal[ST_GDE_ADDR_L_POS],pVal[ST_GDE_ADDR_H_POS]),\
 			BUILD_UINT16(pVal[ST_GME_ADDR_L_POS],pVal[ST_GME_ADDR_H_POS]),\
 			BUILD_UINT16(pVal[ST_VERSION_L_POS],pVal[ST_VERSION_H_POS]));
 
-	rfdataform(GDE_ST_T_SET_ACK, &flag, sizeof(flag));
+	RFDataForm(GDE_ST_T_SET_ACK, &flag, sizeof(flag));
+	RF_working(BLECore_TaskId, GetRFstate());
 
 	return flag;
 }
 
-static bool setIDparam(uint16 GDEaddr, uint16 GMEaddr, uint16 vern)
+static bool SetIDParam(uint16 GDEaddr, uint16 GMEaddr, uint16 vern)
 {
 	if (GDEaddr>GDE_ADV_ID || GMEaddr>GME_ADV_ID)
 		return FALSE;
@@ -596,24 +585,24 @@ static bool setIDparam(uint16 GDEaddr, uint16 GMEaddr, uint16 vern)
 }
 
 
-static rferr_t rfdatasend(uint8 *buf, uint8 len)
+static rferr_t RFDataSend(uint8 *buf, uint8 len)
 {
+#if ( defined USE_CC112X_RF )
 	RFwakeup();
 
-#if ( defined USE_CC112X_RF )
 	txdata(buf,len);
 #else
 	//Copy send data to buffer and wait 250ms for TEN308 RF wake up
 	osal_memcpy(rfsndbuf,buf,len);
 	rfsndlen = len;
-	osal_start_timerEx(BLECore_TaskId,RF_RXTX_RDY_EVT,250);
+	//RF_working(BLECore_TaskId, GetRFstate());
 #endif	// USE_CC112X_RF
 
 	return RF_SUCCESS;
 }
 
-
-static void savelasttminfo(UTCTimeStruct tm)
+/*
+static void SaveLastTMInfo(UTCTimeStruct tm)
 {
 	lasttm.seconds = tm.seconds;
 	lasttm.minutes = tm.minutes;
@@ -621,12 +610,4 @@ static void savelasttminfo(UTCTimeStruct tm)
 	lasttm.day = tm.day;
 	lasttm.month = tm.month;
 	lasttm.year = tm.year;
-}
-
-static void chktmsync(UTCTimeStruct tm)
-{
-	if (gettmsync() == TRUE)
-		return;
-	if (tm.day - lasttm.day > 1)
-		settmsync();
-}
+}*/

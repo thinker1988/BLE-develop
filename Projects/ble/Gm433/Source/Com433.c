@@ -16,6 +16,10 @@
 /*********************************************************************
  * CONSTANTS
  */
+#if ( defined ALLOW_DEBUG_OUTPUT )
+// Wait serial data send over
+#define WAIT_SERIAL_OUTPUT_PERIOD		100
+#endif	// ALLOW_DEBUG_OUTPUT
 
 /*********************************************************************
  * TYPEDEFS
@@ -103,6 +107,17 @@ void Com433WriteInt(uint8 port, char *title, int16 value, uint8 format)
 	Com433WriteStr(port, buf);
 }
 
+void IntConvertString(uint8 *buf, int16 val)
+{
+	if (val < 0)
+	{
+		*buf = '-';
+		_ltoa(-val, (unsigned char *)buf+1, 10);
+	}
+	else	
+		_ltoa(val, (unsigned char *)buf, 10);
+}
+
 void Com433WriteBoth(uint8 *pBuffer, uint16 length)
 {
 	HalUARTWrite (COM433_WORKING_PORT, pBuffer, length);
@@ -127,7 +142,7 @@ void PrintGMvalue(uint8 port, char *pBuffer, int16 xval, int16 yval, int16 zval)
 	VOID xval;
 	VOID yval;
 	VOID zval;
-#endif
+#endif	// ALLOW_DEBUG_OUTPUT
 }
 
 /*********************************************************************

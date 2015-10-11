@@ -438,6 +438,31 @@ static const uint8 rfPowerCfgSp[][9] =
 
 #else	// USE_CC112X_RF
 
+// Wait 100ms for module serial wakeup
+#define WAIT_TEN_START_PERIOD		100
+
+// Wait 100ms for serial command data send
+#define WAIT_TEN_CMD_PERIOD			100
+
+// Wait 50ms for TEN module enter sleep
+#define WAIT_TEN_STOP_PERIOD		50
+
+// Wait 250ms for TEN module RF ready to RX/TX
+#define WAIT_TEN_RF_RDY_PERIOD		250
+
+// Total RF work period
+#define WAIT_TEN_RF_WORK_PERIOD		(WAIT_TEN_START_PERIOD+WAIT_TEN_CMD_PERIOD+WAIT_TEN_STOP_PERIOD+WAIT_TEN_RF_RDY_PERIOD)
+
+typedef enum
+{
+	TEN_RF_PRESET,	// TEN RF first boot up
+	TEN_RF_SET,	// Serial send TEN RF setup command
+	TEN_RF_WAIT_SET,	// TEN RF device reset
+	TEN_RF_WAKEUP,	// TEN RF device wake up
+	TEN_RF_WORK,	// TEN RF data process
+	TEN_RF_SLEEPING	// TEN RF sleeping
+}tenRFstate_t;
+
 /*********************************************************************
  * MACROS
  */
@@ -475,8 +500,14 @@ static const uint8 tenRFpwr[] =
  * PROTPTYPES
  */
 
-extern void readRFparam(uint8 * rdbuf);
-extern bool setRFparam(uint8 wkfreq, uint8 setfreq, uint8 upgdfreq, uint8 baud, uint8 pwlvl);
+extern void SetRFstate(tenRFstate_t ntenRFst);
+extern tenRFstate_t GetRFstate(void);
+
+extern void RF_working(uint8 task_id, tenRFstate_t ntenRFst);
+
+
+extern void ReadRFParam(uint8 * rdbuf);
+extern bool SetRFParam(uint8 wkfreq, uint8 setfreq, uint8 upgdfreq, uint8 baud, uint8 pwlvl);
 
 extern void tx_test(void);
 

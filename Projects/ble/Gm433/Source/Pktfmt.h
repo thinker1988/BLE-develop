@@ -234,15 +234,13 @@ typedef enum rferr
 }rferr_t;
 
 
-extern void initDevID(void);
+extern void InitDevID(void);
 
-extern void syncUTCtimereq(void);
+extern void GMSPktForm(uint8 *rawbuf, uint8 rawlen);
 
-extern void gmspktform(uint8 *rawbuf, uint8 rawlen);
+extern rferr_t RFDataParse(uint8 *rfdata,uint8 len);
 
-extern rferr_t rfdataparse(uint8 *rfdata,uint8 len);
-
-extern rferr_t rfdataform(uint8 subtype, uint8 *data, uint8 datalen);
+extern rferr_t RFDataForm(uint8 subtype, uint8 *data, uint8 datalen);
 
 #ifdef __cplusplus
 }
