@@ -543,18 +543,12 @@ static void SYS_WS_INT_PIN_Disable(void)
 
 static void SetSysStateByFlag(uint8 task_id, bool slpflg)
 {
+	bool changestateflag = FALSE;
+
 	if (slpflg == TRUE)
 		SET_P0_INT_RISING_EDGE();	// Confirm inverted, start rising edge detect
 	else
 		SET_P0_INT_FALLING_EDGE();
-
-	// Do not change state by sleep flag in setup mode or upgrade mode
-	if (GetSysState() == SYS_SETUP || GetSysState() == SYS_UPGRADE )
-	{
-		SET_P0_INT_ENABLE();
-		DEV_EN_INT_ENABLE();
-		return;
-	}
 
 	switch (GetSysState())
 	{
@@ -569,26 +563,36 @@ static void SetSysStateByFlag(uint8 task_id, bool slpflg)
 			{
 				SetSysState(SYS_DORMANT);
 			}
+			changestateflag = TRUE;
 			break;
 		case SYS_WORKING:
 		case SYS_SLEEPING:
 			if (slpflg == TRUE )
+			{
 				SetSysState(SYS_DORMANT);
+				changestateflag = TRUE;
+			}
 			break;
 		case SYS_DORMANT:
 			if (slpflg == FALSE )
+			{
 				SetSysState(SYS_BOOTUP);
-			else
-				SetSysState(SYS_DORMANT);
+				changestateflag = TRUE;
+			}
 			break;
 		case SYS_SETUP:
 		case SYS_UPGRADE:
 			break;
 	}
-	osal_set_event(task_id, BLE_SYS_WORKING_EVT);
-	
-	SET_P0_INT_ENABLE();
-	DEV_EN_INT_ENABLE();
+
+	if (changestateflag == TRUE)
+		osal_set_event(task_id, BLE_SYS_WORKING_EVT);
+
+	if (GetSysState() != SYS_BOOTUP)
+	{
+		SET_P0_INT_ENABLE();
+		DEV_EN_INT_ENABLE();
+	}
 
 }
 

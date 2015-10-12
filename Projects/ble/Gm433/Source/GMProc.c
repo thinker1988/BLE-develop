@@ -571,8 +571,8 @@ static void GM_dev_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 				// Continuously adjust benchmark at first 10 times and fill the array
 				if ( tmpbenchcnt < BENCH_AVG_LEN)
 					NormRgltEmpBenchmk(tmpX,tmpY,tmpZ);
-/*				else if (empcnt >= ADJ_BENCHMK_TIMES)
-					NormRgltEmpBenchmk(tmpX,tmpY,tmpZ);*/
+				else if (empcnt >= ADJ_BENCHMK_TIMES)
+					NormRgltEmpBenchmk(tmpX,tmpY,tmpZ);
 				else
 					PrintGMvalue(COM433_DEBUG_PORT, "\r\nR:",tmpX,tmpY,tmpZ);
 			}
