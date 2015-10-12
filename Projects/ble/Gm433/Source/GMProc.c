@@ -45,8 +45,8 @@
 // Benchmark adjust times, *READ_PEROID, default every 30min
 #define ADJ_BENCHMK_TIMES		360
 
-// Max times to change unknow status
-#define MAX_UNKNOW_TIMES		20
+// Max times to change unknow status, default 5min
+#define MAX_UNKNOW_TIMES		60
 
 // Impossible value, should be caused by some iron materials, not car
 #define GM_ERROR_VALUE			640000
@@ -71,10 +71,10 @@
 uint8 hrtbt_inmin = 10;
 
 // GM car detect threshold
-uint32 sqrthrhld[] = {800,1000,1200};
+uint32 sqrthrhldarr[] = {800,1000,1200};
 
-// default use level 2, i.e. 900
-uint32 dtdetectlvl = 2;
+// default use level 2, i.e. 1000
+uint8 detectlevel = 2;
 
 /*********************************************************************
  * EXTERNAL VARIABLES
@@ -227,7 +227,7 @@ void GM_working(uint8 task_id, gmsensor_t ngmsnst)
 				gmsnst = GMSnErr;
 			}
 			// Max wait 500ms for RF setup finish
-			osal_start_timerEx(task_id,GM_DATA_PROC_EVT,WAIT_TEN_RF_WORK_PERIOD);
+			osal_set_event(task_id,GM_DATA_PROC_EVT);
 			break;
 		}
 		case GMSnReq:
@@ -354,7 +354,7 @@ void ClearDataResend(void)
 void ReadGMParam(uint8 *rdbuf)
 {
 	rdbuf[ST_GM_HB_FREQ_POS] = hrtbt_inmin;
-	rdbuf[ST_GM_DTCT_VAL_POS] = dtdetectlvl;
+	rdbuf[ST_GM_DTCT_VAL_POS] = detectlevel;
 	rdbuf[ST_GM_DTCT_ALG_POS] = 0;
 	rdbuf[ST_GM_STATUS_POS] = gmst;
 }
@@ -375,11 +375,11 @@ bool SetGMParam(uint8 hrtbtmin, uint8 dtval, uint8 alg, uint8 status)
 {
 	VOID alg;
 
-	if ( hrtbtmin==0 || dtval==0 || dtval>sizeof(sqrthrhld))
+	if ( hrtbtmin==0 || dtval==0 || dtval>sizeof(sqrthrhldarr))
 		return FALSE;
 	
 	hrtbt_inmin = hrtbtmin;
-	dtdetectlvl = dtval;
+	detectlevel = dtval;
 	ModifyBenchmk((gmstatus_t)status);
 
 	return TRUE;
@@ -518,6 +518,7 @@ static void GM_dev_read(uint8 task_id)
 		if (GetSysState() == SYS_BOOTUP)
 		{
 			SendXYZVal(task_id,xval,yval,zval);
+			SetIntState(WS_INT_DETECT);
 			osal_start_timerEx(task_id, HG_SWITCH_EVT, SELF_TEST_PERIOD);
 		}
 		else
@@ -570,8 +571,8 @@ static void GM_dev_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 				// Continuously adjust benchmark at first 10 times and fill the array
 				if ( tmpbenchcnt < BENCH_AVG_LEN)
 					NormRgltEmpBenchmk(tmpX,tmpY,tmpZ);
-				else if (empcnt >= ADJ_BENCHMK_TIMES)
-					NormRgltEmpBenchmk(tmpX,tmpY,tmpZ);
+/*				else if (empcnt >= ADJ_BENCHMK_TIMES)
+					NormRgltEmpBenchmk(tmpX,tmpY,tmpZ);*/
 				else
 					PrintGMvalue(COM433_DEBUG_PORT, "\r\nR:",tmpX,tmpY,tmpZ);
 			}
@@ -605,7 +606,7 @@ static void GM_dev_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 			{
 				gmst = tmpgmst;
 				set_data_change();
-				NormRgltEmpBenchmk(tmpX,tmpY,tmpZ);
+				//NormRgltEmpBenchmk(tmpX,tmpY,tmpZ);
 			}
 			else if ( tmpgmst == GMError )
 			{
@@ -889,11 +890,11 @@ static gmstatus_t CheckCarIn(int16 tmpX, int16 tmpY, int16 tmpZ)
 
 	devsqrsum = xdev*xdev+ydev*ydev+zdev*zdev;
 
-	if (devsqrsum >= sqrthrhld[dtdetectlvl-1] && devsqrsum < GM_ERROR_VALUE)
+	if (devsqrsum >= sqrthrhldarr[detectlevel-1] && devsqrsum < GM_ERROR_VALUE)
 		return GMGetCar;
-	else if (devsqrsum < sqrthrhld[dtdetectlvl-1]/2)
+	else if (devsqrsum < sqrthrhldarr[detectlevel-1]/4)
 		return GMNoCar;
-	else if (devsqrsum >= sqrthrhld[dtdetectlvl-1]/2 && devsqrsum < sqrthrhld[dtdetectlvl-1] )
+	else if (devsqrsum >= sqrthrhldarr[detectlevel-1]/4 && devsqrsum < sqrthrhldarr[detectlevel-1] )
 		return GMUnknow;
 	else	// > GM_ERROR_VALUE means error value detect
 		return GMError;
@@ -923,8 +924,8 @@ static gmstatus_t CheckCarOut(int16 tmpX, int16 tmpY, int16 tmpZ)
 
 		devsqrsum = xdev*xdev+ydev*ydev+zdev*zdev;
 
-		// Change state when lower than 1/2 threshold, use hysteresis method
-		if (devsqrsum < sqrthrhld[dtdetectlvl-1]/2)
+		// Change state when lower than 1/4 threshold, use hysteresis method
+		if (devsqrsum < sqrthrhldarr[detectlevel-1]/4)
 			return GMNoCar;
 		else if (devsqrsum >= GM_ERROR_VALUE)
 			return GMError;
@@ -940,8 +941,8 @@ static gmstatus_t CheckCarOut(int16 tmpX, int16 tmpY, int16 tmpZ)
 
 		devsqrsum = xdev*xdev+ydev*ydev+zdev*zdev;
 
-		// Also use 1/2 threshold
-		if ( devsqrsum >= sqrthrhld[dtdetectlvl-1]/2 )
+		// Use 1/2 threshold
+		if ( devsqrsum >= sqrthrhldarr[detectlevel-1]/2 )
 			return GMNoCar;
 		else
 			return GMGetCar;

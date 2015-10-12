@@ -1342,7 +1342,7 @@
           <state>xALLOW_DEBUG_OUTPUT</state>
           <state>NOT_USE_BLE_STACK</state>
           <state>HW_VERN=1</state>
-          <state>GDE_DEV_ID=2</state>
+          <state>GDE_DEV_ID=6</state>
           <state>GME_DEV_ID=1001</state>
           <state>VERSION_NUMBER=0x0100</state>
           <state>xTEST_433</state>

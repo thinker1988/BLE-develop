@@ -93,12 +93,21 @@ typedef enum
 {
 	SYS_BOOTUP,		// First boot
 	SYS_WORKING,	// RF send
-	SYS_WAITING,	// RF recv
 	SYS_SLEEPING,	// Sleeping
 	SYS_DORMANT,	// Domancy
 	SYS_SETUP,	// Setup
 	SYS_UPGRADE	// Upgrade
 }sysstate_t;
+
+
+// System working state
+typedef enum
+{
+	WS_INT_DISABLE,	// Disable int
+	WS_INT_DETECT,	// Int type first detect
+	WS_INT_CONFIRM,	// Int type confirm
+	WS_INT_ENABLE,	// Enable int
+}wsintstate_t;
 
 /*********************************************************************
  * FUNCTIONS
@@ -111,8 +120,13 @@ extern void BLECore_Init( uint8 task_id );
 extern uint16 BLECore_ProcessEvent( uint8 task_id, uint16 events );
 
 extern void sys_working(uint8 task_id, sysstate_t newDevstate);
+extern void SYS_WS_INT_Cfg(uint8 task_id, wsintstate_t curintst);
+
 extern void SetSysState(sysstate_t newDevstate);
 extern sysstate_t GetSysState(void);
+
+extern void SetIntState(wsintstate_t newintstate);
+extern wsintstate_t GetIntState(void);
 
 extern void PowerSave(uint8 task_id);
 extern void PowerHold(uint8 task_id);

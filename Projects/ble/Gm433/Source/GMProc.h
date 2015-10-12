@@ -87,6 +87,7 @@ extern "C" {
 #define DEV_EN_INT_PXIEN 			P0IEN
 #define DEV_EN_INT_IE				BV(4)
 #define DEV_EN_INT_PXIFG			P0IFG
+#define DEV_EN_INT_PXIF				P0IF
 
 #define DEV_EN_INT_PIN				P0_4
 
@@ -116,7 +117,6 @@ extern "C" {
 typedef enum gmsensor
 {
 	GMSnTest = 0,
-	GMSnSet,
 	GMSnReq,
 	GMSnRead,
 	GMSnSleep,

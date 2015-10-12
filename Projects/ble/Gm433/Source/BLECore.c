@@ -110,6 +110,11 @@ static uint32 next=1;
 // Device state refer to desiged state machine
 static sysstate_t Devstate = SYS_BOOTUP;
 
+// 
+static wsintstate_t wsint = WS_INT_DISABLE;
+
+static bool sleepflag = FALSE;
+
 // Already in setup mode flag
 static bool setupflg = FALSE;
 
@@ -155,8 +160,10 @@ static uint8 BLECoreScanRespData[] =
 static void StopAllTimer(uint8 task_id);
 
 static void SYS_WS_INT_PIN_Enable(void);
-static void SYS_WS_INT_Cfg(uint8 task_id, sysstate_t cursysst);
 static void SYS_WS_INT_PIN_Disable(void);
+
+static void SetSysStateByFlag(uint8 task_id, bool slpflg);
+
 
 static void c_srand(uint32 seed);
 static uint32 c_rand(void);
@@ -265,7 +272,7 @@ uint16 BLECore_ProcessEvent( uint8 task_id, uint16 events )
 	
 	if (events & HG_SWITCH_EVT)
 	{
-		SYS_WS_INT_Cfg(task_id, GetSysState());
+		SYS_WS_INT_Cfg(task_id, GetIntState());
 
 		return (events ^ HG_SWITCH_EVT);
 	}
@@ -293,7 +300,7 @@ void sys_working(uint8 task_id, sysstate_t newDevstate)
 	switch (newDevstate)
 	{
 		case SYS_BOOTUP:
-			SYS_WS_INT_PIN_Disable();
+			SYS_WS_INT_Cfg(task_id, WS_INT_DISABLE);
 			// Do not enter power saving
 			PowerHold(task_id);
 			RF_working(task_id, TEN_RF_PRESET);
@@ -341,6 +348,52 @@ void sys_working(uint8 task_id, sysstate_t newDevstate)
 	}
 }
 
+/*********************************************************************
+ * @fn		SYS_WS_INT_PIN_Enable
+ *
+ * @brief	Enable working state interrupt.
+ *
+ * @param	none.
+ *
+ * @return	none
+ */
+void SYS_WS_INT_Cfg(uint8 task_id, wsintstate_t curintst)
+{
+	wsint = curintst;
+	switch (wsint)
+	{
+		case WS_INT_DISABLE:
+			SET_P0_INT_DISABLE();
+			DEV_EN_INT_DISABLE();
+			SYS_WS_INT_PIN_Disable();
+			break;
+		case WS_INT_DETECT:
+			SET_P0_INT_DISABLE();
+			DEV_EN_INT_DISABLE();
+
+			SYS_WS_INT_PIN_Enable();
+			// Low indicate inverted.
+			sleepflag = ( DEV_EN_INT_PIN == 0 ? TRUE: FALSE);
+			wsint = WS_INT_CONFIRM;
+			osal_start_timerEx(task_id, HG_SWITCH_EVT, SWITCH_WAIT_SHAKE_PERIOD);
+			break;
+		case WS_INT_CONFIRM:
+			wsint = WS_INT_DETECT;
+			if ((DEV_EN_INT_PIN == 0 && sleepflag == TRUE) || (DEV_EN_INT_PIN !=0  && sleepflag == FALSE))
+			{
+				SetSysStateByFlag(task_id, sleepflag);
+			}
+			else
+			{
+				osal_set_event(task_id, HG_SWITCH_EVT);
+			}
+			break;
+		default:
+			break;
+	}
+
+	return;
+}
 
 void SetSysState( sysstate_t newDevstate)
 {
@@ -351,6 +404,17 @@ sysstate_t GetSysState( void )
 {
 	return Devstate;
 }
+
+void SetIntState( wsintstate_t newintstate)
+{
+	wsint = newintstate;
+}
+
+wsintstate_t GetIntState( void )
+{
+	return wsint;
+}
+
 
 /*********************************************************************
  * @fn		PowerSave
@@ -462,87 +526,6 @@ static void SYS_WS_INT_PIN_Enable(void)
 }
 
 /*********************************************************************
- * @fn		SYS_WS_INT_PIN_Enable
- *
- * @brief	Enable working state interrupt.
- *
- * @param	none.
- *
- * @return	none
- */
-static void SYS_WS_INT_Cfg(uint8 task_id, sysstate_t cursysst)
-{
-	bool sleepflag = FALSE;
-
-	SYS_WS_INT_PIN_Enable();
-
-	SET_P0_INT_DISABLE();
-	DEV_EN_INT_DISABLE();
-
-	// Low to deep sleep
-	if ( DEV_EN_INT_PIN == 0 )
-	{
-		// Rising edge detect
-		sleepflag = TRUE;
-		SET_P0_INT_RISING_EDGE();
-	}
-	else
-	{
-		sleepflag = FALSE;
-		SET_P0_INT_FALLING_EDGE();
-	}
-
-/*	while (1)
-	{
-		// Low to deep sleep
-		if (DEV_EN_INT_PIN == 0 )
-		{
-			halSleep(SWITCH_WAIT_SHAKE_PERIOD);
-			if ( DEV_EN_INT_PIN == 0 )
-			{
-				// Rising edge detect
-				sleepflag = TRUE;
-				SET_P0_INT_RISING_EDGE();
-				break;
-			}
-		}
-		// High to wake up
-		else
-		{
-			halSleep(SWITCH_WAIT_SHAKE_PERIOD);
-			if ( DEV_EN_INT_PIN == 1 )
-			{
-				sleepflag = FALSE;
-				SET_P0_INT_FALLING_EDGE();
-				break;
-			}
-		}
-	}*/
-	if (cursysst != SYS_SETUP && cursysst != SYS_UPGRADE )
-	{
-		if (cursysst == SYS_BOOTUP && sleepflag == FALSE)
-		{
-			SetRFstate(TEN_RF_PRESET);
-			SetSysState(SYS_WORKING);
-		}
-		if (cursysst == SYS_DORMANT && sleepflag == FALSE)
-		{
-			SetSysState(SYS_BOOTUP);
-		}
-		else if (cursysst != SYS_DORMANT && sleepflag == TRUE)
-		{
-			SetSysState(SYS_DORMANT);
-		}
-		osal_set_event(task_id, BLE_SYS_WORKING_EVT);
-	}	
-	
-	DEV_EN_INT_ENABLE();
-	SET_P0_INT_ENABLE();
-
-	return;
-}
-
-/*********************************************************************
  * @fn		SYS_WS_INT_PIN_Disable
  *
  * @brief	Disable working state interrupt.
@@ -556,6 +539,57 @@ static void SYS_WS_INT_PIN_Disable(void)
 	DEV_EN_INT_PINSEL &= (uint8) ~DEV_EN_INT_IE;
 	DEV_EN_INT_PINDIR &= (uint8) ~DEV_EN_INT_IE;
 	DEV_EN_INT_PININP |= (uint8) DEV_EN_INT_IE;
+}
+
+static void SetSysStateByFlag(uint8 task_id, bool slpflg)
+{
+	if (slpflg == TRUE)
+		SET_P0_INT_RISING_EDGE();	// Confirm inverted, start rising edge detect
+	else
+		SET_P0_INT_FALLING_EDGE();
+
+	// Do not change state by sleep flag in setup mode or upgrade mode
+	if (GetSysState() == SYS_SETUP || GetSysState() == SYS_UPGRADE )
+	{
+		SET_P0_INT_ENABLE();
+		DEV_EN_INT_ENABLE();
+		return;
+	}
+
+	switch (GetSysState())
+	{
+		case SYS_BOOTUP:
+			// system begin working
+			if (slpflg == FALSE)
+			{
+				SetRFstate(TEN_RF_PRESET);
+				SetSysState(SYS_WORKING);
+			}
+			else
+			{
+				SetSysState(SYS_DORMANT);
+			}
+			break;
+		case SYS_WORKING:
+		case SYS_SLEEPING:
+			if (slpflg == TRUE )
+				SetSysState(SYS_DORMANT);
+			break;
+		case SYS_DORMANT:
+			if (slpflg == FALSE )
+				SetSysState(SYS_BOOTUP);
+			else
+				SetSysState(SYS_DORMANT);
+			break;
+		case SYS_SETUP:
+		case SYS_UPGRADE:
+			break;
+	}
+	osal_set_event(task_id, BLE_SYS_WORKING_EVT);
+	
+	SET_P0_INT_ENABLE();
+	DEV_EN_INT_ENABLE();
+
 }
 
 /*********************************************************************
@@ -710,10 +744,13 @@ HAL_ISR_FUNCTION(GMDRDYIsr, P0INT_VECTOR)
 		osal_set_event(BLECore_TaskId, HG_SWITCH_EVT);
 #endif
 
+	DEV_EN_INT_PXIFG = 0;
+	DEV_EN_INT_PXIF = 0;
+#if 0
 	// Clear the CPU interrupt flag for Port PxIFG has to be cleared before PxIF.
 	GM_DRDY_INT_PXIFG = 0;
 	GM_DRDY_INT_PXIF = 0;
-
+#endif
 	CLEAR_SLEEP_MODE();
 	
 	HAL_EXIT_ISR();

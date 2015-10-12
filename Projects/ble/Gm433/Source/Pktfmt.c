@@ -484,7 +484,7 @@ static void PresetParamResp(uint8 *data, uint8 len)
 	RFstfrq = (stfreq==0? RFstfrq: stfreq);
 
 	RFDataForm(GDE_ST_T_REQ_ACK, &RFstfrq, sizeof(RFstfrq));
-	RF_working(BLECore_TaskId, GetRFstate());
+	//RF_working(BLECore_TaskId, GetRFstate());
 
 	// State will change after working state over
 	SetSysState(SYS_SETUP);
@@ -514,7 +514,7 @@ static void ReadGDEParam(void)
 	ReadIDParam(rddata);
 
 	RFDataForm(GDE_ST_T_READ_ACK, rddata, sizeof(rddata));
-	RF_working(BLECore_TaskId, GetRFstate());
+	//RF_working(BLECore_TaskId, GetRFstate());
 }
 
 /*********************************************************************
@@ -567,7 +567,7 @@ static bool SetGDEParam(uint8 *setdata, uint8 len)
 			BUILD_UINT16(pVal[ST_VERSION_L_POS],pVal[ST_VERSION_H_POS]));
 
 	RFDataForm(GDE_ST_T_SET_ACK, &flag, sizeof(flag));
-	RF_working(BLECore_TaskId, GetRFstate());
+	//RF_working(BLECore_TaskId, GetRFstate());
 
 	return flag;
 }
@@ -595,7 +595,7 @@ static rferr_t RFDataSend(uint8 *buf, uint8 len)
 	//Copy send data to buffer and wait 250ms for TEN308 RF wake up
 	osal_memcpy(rfsndbuf,buf,len);
 	rfsndlen = len;
-	//RF_working(BLECore_TaskId, GetRFstate());
+	RF_working(BLECore_TaskId, GetRFstate());
 #endif	// USE_CC112X_RF
 
 	return RF_SUCCESS;

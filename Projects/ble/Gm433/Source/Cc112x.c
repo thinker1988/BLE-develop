@@ -106,6 +106,11 @@ static uint8 RFmode = RF_IDLE_M;
 static bool RFrxtxRdy;
 
 #else
+
+// Set RF working params command buffer and length, separate with data send buffer
+static uint8 stcmdbuf[32];
+static uint8 stcmdlen;
+
 // TEN RF state
 static tenRFstate_t TENRFst=TEN_RF_PRESET;
 
@@ -171,7 +176,18 @@ tenRFstate_t GetRFstate(void)
 
 void RF_working(uint8 task_id, tenRFstate_t ntenRFst)
 {
+	uint32 lasttmout;
+
 	TENRFst = ntenRFst;
+
+	// Wait untill last RF work finish in case of reentry
+	lasttmout = osal_get_timeoutEx(task_id, RF_DATA_PROC_EVT);
+	if (lasttmout != 0)
+	{
+		osal_start_timerEx(task_id, RF_DATA_PROC_EVT, lasttmout);
+		return;
+	}
+
 	switch (TENRFst)
 	{
 		case TEN_RF_PRESET:
@@ -181,10 +197,10 @@ void RF_working(uint8 task_id, tenRFstate_t ntenRFst)
 			osal_start_timerEx(task_id, RF_DATA_PROC_EVT,WAIT_TEN_START_PERIOD);
 			break;
 		case TEN_RF_SET:
-			if ( rfsndlen > 0 )
+			if ( stcmdlen > 0 )
 			{
-				Com433Write(COM433_WORKING_PORT, rfsndbuf, rfsndlen);
-				rfsndlen = 0;
+				Com433Write(COM433_WORKING_PORT, stcmdbuf, stcmdlen);
+				stcmdlen = 0;
 			}
 			TENRFst = TEN_RF_WAIT_SET;
 			osal_start_timerEx(task_id, RF_DATA_PROC_EVT, WAIT_TEN_CMD_PERIOD);
@@ -195,12 +211,9 @@ void RF_working(uint8 task_id, tenRFstate_t ntenRFst)
 			osal_start_timerEx(task_id, RF_DATA_PROC_EVT, WAIT_TEN_STOP_PERIOD);
 			break;
 		case TEN_RF_WAKEUP:
-			if (osal_get_timeoutEx(task_id, RF_DATA_PROC_EVT) == 0)
-			{
-				RFwakeup();
-				TENRFst = TEN_RF_WORK;
-				osal_start_timerEx(task_id, RF_DATA_PROC_EVT, WAIT_TEN_RF_RDY_PERIOD);
-			}
+			RFwakeup();
+			TENRFst = TEN_RF_WORK;
+			osal_start_timerEx(task_id, RF_DATA_PROC_EVT, WAIT_TEN_RF_RDY_PERIOD);
 			break;
 		case TEN_RF_WORK:
 			if ( rfsndlen > 0 )
@@ -579,7 +592,6 @@ static void registerConfig(sysstate_t state)
 			freqsel = 0;	// always use 433 for bootup
 			break;
 		case SYS_WORKING:
-		case SYS_WAITING:
 			freqsel = RFwkfrq-1;
 			break;
 		case SYS_SETUP:
@@ -629,7 +641,7 @@ static void registerConfig(sysstate_t state)
 
 #else
 
-	rfsndlen = FromTENCmd(TRUE, rfsndbuf, freqsel);
+	stcmdlen = FromTENCmd(TRUE, stcmdbuf, freqsel);
 #endif	// !defined USE_CC112X_RF
 }
 
