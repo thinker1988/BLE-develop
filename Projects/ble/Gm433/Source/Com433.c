@@ -16,10 +16,6 @@
 /*********************************************************************
  * CONSTANTS
  */
-#if ( defined ALLOW_DEBUG_OUTPUT )
-// Wait serial data send over
-#define WAIT_SERIAL_OUTPUT_PERIOD		100
-#endif	// ALLOW_DEBUG_OUTPUT
 
 /*********************************************************************
  * TYPEDEFS

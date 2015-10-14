@@ -588,10 +588,9 @@ static bool SetIDParam(uint16 GDEaddr, uint16 GMEaddr, uint16 vern)
 static rferr_t RFDataSend(uint8 *buf, uint8 len)
 {
 #if ( defined USE_CC112X_RF )
-	RFwakeup();
-
-	txdata(buf,len);
-#else
+	SetRFstate(RF_SEND);
+	TxData(buf,len);
+#else	// !USE_CC112X_RF
 	//Copy send data to buffer and wait 250ms for TEN308 RF wake up
 	osal_memcpy(rfsndbuf,buf,len);
 	rfsndlen = len;

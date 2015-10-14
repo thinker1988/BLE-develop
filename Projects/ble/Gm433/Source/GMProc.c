@@ -226,7 +226,6 @@ void GM_working(uint8 task_id, gmsensor_t ngmsnst)
 			{
 				gmsnst = GMSnErr;
 			}
-			// Max wait 500ms for RF setup finish
 			osal_set_event(task_id,GM_DATA_PROC_EVT);
 			break;
 		}
@@ -245,7 +244,7 @@ void GM_working(uint8 task_id, gmsensor_t ngmsnst)
 			break;
 		case GMSnErr:
 			Com433WriteStr(COM433_DEBUG_PORT,"\r\nGM init failed...");
-			SetRFstate(TEN_RF_SLEEPING);
+			SetRFstate(RF_SLEEP);
 			SetSysState(SYS_DORMANT);
 			break;
 		default:
@@ -667,7 +666,9 @@ static void GM_send_data(uint8 task_id, int16 tmpX, int16 tmpY, int16 tmpZ)
 
 	if (sndtyp != SEND_NOTHG)
 	{
-		SetRFstate(TEN_RF_WAKEUP);
+#if ( !defined USE_CC112X_RF )
+		SetRFstate(RF_WAKEUP);
+#endif	// !USE_CC112X_RF
 		SetSysState(SYS_WORKING);
 		switch (sndtyp)
 		{
@@ -702,6 +703,20 @@ static void GM_send_data(uint8 task_id, int16 tmpX, int16 tmpY, int16 tmpZ)
  */
 static void SendXYZVal(uint8 task_id, int16 tmpX, int16 tmpY, int16 tmpZ)
 {
+#if ( defined USE_CC112X_RF )
+	uint8 buf[GMS_PKT_MAX_LEN], len;
+
+	IntConvertString(buf, tmpX);
+	len = osal_strlen((char *)buf);
+	buf[len++] = ' ';
+	IntConvertString(buf+len, tmpY);
+	len = osal_strlen((char *)buf);
+	buf[len++] = ' ';
+	IntConvertString(buf+len, tmpZ);
+	len = osal_strlen((char *)buf);
+
+	TxData(buf,len);
+#else	// !USE_CC112X_RF
 	IntConvertString(rfsndbuf, tmpX);
 	rfsndlen = osal_strlen((char *)rfsndbuf);
 	rfsndbuf[rfsndlen++] = ' ';
@@ -712,6 +727,7 @@ static void SendXYZVal(uint8 task_id, int16 tmpX, int16 tmpY, int16 tmpZ)
 	rfsndlen = osal_strlen((char *)rfsndbuf);
 
 	RF_working(task_id, GetRFstate());
+#endif	// USE_CC112X_RF
 }
 
 /*********************************************************************

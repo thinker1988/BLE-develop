@@ -303,7 +303,7 @@ void sys_working(uint8 task_id, sysstate_t newDevstate)
 			SYS_WS_INT_Cfg(task_id, WS_INT_DISABLE);
 			// Do not enter power saving
 			PowerHold(task_id);
-			RF_working(task_id, TEN_RF_PRESET);
+			RF_working(task_id, RF_PRESET);
 			GM_working(task_id, GMSnTest);
 			break;
 		case SYS_WORKING:
@@ -314,13 +314,13 @@ void sys_working(uint8 task_id, sysstate_t newDevstate)
 			break;
 		case SYS_SLEEPING:
 			PowerSave(task_id);
-			RF_working(task_id, TEN_RF_SLEEPING);
+			RF_working(task_id, RF_SLEEP);
 			// First start GM data normal read, use random delay
 			if (osal_get_timeoutEx(task_id, GM_DATA_PROC_EVT) == 0)
 				osal_start_timerEx(task_id, GM_DATA_PROC_EVT, c_rand()*(GM_READ_EVT_PERIOD/MILSEC_IN_SEC)/MAX_RANDOM_SECONDS);
 			break;
 		case SYS_DORMANT:
-			RF_working(task_id, TEN_RF_SLEEPING);
+			RF_working(task_id, RF_SLEEP);
 			GM_working(task_id, GMSnSleep);
 			StopAllTimer(task_id);
 			PowerSave(task_id);
@@ -331,7 +331,7 @@ void sys_working(uint8 task_id, sysstate_t newDevstate)
 				setupflg = FALSE;
 				InitDevID();
 				SetSysState(SYS_WORKING);
-				SetRFstate(TEN_RF_PRESET);
+				SetRFstate(RF_PRESET);
 				osal_set_event(task_id, BLE_SYS_WORKING_EVT);
 			}
 			else
@@ -339,7 +339,7 @@ void sys_working(uint8 task_id, sysstate_t newDevstate)
 				setupflg = TRUE;
 				StopAllTimer(task_id);
 				// Send presetup data
-				RF_working(task_id, TEN_RF_PRESET);
+				RF_working(task_id, RF_PRESET);
 				osal_start_timerEx(task_id, BLE_SYS_WORKING_EVT, NO_OPERATION_WAIT_PERIOD);
 			}
 		case SYS_UPGRADE:
@@ -556,7 +556,7 @@ static void SetSysStateByFlag(uint8 task_id, bool slpflg)
 			// system begin working
 			if (slpflg == FALSE)
 			{
-				SetRFstate(TEN_RF_PRESET);
+				SetRFstate(RF_PRESET);
 				SetSysState(SYS_WORKING);
 			}
 			else

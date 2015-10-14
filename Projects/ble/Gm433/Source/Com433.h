@@ -29,6 +29,12 @@ extern "C"
 #define COM433_UART_BR							HAL_UART_BR_9600
 #endif	// UART_HIGH_BAUD
 
+#if ( defined ALLOW_DEBUG_OUTPUT )
+// Wait serial data send over
+#define WAIT_SERIAL_OUTPUT_PERIOD		100
+#endif	// ALLOW_DEBUG_OUTPUT
+
+
 // Serial Port Related
 extern void Com433_Init(void);
 

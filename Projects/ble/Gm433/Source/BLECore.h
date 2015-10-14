@@ -30,7 +30,7 @@ extern "C"
 #define RF_RXTX_RDY_EVT				0x0020
 
 #if ( !defined USE_CC112X_RF )
-#define TEN_RF_WORK_EVT				0x0040
+#define RF_WORK_EVT				0x0040
 #endif	// USE_CC112X_RF
 */
 
