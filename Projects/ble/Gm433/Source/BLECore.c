@@ -115,7 +115,10 @@ static wsintstate_t wsint = WS_INT_DISABLE;
 
 static bool sleepflag = FALSE;
 
-// Already in setup mode flag
+// Already in work mode flag, use this flag to avoid RF setting during waiting IDLE_PWR_HOLD_PERIOD
+static bool workflg = FALSE;
+
+// Already in setup mode flag, use this flag to stay in setup mode during NO_OPERATION_WAIT_PERIOD
 static bool setupflg = FALSE;
 
 #if ( !defined NOT_USE_BLE_STACK && defined ALLOW_BLE_ADV )
@@ -307,14 +310,23 @@ void sys_working(uint8 task_id, sysstate_t newDevstate)
 			GM_working(task_id, GMSnTest);
 			break;
 		case SYS_WORKING:
-			PowerHold(task_id);
-			RF_working(task_id, GetRFstate());
-			SetSysState(SYS_SLEEPING);
-			osal_start_timerEx(task_id, BLE_SYS_WORKING_EVT, IDLE_PWR_HOLD_PERIOD);
+			if (workflg == FALSE)
+			{
+				workflg = TRUE;
+				PowerHold(task_id);
+				RF_working(task_id, GetRFstate());
+				osal_start_timerEx(task_id, BLE_SYS_WORKING_EVT, IDLE_PWR_HOLD_PERIOD);
+			}
+			else
+			{
+				workflg = FALSE;
+				SetSysState(SYS_SLEEPING);
+				osal_set_event(task_id, BLE_SYS_WORKING_EVT);
+			}
 			break;
 		case SYS_SLEEPING:
-			PowerSave(task_id);
 			RF_working(task_id, RF_SLEEP);
+			PowerSave(task_id);
 			// First start GM data normal read, use random delay
 			if (osal_get_timeoutEx(task_id, GM_DATA_PROC_EVT) == 0)
 				osal_start_timerEx(task_id, GM_DATA_PROC_EVT, c_rand()*(GM_READ_EVT_PERIOD/MILSEC_IN_SEC)/MAX_RANDOM_SECONDS);

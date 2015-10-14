@@ -131,10 +131,6 @@ extern wsintstate_t GetIntState(void);
 extern void PowerSave(uint8 task_id);
 extern void PowerHold(uint8 task_id);
 
-
-extern void RFwakeup(void);
-extern void RFsleep(void);
-
 extern uint8 CalcBatteryPercent(void);
 
 

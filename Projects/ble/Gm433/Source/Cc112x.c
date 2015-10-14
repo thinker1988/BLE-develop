@@ -98,10 +98,12 @@ extern uint8 rfsndlen;
  */
 #if ( defined USE_CC112X_RF )
 
-// Receive data ready flag, controled by interrupt
-static bool rxrdyflag=FALSE; 
+// Receive or send data ready flag, controled by interrupt
+static bool rtxrdyflag=FALSE; 
 
 #else	// !USE_CC112X_RF
+
+static bool RFworkingflag=FALSE; 
 
 // Set RF working params command buffer and length, separate with data send buffer
 static uint8 stcmdbuf[32];
@@ -123,14 +125,14 @@ static uint8 RFpwr = 0x08;	// Max level
 // TEN & CC112X RF state
 static rfstate_t rfst=RF_PRESET;
 
-static bool RFworkingflag=FALSE; 
-
 /*********************************************************************
  * LOCAL FUNCTIONS
  */
 static void InitRFCfg(sysstate_t state);
 
 static void registerConfig(sysstate_t state);
+
+static void RFsleep(void);
 
 #if ( defined USE_CC112X_RF )
 static void RxData(void);
@@ -160,7 +162,10 @@ static uint8 trxSingleRX(void);
 
 static void manualCalibration(void);
 
-#else
+#else	// !USE_CC112X_RF
+
+static void RFwakeup(void);
+
 static void TENRFWakeup(void);
 static void TENRFSleep(void);
 
@@ -217,7 +222,8 @@ void RF_working(uint8 task_id, rfstate_t newrfstate)
 			InitRFCfg(GetSysState());
 
 #if ( defined USE_CC112X_RF )
-			rfst = RF_SLEEP;
+			rfst = RF_RECV;	// Enter receive mode after set
+			trxSpiCmdStrobe(CC112X_SRX);
 #else	// !USE_CC112X_RF
 			if ( stcmdlen > 0 )
 			{
@@ -233,13 +239,9 @@ void RF_working(uint8 task_id, rfstate_t newrfstate)
 #if ( defined USE_CC112X_RF )
 		case RF_SEND:	// This state changed by interrupt
 		{
-			if (GetSysState() == SYS_BOOTUP)
+			if (rtxrdyflag == TRUE)	// In case SYS_WORKING reentry
 			{
-				rfst = RF_SLEEP;
-				osal_set_event(task_id, RF_DATA_PROC_EVT);
-			}
-			else
-			{
+				rtxrdyflag = FALSE;
 				rfst = RF_RECV;
 				trxSpiCmdStrobe(CC112X_SRX);
 			}
@@ -247,9 +249,9 @@ void RF_working(uint8 task_id, rfstate_t newrfstate)
 		}
 		case RF_RECV:
 		{
-			if (rxrdyflag == TRUE)	// In case SYS_WORKING reentry
+			if (rtxrdyflag == TRUE)	// In case SYS_WORKING reentry
 			{
-				rxrdyflag = FALSE;
+				rtxrdyflag = FALSE;
 				RxData();
 			}
 			break;
@@ -345,30 +347,6 @@ bool SetRFParam(uint8 wkfreq, uint8 setfreq, uint8 upgdfreq, uint8 baud, uint8 p
 }
 
 
-void RFwakeup(void)
-{
-	if (RFworkingflag == TRUE)
-		return;
-
-	RFworkingflag = TRUE;
-#if ( !defined USE_CC112X_RF )
-	TENRFWakeup();
-#endif	// !USE_CC112X_RF
-}
-
-void RFsleep(void)
-{
-	if (RFworkingflag == FALSE)
-		return;
-
-	RFworkingflag = FALSE;
-#if ( defined USE_CC112X_RF )
-	CC112XRFSleep();
-#else
-	TENRFSleep();
-#endif	// USE_CC112X_RF
-}
-
 #if ( defined USE_CC112X_RF )
 
 /*********************************************************************
@@ -385,11 +363,12 @@ void TxData(uint8 *txbuf, uint8 len)
 {
 	uint8 txBuffer[GMS_PKT_MAX_LEN] = {0};
 
-	txBuffer[0] = len;
-	osal_memcpy(txBuffer+1, txbuf, len);
+	txBuffer[0] = len+1;
+	txBuffer[1] = 0x01;	// address
+	osal_memcpy(txBuffer+2, txbuf, len);
 
 	// Write packet to TX FIFO
-	CC112XSpiWriteTxFifo(txBuffer, len+1);
+	CC112XSpiWriteTxFifo(txBuffer, len+2);
 	// Strobe TX to send packet
 	trxSpiCmdStrobe(CC112X_STX);
 }
@@ -498,6 +477,20 @@ static void registerConfig(sysstate_t state)
 #endif	// !defined USE_CC112X_RF
 }
 
+
+static void RFsleep(void)
+{
+#if ( defined USE_CC112X_RF )
+	CC112XRFSleep();
+#else
+	if (RFworkingflag == FALSE)
+		return;
+
+	RFworkingflag = FALSE;
+	TENRFSleep();
+#endif	// USE_CC112X_RF
+}
+
 #if ( defined USE_CC112X_RF )
 
 /*********************************************************************
@@ -533,11 +526,12 @@ static void RxData(void)
 		{
 			// Read n bytes from RX FIFO
 			CC112XSpiReadRxFifo(rxBuffer, rxBytes);
-			Com433WriteInt(COM433_DEBUG_PORT, "\r\nR:", rxBytes,10);
+			//Com433WriteInt(COM433_DEBUG_PORT, "\r\nR:", rxBytes,10);
 			if(rxBuffer[rxBytes - 1] & 0x80)
 			{
-				rxBuffer[0]=' ';
-				Com433Write(COM433_DEBUG_PORT, rxBuffer, rxBytes-2);
+				//rxBuffer[0]=' ';
+				//Com433Write(COM433_DEBUG_PORT, rxBuffer, rxBytes-2);
+				GMSPktForm(rxBuffer+2, rxBytes-2-2);
 			}
 			else
 				Com433WriteStr(COM433_DEBUG_PORT,"CRC Fail");
@@ -1082,8 +1076,7 @@ HAL_ISR_FUNCTION(RF_RTX_RDY_Isr, P1INT_VECTOR)
 
 	if (RF_SYNC_INT_IEN & RF_SYNC_INT_IE)
 	{
-		if (rfst == RF_RECV)
-			rxrdyflag = TRUE;
+		rtxrdyflag = TRUE;
 		osal_set_event(BLECore_TaskId, RF_DATA_PROC_EVT);
 	}
 
@@ -1097,6 +1090,16 @@ HAL_ISR_FUNCTION(RF_RTX_RDY_Isr, P1INT_VECTOR)
 }
 
 #else	// !USE_CC112X_RF
+
+static void RFwakeup(void)
+{
+	if (RFworkingflag == TRUE)
+		return;
+
+	RFworkingflag = TRUE;
+
+	TENRFWakeup();
+}
 
 
 static void TENRFWakeup(void)

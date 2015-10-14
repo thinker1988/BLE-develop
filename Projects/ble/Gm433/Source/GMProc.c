@@ -226,7 +226,7 @@ void GM_working(uint8 task_id, gmsensor_t ngmsnst)
 			{
 				gmsnst = GMSnErr;
 			}
-			osal_set_event(task_id,GM_DATA_PROC_EVT);
+			osal_start_timerEx(task_id,GM_DATA_PROC_EVT,WAIT_RF_WORK_PERIOD);
 			break;
 		}
 		case GMSnReq:
@@ -715,6 +715,7 @@ static void SendXYZVal(uint8 task_id, int16 tmpX, int16 tmpY, int16 tmpZ)
 	IntConvertString(buf+len, tmpZ);
 	len = osal_strlen((char *)buf);
 
+	SetRFstate(RF_SEND);
 	TxData(buf,len);
 #else	// !USE_CC112X_RF
 	IntConvertString(rfsndbuf, tmpX);

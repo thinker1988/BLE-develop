@@ -331,6 +331,10 @@ extern "C" {
 #define SMARTRF_SETTING_PREAMBLE_CFG0			0x2A
 #define SMARTRF_SETTING_SYNC_CFG0				0x17
 
+
+#define WAIT_RF_WORK_PERIOD						WAIT_RF_START_PERIOD
+
+
 typedef struct
 {
 	uint16	addr;
@@ -493,11 +497,14 @@ typedef enum
 {
 	RF_PRESET,	// TEN & CC112X RF first boot up
 	RF_BEG_SET,	// TEN & CC112X RF send setup command
+#if ( defined USE_CC112X_RF )
 	RF_SEND,	// CC112X RF send
 	RF_RECV,	// CC112X RF receive
+#else	// !USE_CC112X_RF
 	RF_WAIT_RESET,	// TEN RF device reset
 	RF_WAKEUP,	// TEN RF device wake up
 	RF_WORK,	// TEN RF data process
+#endif	// USE_CC112X_RF
 	RF_SLEEP	// TEN & CC112X RF sleep
 }rfstate_t;
 
