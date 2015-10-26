@@ -73,11 +73,18 @@ enum RFworkingmode{
 // Default RF frequency params
 // TEN308: work 433 set 433 upgrade 470
 // CC1120: work 428 set 433 upgrade 470
+
+// Default RF air baud rate
+// CC1120: 1200
+// TEN308 : 9600
 #if ( defined USE_CC112X_RF )
 uint8 RFwkfrq = 0x01,RFstfrq = 0x07,RFupgfrq = 0x0C;
+uint8 RFairbaud = 0x05;
 #else
 uint8 RFwkfrq = 0x01,RFstfrq = 0x01,RFupgfrq = 0x02;
+uint8 RFairbaud = 0x05;
 #endif	// USE_CC112X_RF
+
 
 /*********************************************************************
  * EXTERNAL VARIABLES
@@ -111,10 +118,6 @@ static uint8 stcmdlen;
 
 #endif	// USE_CC112X_RF
 
-
-// Default RF air baud rate
-// CC1120 & TEN308 : 9600
-static uint8 RFairbaud = 0x05;
 
 // Default RF air baud rate
 // TEN308: 20dBm

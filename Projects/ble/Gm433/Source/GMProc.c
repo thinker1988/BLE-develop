@@ -45,8 +45,8 @@
 // Benchmark adjust times, *READ_PEROID, default every 30min
 #define ADJ_BENCHMK_TIMES		360
 
-// Max times to change unknow status, default 5min
-#define MAX_UNKNOW_TIMES		60
+// Max times to change abnormal status, default 5min
+#define MAX_ABNORMAL_TIMES		60
 
 // Impossible value, should be caused by some iron materials, not car
 #define GM_ERROR_VALUE			640000
@@ -267,8 +267,13 @@ void SendSyncTMReq(void)
 	uint8 tmsync=TRUE;
 
 	RFDataForm(GDE_ST_TMSYN_REQ,&tmsync,sizeof(tmsync));
+
+#if ( !defined GM_TEST_COMM )
 	if (++syncautostop > MAX_TM_SYNC_TIMES)
 		ClearSyncTMReq();
+#else	// GM_TEST_COMM
+	Com433WriteStr(COM433_DEBUG_PORT,"\r\nSend sync...\t");
+#endif	// !GM_TEST_COMM
 }
 
 
@@ -522,15 +527,21 @@ static void GM_dev_read(uint8 task_id)
 		}
 		else
 		{
+#if ( !defined GM_TEST_COMM )
+			osal_start_timerEx(task_id,GM_DATA_PROC_EVT,GM_READ_EVT_PERIOD-GM_READ_ONCE_PERIOD);
 			GM_dev_proc(xval,yval,zval);
+#else
+			//osal_start_timerEx(task_id,GM_DATA_PROC_EVT,2000-GM_READ_ONCE_PERIOD);
+			sndtyp = SEND_HRTBY;
+#endif	// !GM_TEST_COMM
+
 			GM_send_data(task_id,xval,yval,zval);
+
 #if ( !defined ALLOW_DEBUG_OUTPUT )
 			osal_set_event(task_id, BLE_SYS_WORKING_EVT);
 #else
 			osal_start_timerEx(task_id, BLE_SYS_WORKING_EVT, WAIT_SERIAL_OUTPUT_PERIOD);
 #endif	// !ALLOW_DEBUG_OUTPUT
-
-			osal_start_timerEx(task_id,GM_DATA_PROC_EVT,GM_READ_EVT_PERIOD-GM_READ_ONCE_PERIOD);
 		}
 	}
 
@@ -558,44 +569,13 @@ static void GM_dev_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 		case GMNoCar:
 		{
 			tmpgmst = CheckCarIn(tmpX,tmpY,tmpZ);
-			if ( tmpgmst == GMGetCar )
+			if (tmpgmst == GMGetCar)
 			{
 				set_data_change();
 				// Reinit detect benchmark every time
 				InitBenchmk(GMGetCar,tmpX, tmpY, tmpZ);
-			}
-			else if ( tmpgmst == GMNoCar)
-			{
-				empcnt++;
-				// Continuously adjust benchmark at first 10 times and fill the array
-				if ( tmpbenchcnt < BENCH_AVG_LEN)
-					NormRgltEmpBenchmk(tmpX,tmpY,tmpZ);
-				else if (empcnt >= ADJ_BENCHMK_TIMES)
-					NormRgltEmpBenchmk(tmpX,tmpY,tmpZ);
-				else
-					PrintGMvalue(COM433_DEBUG_PORT, "\r\nR:",tmpX,tmpY,tmpZ);
-			}
-			else if ( tmpgmst == GMError )
-			{
-				// Send error data
-				set_heart_beat();
-				PrintGMvalue(COM433_DEBUG_PORT, "\r\nEMP ERR:",tmpX,tmpY,tmpZ);
-			}
-			else
-			{
-				if (++unkwncnt > MAX_UNKNOW_TIMES)
-				{
-					set_data_change();
-					unkwncnt = 0;
-					// Reinit detect benchmark every time
-					InitBenchmk(GMGetCar,tmpX, tmpY, tmpZ);
-				}
-				else
-					PrintGMvalue(COM433_DEBUG_PORT, "\r\nUNKW:",tmpX,tmpY,tmpZ);
-			}
 
-			if (tmpgmst != GMUnknow)
-				unkwncnt = 0;
+			}
 			break;
 		}
 		case GMGetCar:
@@ -625,7 +605,6 @@ static void GM_dev_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 			tmsyncflag = TRUE;
 			break;
 		}
-		case GMUnknow:
 		case GMError:
 		default:
 			break;
@@ -647,7 +626,7 @@ static void GM_dev_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
  */
 static void GM_send_data(uint8 task_id, int16 tmpX, int16 tmpY, int16 tmpZ)
 {
-	// adjust benchmark ervery heart beat timing
+	// Adjust benchmark ervery heart beat timing
 	if (++readcnt >= (MILSEC_IN_MIN/GM_READ_EVT_PERIOD)*hrtbt_inmin)
 	{
 		readcnt = 0;
@@ -655,6 +634,7 @@ static void GM_send_data(uint8 task_id, int16 tmpX, int16 tmpY, int16 tmpZ)
 		set_heart_beat();
 	}
 
+	// Perform time synchronization every 24h
 	if (tmsynccnt >= (HOUR_IN_DAY*MIN_IN_HOUR)/hrtbt_inmin)
 	{
 		tmsynccnt = 0;
@@ -666,9 +646,6 @@ static void GM_send_data(uint8 task_id, int16 tmpX, int16 tmpY, int16 tmpZ)
 
 	if (sndtyp != SEND_NOTHG)
 	{
-#if ( !defined USE_CC112X_RF )
-		SetRFstate(RF_WAKEUP);
-#endif	// !USE_CC112X_RF
 		SetSysState(SYS_WORKING);
 		switch (sndtyp)
 		{
@@ -676,6 +653,7 @@ static void GM_send_data(uint8 task_id, int16 tmpX, int16 tmpY, int16 tmpZ)
 				gdetmpr = GM_dev_get_tmpr();
 				if (gdetmpr == GM_INVALID_TEMPR)
 					SetGMSnState(GMSnErr);
+				// Do not break
 			case SEND_CHNG:
 				SendGDEData(tmpX,tmpY,tmpZ);
 				break;
@@ -785,7 +763,7 @@ static void GetDevPowerPrcnt()
  */
 static void set_time_sync(void)
 {
-	// send heart beat when nothing wait sent
+	// Send time synchronization when nothing wait sent, lowest priority
 	if (sndtyp == SEND_NOTHG)
 		if (tmsyncflag == TRUE)
 			sndtyp = SEND_SYNC;
@@ -907,14 +885,59 @@ static gmstatus_t CheckCarIn(int16 tmpX, int16 tmpY, int16 tmpZ)
 
 	devsqrsum = xdev*xdev+ydev*ydev+zdev*zdev;
 
+	// First process long time abnormal value
+	if (devsqrsum >= sqrthrhldarr[detectlevel-1]/2 && devsqrsum < sqrthrhldarr[detectlevel-1] )
+	{
+		if (++unkwncnt > MAX_ABNORMAL_TIMES)
+		{
+			unkwncnt = 0;
+
+			return GMGetCar;
+		}
+		else
+		{
+			PrintGMvalue(COM433_DEBUG_PORT, "\r\nABN:",tmpX,tmpY,tmpZ);
+
+			return GMNoCar;
+		}
+	}
+	else
+	{
+		unkwncnt = 0;
+	}
+
+	// Dev^2 belongs to normal car in range
 	if (devsqrsum >= sqrthrhldarr[detectlevel-1] && devsqrsum < GM_ERROR_VALUE)
+	{
 		return GMGetCar;
+	}
+	// Almost no change
 	else if (devsqrsum < sqrthrhldarr[detectlevel-1]/4)
-		return GMNoCar;
-	else if (devsqrsum >= sqrthrhldarr[detectlevel-1]/4 && devsqrsum < sqrthrhldarr[detectlevel-1] )
-		return GMUnknow;
-	else	// > GM_ERROR_VALUE means error value detect
-		return GMError;
+	{
+		empcnt++;
+		// Continuously adjust benchmark at first 10 times and fill the array
+		if ( tmpbenchcnt < BENCH_AVG_LEN)
+			NormRgltEmpBenchmk(tmpX,tmpY,tmpZ);
+		// Ajust benchmark envery 5min
+		else if (empcnt >= ADJ_BENCHMK_TIMES)
+			NormRgltEmpBenchmk(tmpX,tmpY,tmpZ);
+		else
+			PrintGMvalue(COM433_DEBUG_PORT, "\r\nR:",tmpX,tmpY,tmpZ);
+	}
+	// A little change
+	else if (devsqrsum >= sqrthrhldarr[detectlevel-1]/4 && devsqrsum < sqrthrhldarr[detectlevel-1]/2 )
+	{
+		PrintGMvalue(COM433_DEBUG_PORT, "\r\nR:",tmpX,tmpY,tmpZ);
+	}
+	// Error value detect
+	else
+	{
+		// Send error data
+		set_heart_beat();
+		PrintGMvalue(COM433_DEBUG_PORT, "\r\nEMP ERR:",tmpX,tmpY,tmpZ);
+	}
+
+	return GMNoCar;
 }
 
 /*********************************************************************
@@ -1027,14 +1050,10 @@ static bool InitBenchmk(gmstatus_t gmstts,int16 xVal,int16 yVal, int16 zVal)
 			tmpbenchcnt = 0;
 			NormRgltEmpBenchmk(xVal,yVal,zVal);
 			gmst = GMNoCar;
-			
 			break;
 		case GMGetCar:
 			WghtRgltOcpBenchmk(xVal,yVal,zVal);
 			gmst = GMGetCar;
-			
-			break;
-		case GMUnknow:
 			break;
 		default:
 			return FALSE;

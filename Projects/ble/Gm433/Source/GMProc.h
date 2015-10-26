@@ -128,7 +128,6 @@ typedef enum gmstatus
 {
 	GMNoCar=0,
 	GMGetCar,
-	GMUnknow,
 	GMFirstBoot,
 	GMError
 }gmstatus_t;

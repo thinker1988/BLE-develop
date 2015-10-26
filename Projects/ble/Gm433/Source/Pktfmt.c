@@ -236,6 +236,9 @@ rferr_t RFDataParse(uint8 *rfdata,uint8 len)
 			case GME_ST_CARINFO_ACK:
 				// GME recieved carinfo successfully
 				ClearDataResend();
+#if ( defined ALLOW_DEBUG_OUTPUT )
+				Com433WriteStr(COM433_DEBUG_PORT, "\r\nSEND OK!");
+#endif
 				break;
 			case GME_ST_TMSYN_ACK:
 				// set time
@@ -450,9 +453,15 @@ static void SyncTMResp(uint8 *data, uint8 len)
 	
 	osal_setClock(osal_ConvertUTCSecs(&settmst));
 
-/*	SaveLastTMInfo(settmst);*/
-
+#if ( !defined GM_TEST_COMM )
 	ClearSyncTMReq();
+#else	// GM_TEST_COMM
+	Com433WriteInt(COM433_DEBUG_PORT," ",settmst.hour,10);
+	Com433WriteInt(COM433_DEBUG_PORT,":",settmst.minutes,10);
+	Com433WriteInt(COM433_DEBUG_PORT,":",settmst.seconds,10);
+#endif	// !GM_TEST_COMM
+
+
 }
 
 /*********************************************************************
@@ -594,19 +603,8 @@ static rferr_t RFDataSend(uint8 *buf, uint8 len)
 	//Copy send data to buffer and wait 250ms for TEN308 RF wake up
 	osal_memcpy(rfsndbuf,buf,len);
 	rfsndlen = len;
-	RF_working(BLECore_TaskId, GetRFstate());
+	RF_working(BLECore_TaskId, RF_WAKEUP);
 #endif	// USE_CC112X_RF
 
 	return RF_SUCCESS;
 }
-
-/*
-static void SaveLastTMInfo(UTCTimeStruct tm)
-{
-	lasttm.seconds = tm.seconds;
-	lasttm.minutes = tm.minutes;
-	lasttm.hour = tm.hour;
-	lasttm.day = tm.day;
-	lasttm.month = tm.month;
-	lasttm.year = tm.year;
-}*/
