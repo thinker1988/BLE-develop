@@ -532,7 +532,7 @@ static void GM_dev_read(uint8 task_id)
 			GM_dev_proc(xval,yval,zval);
 #else
 			//osal_start_timerEx(task_id,GM_DATA_PROC_EVT,2000-GM_READ_ONCE_PERIOD);
-			sndtyp = SEND_HRTBY;
+			sndtyp = SEND_SYNC;
 #endif	// !GM_TEST_COMM
 
 			GM_send_data(task_id,xval,yval,zval);

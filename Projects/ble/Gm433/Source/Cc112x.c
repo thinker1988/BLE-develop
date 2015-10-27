@@ -79,7 +79,7 @@ enum RFworkingmode{
 // TEN308 : 9600
 #if ( defined USE_CC112X_RF )
 uint8 RFwkfrq = 0x01,RFstfrq = 0x07,RFupgfrq = 0x0C;
-uint8 RFairbaud = 0x05;
+uint8 RFairbaud = 0x02;
 #else
 uint8 RFwkfrq = 0x01,RFstfrq = 0x01,RFupgfrq = 0x02;
 uint8 RFairbaud = 0x05;
@@ -530,8 +530,10 @@ static void RxData(void)
 			// Read n bytes from RX FIFO
 			CC112XSpiReadRxFifo(rxBuffer, rxBytes);
 			//Com433WriteInt(COM433_DEBUG_PORT, "\r\nR:", rxBytes,10);
-			if(rxBuffer[rxBytes - 1] & 0x80)
+			if(rxBuffer[rxBytes-1] & 0x80)
 			{
+				Com433WriteInt(COM433_DEBUG_PORT," R:",Read8BitRssi(),10);
+				//Com433WriteInt(COM433_DEBUG_PORT," R2:",rxBuffer[rxBytes-2],10);
 				//rxBuffer[0]=' ';
 				//Com433Write(COM433_DEBUG_PORT, rxBuffer, rxBytes-2);
 				GMSPktForm(rxBuffer+2, rxBytes-2-2);
