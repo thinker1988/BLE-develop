@@ -693,8 +693,7 @@ static void SendXYZVal(uint8 task_id, int16 tmpX, int16 tmpY, int16 tmpZ)
 	IntConvertString(buf+len, tmpZ);
 	len = osal_strlen((char *)buf);
 
-	SetRFstate(RF_SEND);
-	TxData(buf,len);
+	RFDataSend(buf,len);
 #else	// !USE_CC112X_RF
 	IntConvertString(rfsndbuf, tmpX);
 	rfsndlen = osal_strlen((char *)rfsndbuf);

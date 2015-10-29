@@ -117,9 +117,6 @@ static void ReadIDParam(uint8 * rdbuf);
 static bool SetGDEParam(uint8 * setdata, uint8 len);
 static bool SetIDParam(uint16 GDEaddr, uint16 GMEaddr, uint16 vern);
 
-
-static rferr_t RFDataSend(uint8 *buf, uint8 len);
-
 /*static void SaveLastTMInfo(UTCTimeStruct tm);*/
 
 /*********************************************************************
@@ -153,7 +150,7 @@ void InitDevID(void)
  */
 void GMSPktForm(uint8 *rawbuf, uint8 rawlen)
 {
-	uint8 i;
+	uint8 i,tmp;
 
 	for (i=0; i<rawlen; i++)
 	{
@@ -183,11 +180,18 @@ void GMSPktForm(uint8 *rawbuf, uint8 rawlen)
 				gmsrdpkt[currdlen++]= rawbuf[i];
 				if (currdlen == totrdlen)
 				{
+#if ( defined GME_WORKING )
+					tmp = RFDataSend(gmsrdpkt, currdlen);
+#else	// !GME_WORKING
+					tmp = RFDataParse(gmsrdpkt, currdlen);
+#endif	// GME_WORKING
+
 #if ( defined ALLOW_DEBUG_OUTPUT )
-					Com433WriteInt(COM433_DEBUG_PORT, "\r\nRF",RFDataParse(gmsrdpkt, currdlen),10);
-#else
-					RFDataParse(gmsrdpkt, currdlen);
+					Com433WriteInt(COM433_DEBUG_PORT, "\r\nRF",tmp,10);
+#else	// !ALLOW_DEBUG_OUTPUT
+					VOID tmp;
 #endif	// ALLOW_DEBUG_OUTPUT
+
 					pktgmsst=PKT_GMS_ID;
 					currdlen = 0;
 				}
@@ -219,10 +223,10 @@ rferr_t RFDataParse(uint8 *rfdata,uint8 len)
 
 	if (osal_memcmp(rfdata+GMS_RESERVE_POS, GMS_RESERVE_STR, GMS_RESERVE_SIZE) == FALSE)
 		return PKT_DENY;
-	
+
 	if (GET_RF_DEST_ADDR(rfdata) != RFdevID && GET_RF_DEST_ADDR(rfdata) != GDE_ADV_ID)
 		return BAD_ADDR;
-		
+
 	if (CalcGMChksum(rfdata,len) != rfdata[GMS_CHK_SUM_POS])
 		return CHKSUM_ERR;
 
@@ -365,6 +369,23 @@ rferr_t RFDataForm(uint8 subtype, uint8 *data, uint8 datalen)
 	return RFDataSend(rfbuf,rfbuf[GMS_TOT_LEN_POS]);
 }
 
+
+rferr_t RFDataSend(uint8 *buf, uint8 len)
+{
+#if ( defined USE_CC112X_RF )
+	if ( GetRFstate()==RF_PRESET || GetRFstate()==RF_BEG_SET )
+		return RF_SUCCESS;
+	SetRFstate(RF_SEND);
+	TxData(buf,len);
+#else	// !USE_CC112X_RF
+	//Copy send data to buffer and wait 250ms for TEN308 RF wake up
+	osal_memcpy(rfsndbuf,buf,len);
+	rfsndlen = len;
+	RF_working(BLECore_TaskId, RF_WAKEUP);
+#endif	// USE_CC112X_RF
+
+	return RF_SUCCESS;
+}
 
 /*********************************************************************
  * PRIVATE FUNCTIONS
@@ -591,20 +612,4 @@ static bool SetIDParam(uint16 GDEaddr, uint16 GMEaddr, uint16 vern)
 	version = vern;
 
 	return TRUE;
-}
-
-
-static rferr_t RFDataSend(uint8 *buf, uint8 len)
-{
-#if ( defined USE_CC112X_RF )
-	SetRFstate(RF_SEND);
-	TxData(buf,len);
-#else	// !USE_CC112X_RF
-	//Copy send data to buffer and wait 250ms for TEN308 RF wake up
-	osal_memcpy(rfsndbuf,buf,len);
-	rfsndlen = len;
-	RF_working(BLECore_TaskId, RF_WAKEUP);
-#endif	// USE_CC112X_RF
-
-	return RF_SUCCESS;
 }

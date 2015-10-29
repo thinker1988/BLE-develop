@@ -23,7 +23,7 @@
 #include "Pktfmt.h"
 #include "Cc112x.h"
 
-#if ( !defined NOT_USE_BLE_STACK && defined ALLOW_BLE_ADV )
+#if ( defined USE_BLE_STACK && defined ALLOW_BLE_ADV )
 #include "gatt.h"
 #include "ll.h"
 #include "hci.h"
@@ -32,7 +32,9 @@
 #include "central.h"
 #include "gapbondmgr.h"
 #include "peripheral.h"
-#endif
+#endif	// USE_BLE_STACK && ALLOW_BLE_ADV
+
+
 
 
 /*********************************************************************
@@ -44,7 +46,7 @@
  */
  
 /********** BLE peripheral params define**********/
-#if ( !defined NOT_USE_BLE_STACK && defined ALLOW_BLE_ADV )
+#if ( defined USE_BLE_STACK && defined ALLOW_BLE_ADV )
 // Adv type
 #define BLE_CORE_DEV_TYPE			0xC9C9
 
@@ -68,7 +70,7 @@
 
 // Begin update parameters after connection (*1s)
 #define BLE_CORE_UPDATE_PAUSE		1
-#endif	// !NOT_USE_BLE_STACK && ALLOW_BLE_ADV
+#endif	// USE_BLE_STACK && ALLOW_BLE_ADV
 
 /**********Other params define**********/
 // BLE MAC store address in FLASH
@@ -121,7 +123,7 @@ static bool workflg = FALSE;
 // Already in setup mode flag, use this flag to stay in setup mode during NO_OPERATION_WAIT_PERIOD
 static bool setupflg = FALSE;
 
-#if ( !defined NOT_USE_BLE_STACK && defined ALLOW_BLE_ADV )
+#if ( defined USE_BLE_STACK && defined ALLOW_BLE_ADV )
 // Advertisement data (max size = 31 bytes, though this is best kept short to conserve power while advertisting)
 static uint8 BLECoreAdvData[] =
 {
@@ -154,7 +156,7 @@ static uint8 BLECoreScanRespData[] =
 	LO_UINT16( BLE_CORE_MAX_CON_INTVL ),
 	HI_UINT16( BLE_CORE_MAX_CON_INTVL ),
 };
-#endif	// !NOT_USE_BLE_STACK && ALLOW_BLE_ADV
+#endif	// USE_BLE_STACK && ALLOW_BLE_ADV
 
 /*********************************************************************
  * LOCAL FUNCTIONS
@@ -173,23 +175,23 @@ static uint32 c_rand(void);
 
 static void ReadBLEMac(uint8 * mac_addr);
 
-#if ( !defined NOT_USE_BLE_STACK && defined ALLOW_BLE_ADV )
+#if ( defined USE_BLE_STACK && defined ALLOW_BLE_ADV )
 static void init_gap_periph_role(void);
 static void init_gap_periph_params(void);
 static void BLECorePeriphNotiCB(gaprole_States_t newState);
-#endif	// !NOT_USE_BLE_STACK && ALLOW_BLE_ADV
+#endif	// USE_BLE_STACK && ALLOW_BLE_ADV
 
 /*********************************************************************
  * PROFILE CALLBACKS
  */
 // BLE peripheral profile callbacks
-#if ( !defined NOT_USE_BLE_STACK && defined ALLOW_BLE_ADV )
+#if ( defined USE_BLE_STACK && defined ALLOW_BLE_ADV )
 static gapRolesCBs_t BLECore_PeriphCBs =
 {
 	BLECorePeriphNotiCB,	// Profile State Change Callbacks
 	NULL					// When a valid RSSI is read from controller (not used by application)
 };
-#endif	// !NOT_USE_BLE_STACK && ALLOW_BLE_ADV
+#endif	// USE_BLE_STACK && ALLOW_BLE_ADV
 
 /*********************************************************************
  * PUBLIC FUNCTIONS
@@ -216,13 +218,13 @@ void BLECore_Init( uint8 task_id )
 	ReadBLEMac(BleMac);
 	c_srand(BUILD_UINT32(BleMac[0],BleMac[1],BleMac[2],BleMac[3]));
 	
-#if ( !defined NOT_USE_BLE_STACK && defined ALLOW_BLE_ADV )
+#if ( defined USE_BLE_STACK && defined ALLOW_BLE_ADV )
 	HCI_EXT_SetTxPowerCmd(HCI_EXT_TX_POWER_MINUS_23_DBM);
 
 	init_gap_periph_role();
 	init_gap_periph_params();
 	VOID GAPRole_StartDevice( &BLECore_PeriphCBs );
-#endif	// ALLOW_BLE_ADV & !NOT_USE_BLE_STACK
+#endif	// USE_BLE_STACK & ALLOW_BLE_ADV
 
 	// Start working
 	osal_set_event( task_id, BLE_SYS_WORKING_EVT );
@@ -307,7 +309,9 @@ void sys_working(uint8 task_id, sysstate_t newDevstate)
 			// Do not enter power saving
 			PowerHold(task_id);
 			RF_working(task_id, RF_PRESET);
+#if ( !defined GME_WORKING )
 			GM_working(task_id, GMSnTest);
+#endif	// !GME_WORKING
 			break;
 		case SYS_WORKING:
 			if (workflg == FALSE)
@@ -480,22 +484,26 @@ void Com433Handle(uint8 port,uint8 *pBuffer, uint16 length)
 	// No func will be called in CC112X RF from working port (recieve data by interrupt)
 	if (port == COM433_WORKING_PORT)
 	{
+
 #if ( !defined USE_CC112X_RF )
 
 #if ( defined TEN_DEBUG_MODE )
 		// Print serial data directly in debug mode
 		Com433Write(COM433_DEBUG_PORT, pBuffer, length);
-#else	
+#else	// !TEN_DEBUG_MODE
 		GMSPktForm(pBuffer,length);
 #endif	// TEN_DEBUG_MODE
 
 #endif	// !USE_CC112X_RF
+
 	}
 	else if (port == COM433_DEBUG_PORT)
 	{
-#if ( !defined USE_CC112X_RF && defined TEN_DEBUG_MODE )
+#if ( defined USE_CC112X_RF && defined GME_WORKING )
+		GMSPktForm(pBuffer, length);
+#elif ( !defined USE_CC112X_RF && defined TEN_DEBUG_MODE )
 		Com433Write(COM433_WORKING_PORT, pBuffer, length);
-#endif	// !USE_CC112X_RF
+#endif	// USE_CC112X_RF && GME_WORKING
 	}
 
 	return;
@@ -656,7 +664,7 @@ static void ReadBLEMac(uint8 *mac_addr)
 	return ;  
 }
 
-#if ( !defined NOT_USE_BLE_STACK && defined ALLOW_BLE_ADV )
+#if ( defined USE_BLE_STACK && defined ALLOW_BLE_ADV )
 
 /*********************************************************************
  * @fn		init_gap_peripheral_role
@@ -736,7 +744,7 @@ static void BLECorePeriphNotiCB( gaprole_States_t newState )
 			break;
 	} 
 }
-#endif	// !NOT_USE_BLE_STACK && ALLOW_BLE_ADV
+#endif	// USE_BLE_STACK && ALLOW_BLE_ADV
 
 
 /*********************************************************************

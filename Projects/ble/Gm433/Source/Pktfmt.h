@@ -257,6 +257,8 @@ extern rferr_t RFDataParse(uint8 *rfdata,uint8 len);
 
 extern rferr_t RFDataForm(uint8 subtype, uint8 *data, uint8 datalen);
 
+extern rferr_t RFDataSend(uint8 *buf, uint8 len);
+
 #ifdef __cplusplus
 }
 #endif

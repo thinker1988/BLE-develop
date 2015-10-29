@@ -1341,9 +1341,10 @@
           <state>GDE_DEV_ID=7</state>
           <state>GME_DEV_ID=1001</state>
           <state>VERSION_NUMBER=0x0100</state>
+          <state>xGME_WORKING</state>
           <state>GM_TEST_COMM</state>
           <state>xALLOW_DEBUG_OUTPUT</state>
-          <state>NOT_USE_BLE_STACK</state>
+          <state>xUSE_BLE_STACK</state>
           <state>HW_VERN=1</state>
           <state>USE_CC112X_RF</state>
           <state>HAL_UART_PORT=1</state>
@@ -1791,7 +1792,7 @@
       <archiveVersion>1</archiveVersion>
       <data>
         <prebuild></prebuild>
-        <postbuild></postbuild>
+        <postbuild>"$PROJ_DIR$\..\..\common\cc2540\cc254x_sim2bin.exe" "$PROJ_DIR$\GDE_RELEASE\Exe\GDE_release.sim" "$PROJ_DIR$\GDE_RELEASE\Exe\GDE_release.bin"</postbuild>
       </data>
     </settings>
     <settings>
@@ -2009,12 +2010,12 @@
         </option>
         <option>
           <name>ExtraOutputFile</name>
-          <state>GDE_release.hex</state>
+          <state>GDE_release.sim</state>
         </option>
         <option>
           <name>ExtraOutputFormat</name>
           <version>11</version>
-          <state>23</state>
+          <state>60</state>
         </option>
         <option>
           <name>ExtraFormatVariant</name>
@@ -2095,11 +2096,11 @@
         </option>
         <option>
           <name>Linker Extra Options Check</name>
-          <state>0</state>
+          <state>1</state>
         </option>
         <option>
           <name>Linker Extra Options Edit</name>
-          <state></state>
+          <state>-Ointel-extended,2=.hex</state>
         </option>
         <option>
           <name>CrcAlign</name>
@@ -4484,13 +4485,11 @@
     <name>LIB</name>
     <file>
       <name>$PROJ_DIR$\..\..\Libraries\CC2541DB\bin\CC2541_BLE_bcast.lib</name>
-      <excluded>
-        <configuration>GDE_RELEASE</configuration>
-      </excluded>
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\Libraries\CC2541DB\bin\CC2541_BLE_peri.lib</name>
       <excluded>
+        <configuration>GDE_RELEASE</configuration>
         <configuration>GDE_SMTK_RELEASE</configuration>
       </excluded>
     </file>
@@ -4502,9 +4501,15 @@
     <name>NPI</name>
     <file>
       <name>$PROJ_DIR$\..\..\common\npi\npi_np\npi.c</name>
+      <excluded>
+        <configuration>GDE_RELEASE</configuration>
+      </excluded>
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\common\npi\npi_np\npi.h</name>
+      <excluded>
+        <configuration>GDE_RELEASE</configuration>
+      </excluded>
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\common\npi\npi_np\npi_spi.c</name>

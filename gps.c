@@ -543,6 +543,8 @@ static void gmspktform(uint8 *rawbuf, uint8 rawlen)
 					pktgmsst=PKT_GMS_LEN;
 					gmsrdpkt[currdlen++] = rawbuf[i];
 				}
+				else
+					printf("%c",rawbuf[i]);
 				break;
 			case PKT_GMS_LEN:
 				totrdlen= rawbuf[i];
@@ -834,7 +836,13 @@ int main(int argc, char ** argv)
 	int nset1,len,ret,Param;
 	unsigned char buf[GME_BUFFER_LEN];
 	unsigned char crc_buf[GME_BUFFER_LEN];
-	char setflg;
+	char setflg=0;
+
+#if ( defined RECV_DEBUG)
+	printf("RECV DEBUG\r\n");
+#else
+	printf("NORMAL\r\n");
+#endif
 
 	if (argc < 3 )
 	{
@@ -911,7 +919,16 @@ int main(int argc, char ** argv)
 		{
 			len = read(gme_fd, buf, GME_BUFFER_LEN);
 			if (len > 0)
+			{
+#if ( defined RECV_DEBUG)
+				static int totlen = 0;
+				totlen += len;
+				printf("\r\nRecv: %d, total: %d\r\n",len,totlen);
+				db(buf,len);
+#else
 				gmspktform(buf,len);
+#endif	// RECV_DEBUG
+			}
 			usleep(200*1000);
 		}
 		else

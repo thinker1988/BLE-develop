@@ -529,14 +529,17 @@ static void RxData(void)
 		{
 			// Read n bytes from RX FIFO
 			CC112XSpiReadRxFifo(rxBuffer, rxBytes);
-			//Com433WriteInt(COM433_DEBUG_PORT, "\r\nR:", rxBytes,10);
 			if(rxBuffer[rxBytes-1] & 0x80)
 			{
 				Com433WriteInt(COM433_DEBUG_PORT," R:",Read8BitRssi(),10);
+#if ( defined GME_WORKING )
+				// Forward directly
+				Com433Write(COM433_DEBUG_PORT,rxBuffer+2, rxBytes-2-2);
+#else	// !GME_WORKING
 				//Com433WriteInt(COM433_DEBUG_PORT," R2:",rxBuffer[rxBytes-2],10);
 				//rxBuffer[0]=' ';
-				//Com433Write(COM433_DEBUG_PORT, rxBuffer, rxBytes-2);
 				GMSPktForm(rxBuffer+2, rxBytes-2-2);
+#endif	// GME_WORKING
 			}
 			else
 				Com433WriteStr(COM433_DEBUG_PORT,"CRC Fail");
@@ -562,21 +565,21 @@ static void CC112XRFSleep(void)
 }
 
 /******************************************************************************
- * @fn					CC112XSpiReadReg
+ * @fn			CC112XSpiReadReg
  *
- * @brief			 Read value(s) from config/status/extended radio register(s).
+ * @brief		Read value(s) from config/status/extended radio register(s).
  *							If len	= 1: Reads a single register
  *							if len != 1: Reads len register values in burst mode 
  *
  * input parameters
  *
- * @param			 addr	 - address of first register to read
- * @param			 *pData - pointer to data array where read bytes are saved
- * @param			 len	 - number of bytes to read
+ * @param		addr	 - address of first register to read
+ * @param		*pData - pointer to data array where read bytes are saved
+ * @param		len	 - number of bytes to read
  *
  * output parameters
  *
- * @return			rfStatus_t
+ * @return		rfStatus_t
  */
 rfStatus_t CC112XSpiReadReg(uint16 addr, uint8 *pData, uint8 len)
 {
@@ -600,21 +603,21 @@ rfStatus_t CC112XSpiReadReg(uint16 addr, uint8 *pData, uint8 len)
 }
 
 /******************************************************************************
- * @fn					CC112XSpiWriteReg
+ * @fn			CC112XSpiWriteReg
  *
- * @brief			 Write value(s) to config/status/extended radio register(s).
+ * @brief		Write value(s) to config/status/extended radio register(s).
  *							If len	= 1: Writes a single register
  *							if len	> 1: Writes len register values in burst mode 
  *
  * input parameters
  *
- * @param			 addr	 - address of first register to write
- * @param			 *pData - pointer to data array that holds bytes to be written
- * @param			 len		- number of bytes to write
+ * @param		addr	 - address of first register to write
+ * @param		*pData - pointer to data array that holds bytes to be written
+ * @param		len		- number of bytes to write
  *
  * output parameters
  *
- * @return			rfStatus_t
+ * @return		rfStatus_t
  */
 rfStatus_t CC112XSpiWriteReg(uint16 addr, uint8 *pData, uint8 len)
 {
@@ -639,18 +642,18 @@ rfStatus_t CC112XSpiWriteReg(uint16 addr, uint8 *pData, uint8 len)
 }
 
 /*******************************************************************************
- * @fn					CC112XSpiWriteTxFifo
+ * @fn			CC112XSpiWriteTxFifo
  *
- * @brief			 Write pData to radio transmit FIFO.
+ * @brief		Write pData to radio transmit FIFO.
  *
  * input parameters
  *
- * @param			 *pData - pointer to data array that is written to TX FIFO
- * @param			 len		- Length of data array to be written
+ * @param		*pData - pointer to data array that is written to TX FIFO
+ * @param		len		- Length of data array to be written
  *
  * output parameters
  *
- * @return			rfStatus_t
+ * @return		rfStatus_t
  */
 rfStatus_t CC112XSpiWriteTxFifo(uint8 *pData, uint8 len)
 {
@@ -711,9 +714,9 @@ rfStatus_t CC112XGetTxStatus(void)
 
 /******************************************************************************
  *
- *	@fn			 CC112XGetRxStatus(void)
+ * @fn			CC112XGetRxStatus(void)
  *
- *	@brief	 
+ * @brief	 
  *				This function transmits a No Operation Strobe (SNOP) with the 
  *				read bit set to get the status of the radio and the number of 
  *				available bytes in the RXFIFO.
@@ -784,15 +787,15 @@ static void trxSyncIntCfg(void)
 
 
 /*******************************************************************************
- * @fn					trxSpiCmdStrobe
+ * @fn				trxSpiCmdStrobe
  *
- * @brief			 Send command strobe to the radio. Returns status byte read
+ * @brief			Send command strobe to the radio. Returns status byte read
  *							during transfer of command strobe. Validation of provided
  *							is not done. Function assumes chip is ready.
  *
  * input parameters
  *
- * @param			 cmd - command strobe
+ * @param			cmd - command strobe
  *
  * output parameters
  *
@@ -987,10 +990,10 @@ static uint8 trxSingleRX(void)
 *
 *   @return	none
 */
-#define VCDAC_START_OFFSET 2
-#define FS_VCO2_INDEX 0
-#define FS_VCO4_INDEX 1
-#define FS_CHP_INDEX 2
+#define VCDAC_START_OFFSET		2
+#define FS_VCO2_INDEX			0
+#define FS_VCO4_INDEX			1
+#define FS_CHP_INDEX			2
 static void manualCalibration(void)
 {
 	uint8 original_fs_cal2;
