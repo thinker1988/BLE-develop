@@ -97,6 +97,11 @@ void Com433WriteInt(uint8 port, char *title, int16 value, uint8 format)
 		value = -value;
 		buf[tmpLen++] = '-';
 	}
+	else if (format == 16)
+	{
+		buf[tmpLen++] = '0';
+		buf[tmpLen++] = 'x';
+	}
 	err = (uint32)(value);
 	
 	_ltoa( err, &buf[tmpLen], format);

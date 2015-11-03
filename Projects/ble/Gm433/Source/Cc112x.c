@@ -78,8 +78,8 @@ enum RFworkingmode{
 // CC1120: 1200
 // TEN308 : 9600
 #if ( defined USE_CC112X_RF )
-uint8 RFwkfrq = 0x01,RFstfrq = 0x07,RFupgfrq = 0x0C;
-uint8 RFairbaud = 0x02;
+uint8 RFwkfrq = 0x06,RFstfrq = 0x01,RFupgfrq = 0x0C;
+uint8 RFairbaud = 0x05;
 #else
 uint8 RFwkfrq = 0x01,RFstfrq = 0x01,RFupgfrq = 0x02;
 uint8 RFairbaud = 0x05;
@@ -391,14 +391,14 @@ static void InitRFCfg(sysstate_t state)
 	uint8 rfvern;
 	
 	CC112XSpiReadReg(CC112X_PARTNUMBER, &rfvern, 1);
-	//Com433WriteInt(COM433_DEBUG_PORT, "\r\nDEV", rfvern, 16);
+	Com433WriteInt(COM433_DEBUG_PORT, "\r\nDEV", rfvern, 16);
 
 	// Chip ID is not CC1120
 	if ( rfvern != 0x48 )
 		return;
 
 	CC112XSpiReadReg(CC112X_PARTVERSION, &rfvern, 1);
-	//Com433WriteInt(COM433_DEBUG_PORT, "\r\nVERN", rfvern, 16);
+	Com433WriteInt(COM433_DEBUG_PORT, "\r\nVERN", rfvern, 16);
 
 	// CC1120 version is 0x21, need calibration
 	if ( rfvern == 0x21 )
@@ -427,7 +427,7 @@ static void registerConfig(sysstate_t state)
 	switch (state)
 	{
 		case SYS_BOOTUP:
-			freqsel = 0;	// always use 433 for bootup
+			freqsel = 0;	// always use 428 for bootup
 			break;
 		case SYS_WORKING:
 			freqsel = RFwkfrq-1;
