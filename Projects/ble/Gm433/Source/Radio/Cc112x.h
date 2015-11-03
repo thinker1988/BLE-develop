@@ -32,8 +32,8 @@
 //	OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //****************************************************************************/
 
-#ifndef CC112X_EASY_LINK_REG_CONFIG_H
-#define CC112X_EASY_LINK_REG_CONFIG_H
+#ifndef CC112X_REG_CONFIG_H
+#define CC112X_REG_CONFIG_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -42,7 +42,9 @@ extern "C" {
  * INCLUDES
  */
 
-#if ( defined USE_CC112X_RF )
+/******************************************************************************
+ * CONSTANTS
+ */
 
 /* configuration registers */
 #define CC112X_IOCFG3							0x0000
@@ -266,12 +268,6 @@ extern "C" {
 #define CC112X_STATE_TXFIFO_ERROR				0x70
 
 
-#define RADIO_BURST_ACCESS					0x40
-#define RADIO_SINGLE_ACCESS					0x00
-#define RADIO_READ_ACCESS					0x80
-#define RADIO_WRITE_ACCESS					0x00
-
-
 /* Bit fields in the chip status byte */
 #define STATUS_CHIP_RDYn_BM						0x80
 #define STATUS_STATE_BM							0x70
@@ -333,17 +329,18 @@ extern "C" {
 #define SMARTRF_SETTING_PREAMBLE_CFG0			0x2A
 #define SMARTRF_SETTING_SYNC_CFG0				0x17
 
+#define RADIO_BURST_ACCESS					0x40
+#define RADIO_SINGLE_ACCESS					0x00
+#define RADIO_READ_ACCESS					0x80
+#define RADIO_WRITE_ACCESS					0x00
+
 
 #define WAIT_RF_WORK_PERIOD						WAIT_RF_START_PERIOD
 
 
-typedef struct
-{
-	uint16	addr;
-	uint8	 data;
-}registerSetting_t;
-
-typedef uint8 rfStatus_t;
+/*********************************************************************
+ * MACROS
+ */
 
 // CC112X have 12 RF frequency
 #define CHECK_FREQ_VALID(freq)		(((freq)>0 && (freq)<sizeof(rfFreqCfgSp[0]))? TRUE: FALSE)
@@ -351,6 +348,16 @@ typedef uint8 rfStatus_t;
 #define CHECK_BAUD_VALID(baud)		(((baud)>0 && (baud)<sizeof(rfRadioCfgSp[0]))? TRUE: FALSE)
 
 #define CHECK_PWR_VALID(plvl)		(((plvl)>0 && (plvl)<sizeof(rfPowerCfgSp[0]))? TRUE: FALSE)
+
+/******************************************************************************
+ * TYPEDEFS
+ */
+
+typedef struct
+{
+	uint16	addr;
+	uint8	 data;
+}registerSetting_t;
 
 
 /******************************************************************************
@@ -443,92 +450,6 @@ static const uint8 rfPowerCfgSp[][9] =
 	{0x56, 0x5D, 0x64, 0x69, 0x6F, 0x74, 0x79, 0x7F, CC112X_PA_CFG2},
 };
 
-#else	// !USE_CC112X_RF
-
-
-// Wait 100ms for serial command data send
-#define WAIT_TEN_CMD_PERIOD			100
-
-// Wait 50ms for TEN module enter sleep
-#define WAIT_TEN_STOP_PERIOD		50
-
-// Wait 250ms for TEN module RF ready to RX/TX
-#define WAIT_TEN_RF_RDY_PERIOD		250
-
-// Total RF work period
-#define WAIT_RF_WORK_PERIOD		(WAIT_RF_START_PERIOD+WAIT_TEN_CMD_PERIOD+WAIT_TEN_STOP_PERIOD+WAIT_TEN_RF_RDY_PERIOD)
-
-
-/*********************************************************************
- * MACROS
- */
-// TEN308 have 2 RF frequency
-#define CHECK_FREQ_VALID(freq)		(((freq)>0 && (freq)<sizeof(tenRFfreq)/sizeof(tenRFfreq[0])+1)? TRUE: FALSE)
-
-#define CHECK_BAUD_VALID(baud)		(((baud)>0 && (baud)<sizeof(tenRFairbaud)+1)? TRUE: FALSE)
-
-#define CHECK_PWR_VALID(plvl)		(((plvl)>0 && (plvl)<sizeof(tenRFpwr)+1)? TRUE: FALSE)
-
-// Max length of TEN308 cmd
-#define TEN_RF_CMD_MAX_LEN		20
-
-// TEN308 RF frequency
-// 433 & 470
-static const uint8 tenRFfreq[][3] =
-{
-	{0x06,0x9B,0x68},	// 433.0
-	{0x07,0x2B,0xF0},	// 470.0
-};
-
-// TEN308 RF air baud
-// 00~0.81k  01~1.46k  02~2.6k  03~4.56k  04~9.11k  05~18.23k
-static const uint8 tenRFairbaud[] =
-{0x00,0x01,0x02,0x03,0x04,0x05};
-
-// TEN308 RF send power
-// 00~6dBm  01~8dBm  02~10dBm  03~12dBm  04~14dBm  05~16dBm  06~18dBm  07~20dBm
-static const uint8 tenRFpwr[] =
-{0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07};
-
-#endif	// USE_CC112X_RF
-
-
-// Wait 100ms for TEN module serial wakeup or CC112X reset command
-#define WAIT_RF_START_PERIOD		100
-
-// TEN & CC112X RF working state
-typedef enum
-{
-	RF_PRESET,	// TEN & CC112X RF first boot up
-	RF_BEG_SET,	// TEN & CC112X RF send setup command
-#if ( defined USE_CC112X_RF )
-	RF_SEND,	// CC112X RF send
-	RF_RECV,	// CC112X RF receive
-#else	// !USE_CC112X_RF
-	RF_WAIT_RESET,	// TEN RF device reset
-	RF_WAKEUP,	// TEN RF device wake up
-	RF_WORK,	// TEN RF data process
-#endif	// USE_CC112X_RF
-	RF_SLEEP	// TEN & CC112X RF sleep
-}rfstate_t;
-
-
-/******************************************************************************
- * PROTPTYPES
- */
-
-extern void SetRFstate(rfstate_t newrfstate);
-extern rfstate_t GetRFstate(void);
-
-extern void RF_working(uint8 task_id, rfstate_t newrfstate);
-
-extern void ReadRFParam(uint8 * rdbuf);
-extern bool SetRFParam(uint8 wkfreq, uint8 setfreq, uint8 upgdfreq, uint8 baud, uint8 pwlvl);
-
-
-#if ( defined USE_CC112X_RF )
-extern void TxData(uint8 *txbuf, uint8 len);
-#endif	// USE_CC112X_RF
 
 #ifdef	__cplusplus
 }

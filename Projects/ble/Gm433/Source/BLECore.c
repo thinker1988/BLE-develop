@@ -21,7 +21,7 @@
 #include "Com433.h"
 #include "GMProc.h"
 #include "Pktfmt.h"
-#include "Cc112x.h"
+#include "RFProc.h"
 
 #if ( defined USE_BLE_STACK && defined ALLOW_BLE_ADV )
 #include "gatt.h"
@@ -92,12 +92,6 @@ uint8 BLECore_TaskId;
  * EXTERNAL VARIABLES
  */
 
-#if ( !defined USE_CC112X_RF )
-// TEN RF send data buf & length
-extern uint8 rfsndbuf[];
-extern uint8 rfsndlen;
-
-#endif	// ! USE_CC112X_RF
 
 /*********************************************************************
  * EXTERNAL FUNCTIONS
@@ -468,46 +462,6 @@ void PowerHold(uint8 task_id)
 }
 
 
-/*********************************************************************
- * @fn		Com433Handle
- *
- * @brief	COM port call back function
- *
- * @param	port - serial port.
- * @param	pBuffer - read buffer.
- * @param	length - read buffer length.
- *
- * @return	none.
- */
-void Com433Handle(uint8 port,uint8 *pBuffer, uint16 length)
-{
-	// No func will be called in CC112X RF from working port (recieve data by interrupt)
-	if (port == COM433_WORKING_PORT)
-	{
-
-#if ( !defined USE_CC112X_RF )
-
-#if ( defined TEN_DEBUG_MODE )
-		// Print serial data directly in debug mode
-		Com433Write(COM433_DEBUG_PORT, pBuffer, length);
-#else	// !TEN_DEBUG_MODE
-		GMSPktForm(pBuffer,length);
-#endif	// TEN_DEBUG_MODE
-
-#endif	// !USE_CC112X_RF
-
-	}
-	else if (port == COM433_DEBUG_PORT)
-	{
-#if ( defined USE_CC112X_RF && defined GME_WORKING )
-		GMSPktForm(pBuffer, length);
-#elif ( !defined USE_CC112X_RF && defined TEN_DEBUG_MODE )
-		Com433Write(COM433_WORKING_PORT, pBuffer, length);
-#endif	// USE_CC112X_RF && GME_WORKING
-	}
-
-	return;
-}
 
 /*********************************************************************
  * PRIVATE FUNCTIONS

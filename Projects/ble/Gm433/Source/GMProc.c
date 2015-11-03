@@ -12,7 +12,7 @@
 #include "Com433.h"
 #include "GMProc.h"
 #include "Pktfmt.h"
-#include "Cc112x.h"
+#include "RFProc.h"
 
 /*********************************************************************
  * MACROS
@@ -79,10 +79,6 @@ uint8 detectlevel = 2;
 /*********************************************************************
  * EXTERNAL VARIABLES
  */
-#if ( !defined USE_CC112X_RF )
-extern uint8 rfsndbuf[];
-extern uint8 rfsndlen;
-#endif	// ! USE_CC112X_RF
 
 /*********************************************************************
  * EXTERNAL FUNCTIONS
@@ -226,7 +222,7 @@ void GM_working(uint8 task_id, gmsensor_t ngmsnst)
 			{
 				gmsnst = GMSnErr;
 			}
-			osal_start_timerEx(task_id,GM_DATA_PROC_EVT,WAIT_RF_WORK_PERIOD);
+			osal_start_timerEx(task_id,GM_DATA_PROC_EVT,WAIT_RF_START_PERIOD);
 			break;
 		}
 		case GMSnReq:
@@ -681,7 +677,6 @@ static void GM_send_data(uint8 task_id, int16 tmpX, int16 tmpY, int16 tmpZ)
  */
 static void SendXYZVal(uint8 task_id, int16 tmpX, int16 tmpY, int16 tmpZ)
 {
-#if ( defined USE_CC112X_RF )
 	uint8 buf[GMS_PKT_MAX_LEN], len;
 
 	IntConvertString(buf, tmpX);
@@ -694,18 +689,6 @@ static void SendXYZVal(uint8 task_id, int16 tmpX, int16 tmpY, int16 tmpZ)
 	len = osal_strlen((char *)buf);
 
 	RFDataSend(buf,len);
-#else	// !USE_CC112X_RF
-	IntConvertString(rfsndbuf, tmpX);
-	rfsndlen = osal_strlen((char *)rfsndbuf);
-	rfsndbuf[rfsndlen++] = ' ';
-	IntConvertString(rfsndbuf+rfsndlen, tmpY);
-	rfsndlen = osal_strlen((char *)rfsndbuf);
-	rfsndbuf[rfsndlen++] = ' ';
-	IntConvertString(rfsndbuf+rfsndlen, tmpZ);
-	rfsndlen = osal_strlen((char *)rfsndbuf);
-
-	RF_working(task_id, GetRFstate());
-#endif	// USE_CC112X_RF
 }
 
 /*********************************************************************

@@ -11,7 +11,7 @@
 #include "GMProc.h"
 #include "BLECore.h"
 
-#include "Cc112x.h"
+#include "RFProc.h"
 
 /*********************************************************************
  * MACROS
@@ -75,10 +75,6 @@ uint16 version = VERSION_NUMBER;
 uint16 RFdevID;
 uint16 RFdestID;
 
-#if ( ! defined USE_CC112X_RF )
-uint8 rfsndbuf[GMS_PKT_MAX_LEN] = {0};
-uint8 rfsndlen;
-#endif
 /*********************************************************************
  * EXTERNAL VARIABLES
  */
@@ -367,24 +363,6 @@ rferr_t RFDataForm(uint8 subtype, uint8 *data, uint8 datalen)
 	rfbuf[GMS_CHK_SUM_POS]=CalcGMChksum(rfbuf, rfbuf[GMS_TOT_LEN_POS]);
 
 	return RFDataSend(rfbuf,rfbuf[GMS_TOT_LEN_POS]);
-}
-
-
-rferr_t RFDataSend(uint8 *buf, uint8 len)
-{
-#if ( defined USE_CC112X_RF )
-	if ( GetRFstate()==RF_PRESET || GetRFstate()==RF_BEG_SET )
-		return RF_SUCCESS;
-	SetRFstate(RF_SEND);
-	TxData(buf,len);
-#else	// !USE_CC112X_RF
-	//Copy send data to buffer and wait 250ms for TEN308 RF wake up
-	osal_memcpy(rfsndbuf,buf,len);
-	rfsndlen = len;
-	RF_working(BLECore_TaskId, RF_WAKEUP);
-#endif	// USE_CC112X_RF
-
-	return RF_SUCCESS;
 }
 
 /*********************************************************************
