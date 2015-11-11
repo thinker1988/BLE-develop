@@ -3487,6 +3487,8 @@
         </option>
         <option>
           <name>CCDefines</name>
+          <state>RION_CODE</state>
+          <state>RX_MODE=0</state>
           <state>USE_SX1278_RF</state>
           <state>GME_WORKING</state>
           <state>xGM_TEST_COMM</state>
@@ -3494,10 +3496,10 @@
           <state>xALLOW_DEBUG_OUTPUT</state>
           <state>xTEN_DEBUG_MODE</state>
           <state>HW_VERN=1</state>
-          <state>GDE_DEV_ID=15</state>
+          <state>GDE_DEV_ID=1</state>
           <state>GME_DEV_ID=1001</state>
           <state>VERSION_NUMBER=0x0100</state>
-          <state>POWER_SAVING</state>
+          <state>xPOWER_SAVING</state>
           <state>IMAGE_VERSION_NUM=1</state>
           <state>INT_HEAP_LEN=2000</state>
           <state>HALNODEBUG</state>
@@ -6471,6 +6473,7 @@
         <name>$PROJ_DIR$\..\Source\Radio\Sx1278-LoRa.c</name>
         <excluded>
           <configuration>GDE_RELEASE</configuration>
+          <configuration>GDE_SMTK_RELEASE</configuration>
           <configuration>GDE_COMTP_RELEASE</configuration>
         </excluded>
       </file>
@@ -6483,6 +6486,9 @@
       </file>
       <file>
         <name>$PROJ_DIR$\..\Source\Radio\Sx1278-LoRaMisc.c</name>
+        <excluded>
+          <configuration>GDE_SMTK_RELEASE</configuration>
+        </excluded>
       </file>
       <file>
         <name>$PROJ_DIR$\..\Source\Radio\Sx1278-LoRaMisc.h</name>

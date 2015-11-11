@@ -761,13 +761,13 @@ typedef struct sSX1276LR
     uint8_t RegFeiMsb;                              // 0x28
     uint8_t RegFeiMib;                              // 0x29 
     uint8_t RegFeiLsb;                              // 0x2A
-    uint8_t RegTestReserved2B[0x30 - 0x2B];         // 0x2B-0x30 
+    uint8_t RegTestReserved2B[0x30 - 0x2A];         // 0x2B-0x30 
     uint8_t RegDetectOptimize;                      // 0x31    
     uint8_t RegTestReserved32;                      // 0x32   
     uint8_t RegInvertIQ;                            // 0x33 
-    uint8_t RegTestReserved34[0x36 - 0x34];         // 0x34-0x36 
+    uint8_t RegTestReserved34[0x36 - 0x33];         // 0x34-0x36 
     uint8_t RegDetectionThreshold;                  // 0x37
-    uint8_t RegTestReserved38[0x3F - 0x38];         // 0x38-0x3F
+    uint8_t RegTestReserved38[0x3F - 0x37];         // 0x38-0x3F
     // I/O settings                
     uint8_t RegDioMapping1;                         // 0x40 
     uint8_t RegDioMapping2;                         // 0x41 
@@ -778,7 +778,7 @@ typedef struct sSX1276LR
     // Additional settings
     uint8_t RegPllHop;                              // 0x44 
     // Test
-    uint8_t RegTestReserved45[0x4A - 0x45];         // 0x45-0x4A   
+    uint8_t RegTestReserved45[0x4A - 0x44];         // 0x45-0x4A   
     // Additional settings    
     uint8_t RegTcxo;                                // 0x4B
     // Test    
@@ -786,7 +786,7 @@ typedef struct sSX1276LR
     // Additional settings    
     uint8_t RegPaDac;                               // 0x4D 
     // Test    
-    uint8_t RegTestReserved4E[0x5A - 0x4E];         // 0x4E-0x5A  
+    uint8_t RegTestReserved4E[0x5A - 0x4D];         // 0x4E-0x5A  
     // Additional settings
     uint8_t RegFormerTemp;                          // 0x5B
     // Test    
@@ -794,14 +794,14 @@ typedef struct sSX1276LR
     // Additional settings    
     uint8_t RegBitrateFrac;                         // 0x5D   
     // Additional settings    
-    uint8_t RegTestReserved5E[0x60 - 0x5E];         // 0x5E-0x60
+    uint8_t RegTestReserved5E[0x60 - 0x5D];         // 0x5E-0x60
     // Additional settings
-    uint8_t RegAgcRef;                              // 0x60
-    uint8_t RegAgcThresh1;                          // 0x61
-    uint8_t RegAgcThresh2;                          // 0x62
-    uint8_t RegAgcThresh3;                          // 0x63
+    uint8_t RegAgcRef;                              // 0x61
+    uint8_t RegAgcThresh1;                          // 0x62
+    uint8_t RegAgcThresh2;                          // 0x63
+    uint8_t RegAgcThresh3;                          // 0x64
     // Test
-    uint8_t RegTestReserved64[0x70 - 0x64];         // 0x64-0x70
+    uint8_t RegTestReserved64[0x70 - 0x65];         // 0x65-0x70
 }tSX1276LR;
 
 extern tSX1276LR* SX1276LR;
@@ -918,5 +918,6 @@ void SX1276LoRaSetRFState( uint8_t state );
  *                                   RF_TX_DONE, RF_TX_TIMEOUT]
  */
 uint32_t SX1276LoRaProcess( void );
+
 
 #endif //__SX1276_LORA_H__

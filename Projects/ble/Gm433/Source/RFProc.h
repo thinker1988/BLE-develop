@@ -59,6 +59,15 @@ extern "C" {
 #define SPI_CSN_PIN					P1_4
 #define SPI_CSN_BIT					BV(4)
 #define SPI_MISO_PIN				P1_7
+
+// CC112X GPIO2 INT -> P1.3
+#define RF_SYNC_INT_PINSEL			P1SEL
+#define RF_SYNC_INT_PINDIR			P1DIR
+#define RF_SYNC_INT_IFG				P1IFG
+#define RF_SYNC_INT_IF				P1IF
+#define RF_SYNC_INT_IEN				P1IEN
+#define RF_SYNC_INT_IE				BV(3)
+
 #endif	// HAL_SPI_MASTER
 
 
@@ -71,6 +80,10 @@ extern "C" {
 #define TRXEN_SPI_END()				st(asm("NOP"); SPI_CSN_PIN = 1;)
 
 #define WAIT_SO_STABLE()			st(while(SPI_MISO_PIN == 1);)
+
+#define RF_SYNC_INT_ENABLE()		st(RF_SYNC_INT_IEN |= RF_SYNC_INT_IE;)
+#define RF_SYNC_INT_DISABLE()		st(RF_SYNC_INT_IEN &= ~RF_SYNC_INT_IE;)
+
 #endif	// HAL_SPI_MASTER
 
 /******************************************************************************
@@ -105,12 +118,6 @@ typedef uint8 rfStatus_t;
 /******************************************************************************
  * PROTPTYPES
  */
-
-#if ( defined HAL_SPI_MASTER )
-extern void trxSingleTX(uint8 data);
-extern uint8 trxSingleRX(void);
-#endif	//HAL_SPI_MASTER
-
 extern void SetRFstate(rfstate_t newrfstate);
 extern rfstate_t GetRFstate(void);
 
@@ -120,6 +127,12 @@ extern void ReadRFParam(uint8 * rdbuf);
 extern bool SetRFParam(uint8 wkfreq, uint8 setfreq, uint8 upgdfreq, uint8 baud, uint8 pwlvl);
 extern uint8 GetCurFreq(sysstate_t state);
 
+#if ( defined HAL_SPI_MASTER )
+extern void SetRTxRdyFlg(bool flag);
+extern bool GetRTxRdyFlg();
+extern void trxSingleTX(uint8 data);
+extern uint8 trxSingleRX(void);
+#endif	//HAL_SPI_MASTER
 
 #ifdef	__cplusplus
 }

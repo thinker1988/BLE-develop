@@ -595,6 +595,7 @@ static rferr_t rfdataparse(uint8 *rfdata,uint8 len)
 
 	RFdestID = GET_RF_SRC_ADDR(rfdata);
 
+	printf("\r\nFROM ID:%d\r\n",RFdestID);
 
 	if (rfdata[GMS_ID_POS] == GDE_SRC_ID)
 	{
@@ -787,7 +788,7 @@ static void httpsend(uint8 *buf, uint8 len)
 	while((recvstate)&&(0  == con_flag))
 	{
 		recvstate = recv(sockfd, recvbuffer, sizeof(recvbuffer), 0);
-		printf("%s", recvbuffer);//把http信息打印在屏幕上	 
+//		printf("%s", recvbuffer);//把http信息打印在屏幕上	 
 	}
 
 	close(sockfd);

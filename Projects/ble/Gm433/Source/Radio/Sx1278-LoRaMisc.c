@@ -392,13 +392,13 @@ bool SX1276LoRaGetLowDatarateOptimize( void )
 
 void SX1276LoRaSetNbTrigPeaks( uint8_t value )
 {
-	SX1276Read( 0x31, &SX1276LR->RegDetectOptimize );
+	SX1276Read( REG_LR_LORADETECTOPTIMIZE, &SX1276LR->RegDetectOptimize );
 	SX1276LR->RegDetectOptimize = ( SX1276LR->RegDetectOptimize & 0xF8 ) | value;
-	SX1276Write( 0x31, SX1276LR->RegDetectOptimize );
+	SX1276Write( REG_LR_LORADETECTOPTIMIZE, SX1276LR->RegDetectOptimize );
 }
 
 uint8_t SX1276LoRaGetNbTrigPeaks( void )
 {
-	SX1276Read( 0x31, &SX1276LR->RegDetectOptimize );
+	SX1276Read( REG_LR_LORADETECTOPTIMIZE, &SX1276LR->RegDetectOptimize );
 	return ( SX1276LR->RegDetectOptimize & 0x07 );
 }

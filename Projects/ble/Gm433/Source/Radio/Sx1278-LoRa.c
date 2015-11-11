@@ -19,30 +19,35 @@
  * Last modified by Miguel Luis on Jun 19 2013
  */
 #include "OSAL.h"
+#include "Com433.h"
 #include "Sx1278.h"
 
 #include "Sx1278-LoRaMisc.h"
 #include "Sx1278-LoRa.h"
 
 
-#define DIO0	0
-#define DIO1	1
-#define DIO2	2
-#define DIO3	3
-#define DIO4	4
+#define DIO0	1
+#define DIO1	2
+#define DIO2	3
+#define DIO3	4
+#define DIO4	5
 
 
 
 
-#define MODULE_SX1276RF1IAS                         0
-#define MODULE_SX1276RF1JAS                         0
-#define MODULE_SX1276RF1KAS                         1
+#define MODULE_SX1276RF1IAS						0
+#define MODULE_SX1276RF1JAS						0
+#define MODULE_SX1276RF1KAS						1
 
 /*!
  * Constant values need to compute the RSSI value
  */
-#define RSSI_OFFSET_LF							  -164.0
-#define RSSI_OFFSET_HF							  -157.0
+#define RSSI_OFFSET_LF							-164.0
+#define RSSI_OFFSET_HF							-157.0
+
+
+#define GET_TICK_COUNT()						osal_GetSystemClock()
+
 
 /*!
  * Frequency hopping frequencies table
@@ -107,13 +112,13 @@ tLoRaSettings LoRaSettings =
 {
 	433000000,		// RFFrequency
 	20,			   // Power
-	6,				// SignalBw [0: 7.8kHz, 1: 10.4 kHz, 2: 15.6 kHz, 3: 20.8 kHz, 4: 31.2 kHz,
+	8,				// SignalBw [0: 7.8kHz, 1: 10.4 kHz, 2: 15.6 kHz, 3: 20.8 kHz, 4: 31.2 kHz,
 					  // 5: 41.6 kHz, 6: 62.5 kHz, 7: 125 kHz, 8: 250 kHz, 9: 500 kHz, other: Reserved]
-	9,				// SpreadingFactor [6: 64, 7: 128, 8: 256, 9: 512, 10: 1024, 11: 2048, 12: 4096  chips]
+	7,				// SpreadingFactor [6: 64, 7: 128, 8: 256, 9: 512, 10: 1024, 11: 2048, 12: 4096  chips]
 	2,				// ErrorCoding [1: 4/5, 2: 4/6, 3: 4/7, 4: 4/8]
-	true,			 // CrcOn [0: OFF, 1: ON]
+	false,			 // CrcOn [0: OFF, 1: ON]
 	false,			// ImplicitHeaderOn [0: OFF, 1: ON]
-	1,				// RxSingleOn [0: Continuous, 1 Single]
+	0,				// RxSingleOn [0: Continuous, 1 Single]
 	0,				// FreqHopOn [0: OFF, 1: ON]
 	4,				// HopPeriod Hops every frequency hopping period symbols
 	100,			  // TxPacketTimeout
@@ -159,9 +164,9 @@ void SX1276LoRaInit( void )
 	RFLRState = RFLR_STATE_IDLE;
 
 	SX1276LoRaSetDefaults( );
-	
+
 	SX1276ReadBuffer( REG_LR_OPMODE, SX1276Regs + 1, SX1278_REG_SIZE - 1 );
-	
+
 	SX1276LR->RegLna = RFLR_LNA_GAIN_G1;
 
 	SX1276WriteBuffer( REG_LR_OPMODE, SX1276Regs + 1, SX1278_REG_SIZE - 1 );
@@ -177,6 +182,9 @@ void SX1276LoRaInit( void )
 	SX1276LoRaSetSymbTimeout( 0x3FF );
 	SX1276LoRaSetPayloadLength( LoRaSettings.PayloadLength );
 	SX1276LoRaSetLowDatarateOptimize( true );
+
+// add for ten308
+	SX1276Write(REG_LR_PREAMBLELSB, 0x8);
 
 #if( ( MODULE_SX1276RF1IAS == 1 ) || ( MODULE_SX1276RF1KAS == 1 ) )
 	if( LoRaSettings.RFFrequency > 860000000 )
@@ -396,7 +404,6 @@ uint32_t SX1276LoRaProcess( void )
 		RFLRState = RFLR_STATE_RX_RUNNING;
 		break;
 	case RFLR_STATE_RX_RUNNING:
-		
 		if( DIO0 == 1 ) // RxDone
 		{
 			RxTimeoutTimer = GET_TICK_COUNT( );

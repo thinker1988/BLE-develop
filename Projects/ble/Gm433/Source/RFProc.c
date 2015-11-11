@@ -33,8 +33,9 @@
 /*********************************************************************
  * EXTERNAL VARIABLES
  */
+extern uint8 BLECore_TaskId;
+
 extern uint8 RFwkfrq, RFstfrq, RFupgfrq, RFairbaud, RFpwr;
- ;
 
 /*********************************************************************
  * EXTERNAL FUNCTIONS
@@ -43,9 +44,13 @@ extern uint8 RFwkfrq, RFstfrq, RFupgfrq, RFairbaud, RFpwr;
 /*********************************************************************
  * LOCAL VARIABLES
  */
-
 // RF init state
 static rfstate_t rfst=RF_PRESET;
+
+#if ( defined HAL_SPI_MASTER )
+// Receive or send data ready flag, controled by interrupt
+static bool rtxrdyflag=FALSE; 
+#endif
 
 /*********************************************************************
  * LOCAL FUNCTIONS
@@ -168,6 +173,35 @@ uint8 trxSingleRX(void)
 //	while(Hal_UART_RxBufLen(COM433_WORKING_PORT) == 0);
 	Com433Read(COM433_WORKING_PORT, &rc, sizeof(rc));
 	return rc;
+}
+
+void SetRTxRdyFlg(bool flag)
+{
+	rtxrdyflag = flag;
+}
+
+bool GetRTxRdyFlg()
+{
+	return rtxrdyflag;
+}
+
+HAL_ISR_FUNCTION(RF_RTX_RDY_Isr, P1INT_VECTOR)
+{
+	HAL_ENTER_ISR();
+
+	if (RF_SYNC_INT_IEN & RF_SYNC_INT_IE)
+	{
+		rtxrdyflag = TRUE;
+		osal_set_event(BLECore_TaskId, RF_DATA_PROC_EVT);
+	}
+
+	// Clear the CPU interrupt flag for Port PxIFG has to be cleared before PxIF.
+	RF_SYNC_INT_IFG = 0;
+	RF_SYNC_INT_IF = 0;
+
+	CLEAR_SLEEP_MODE();
+	
+	HAL_EXIT_ISR();
 }
 #endif	// HAL_SPI_MASTER
 

@@ -19,19 +19,6 @@
 #define RX_FIFO_ERROR			0x11
 
 
-// CC112X GPIO2 INT -> P1.3
-#define RF_SYNC_INT_PINSEL			P1SEL
-#define RF_SYNC_INT_PINDIR			P1DIR
-#define RF_SYNC_INT_IFG				P1IFG
-#define RF_SYNC_INT_IF				P1IF
-#define RF_SYNC_INT_IEN				P1IEN
-
-#define RF_SYNC_INT_IE				BV(3)
-
-#define RF_SYNC_INT_ENABLE()		st(RF_SYNC_INT_IEN |= RF_SYNC_INT_IE;)
-#define RF_SYNC_INT_DISABLE()		st(RF_SYNC_INT_IEN &= ~RF_SYNC_INT_IE;)
-
-
 /*********************************************************************
  * TYPEDEFS
  */
@@ -51,8 +38,6 @@ uint8 RFpwr = 0x08;  // Max level
 /*********************************************************************
  * EXTERNAL VARIABLES
  */
-extern uint8 BLECore_TaskId;
-
 
 /*********************************************************************
  * EXTERNAL FUNCTIONS
@@ -62,8 +47,6 @@ extern uint8 BLECore_TaskId;
  * LOCAL VARIABLES
  */
  
-// Receive or send data ready flag, controled by interrupt
-static bool rtxrdyflag=FALSE; 
 
 /*********************************************************************
  * LOCAL FUNCTIONS
@@ -121,9 +104,9 @@ void RF_working(uint8 task_id, rfstate_t newrfstate)
 		}
 		case RF_SEND:	// This state changed by interrupt
 		{
-			if (rtxrdyflag == TRUE)	// In case SYS_WORKING reentry
+			if (GetRTxRdyFlg() == TRUE)	// In case SYS_WORKING reentry
 			{
-				rtxrdyflag = FALSE;
+				SetRTxRdyFlg(FALSE);
 				SetRFstate(RF_RECV);
 				trxSpiCmdStrobe(CC112X_SRX);
 			}
@@ -131,9 +114,9 @@ void RF_working(uint8 task_id, rfstate_t newrfstate)
 		}
 		case RF_RECV:	// Leave recv state by timer
 		{
-			if (rtxrdyflag == TRUE)	// In case SYS_WORKING reentry
+			if (GetRTxRdyFlg() == TRUE)	// In case SYS_WORKING reentry
 			{
-				rtxrdyflag = FALSE;
+				SetRTxRdyFlg(FALSE);
 				RxData();
 			}
 			break;
@@ -820,24 +803,3 @@ static void manualCalibration(void)
 		CC112XSpiWriteReg(CC112X_FS_CHP, &writeByte, 1);
 	}
 }
-
-HAL_ISR_FUNCTION(RF_RTX_RDY_Isr, P1INT_VECTOR)
-{
-	HAL_ENTER_ISR();
-
-	if (RF_SYNC_INT_IEN & RF_SYNC_INT_IE)
-	{
-		rtxrdyflag = TRUE;
-		osal_set_event(BLECore_TaskId, RF_DATA_PROC_EVT);
-	}
-
-	// Clear the CPU interrupt flag for Port PxIFG has to be cleared before PxIF.
-	RF_SYNC_INT_IFG = 0;
-	RF_SYNC_INT_IF = 0;
-
-	CLEAR_SLEEP_MODE();
-	
-	HAL_EXIT_ISR();
-}
-
-

@@ -62,12 +62,29 @@ typedef unsigned long   uint32_t;
 
 #define SX1278_RESET_PINSEL			P0SEL
 #define SX1278_RESET_PINDIR			P0DIR
+#define SX1278_RESET_PININP			P0INP
 #define SX1278_RESET_GPIO			BV(7)
 #define SX1278_RESET_PIN			P0_7
 
 
+#define SX1278_VA_WK_PINSEL			P1SEL
+#define SX1278_VA_WK_PINDIR			P1DIR
+#define SX1278_VA_WK_PININP			P1INP
+#define SX1278_VA_WK_GPIO			BV(2)
+#define SX1278_VA_WK_PIN			P1_2
+
+#define SX1278_VB_ST_PINSEL			P0SEL
+#define SX1278_VB_ST_PINDIR			P0DIR
+#define SX1278_VB_ST_PININP			P0INP
+#define SX1278_VB_ST_GPIO			BV(6)
+#define SX1278_VB_ST_PIN			P0_6
+
+
+
 #define SX1278_REG_SIZE				0x70
 
+
+#if ( ! defined RION_CODE )
 // CC112X have 12 RF frequency
 #define CHECK_FREQ_VALID(freq)		(((freq)>0 )? TRUE: FALSE)
 
@@ -289,6 +306,111 @@ void SX1276WriteFifo( uint8_t *buffer, uint8_t size );
  * \param [IN] size Number of bytes to be read from the FIFO
  */
 void SX1276ReadFifo( uint8_t *buffer, uint8_t size );
+#else
+//-----------------------------------------------------------------------------
+// ×Ó³ÌÐòÉùÃ÷
+//-----------------------------------------------------------------------------
+void RF_GpioInt();
+void SpiWriteAddressData(unsigned char address, unsigned char data1);
+unsigned char SpiReadAddressData(unsigned char u8Addr);
+void SX1276LoRaInit( void );
+
+//-----------------------------------------------------------------------------
+// define MCU GPIO
+//-----------------------------------------------------------------------------
+
+
+#define RF_IRQ_DIO0       P1_3
+#define SCK		P1_5
+#define nCS		P1_4
+#define MOSI	P1_6
+#define MISO	P1_7
+
+extern void SX1278Reset(bool finflg);
+
+uint8 SPIRead(uint8 adr);
+void SPIBurstRead(uint8 adr, uint8 *ptr, uint8 length);
+void SX1276ReadBuffer( uint8 addr, uint8 *buffer, uint8 size );
+void RFM96_LoRaEntryRx(void);
+uint8 RFM96_LoRaRxPacket(void);
+void RFM96_LoRaEntryTx(void);
+uint8 RFM96_LoRaTxPacket(void);
+void delayms(unsigned int t);
+/*!
+ * SX1276 Internal registers Address
+ */
+//RFM96 Internal registers Address
+#define LR_RegFifo                                  0x0000
+// Common settings
+#define LR_RegOpMode                                0x0100
+#define LR_RegFrMsb                                 0x0600
+#define LR_RegFrMid                                 0x0700
+#define LR_RegFrLsb                                 0x0800
+// Tx settings
+#define LR_RegPaConfig                              0x0900
+#define LR_RegPaRamp                                0x0A00
+#define LR_RegOcp                                   0x0B00
+// Rx settings
+#define LR_RegLna                                   0x0C00
+// LoRa registers
+#define LR_RegFifoAddrPtr                           0x0D00
+#define LR_RegFifoTxBaseAddr                        0x0E00
+#define LR_RegFifoRxBaseAddr                        0x0F00
+#define LR_RegFifoRxCurrentaddr                     0x1000
+#define LR_RegIrqFlagsMask                          0x1100
+#define LR_RegIrqFlags                              0x1200
+#define LR_RegRxNbBytes                             0x1300
+#define LR_RegRxHeaderCntValueMsb                   0x1400
+#define LR_RegRxHeaderCntValueLsb                   0x1500
+#define LR_RegRxPacketCntValueMsb                   0x1600
+#define LR_RegRxPacketCntValueLsb                   0x1700
+#define LR_RegModemStat                             0x1800
+#define LR_RegPktSnrValue                           0x1900
+#define LR_RegPktRssiValue                          0x1A00
+#define LR_RegRssiValue                             0x1B00
+#define LR_RegHopChannel                            0x1C00
+#define LR_RegModemConfig1                          0x1D00
+#define LR_RegModemConfig2                          0x1E00
+#define LR_RegSymbTimeoutLsb                        0x1F00
+#define LR_RegPreambleMsb                           0x2000
+#define LR_RegPreambleLsb                           0x2100
+#define LR_RegPayloadLength                         0x2200
+#define LR_RegMaxPayloadLength                      0x2300
+#define LR_RegHopPeriod                             0x2400
+#define LR_RegFifoRxByteAddr                        0x2500
+#define LR_RegModemConfig3                         0x2600
+
+// I/O settings
+#define REG_LR_DIOMAPPING1                          0x4000
+#define REG_LR_DIOMAPPING2                          0x4100
+// Version
+#define REG_LR_VERSION                              0x4200
+// Additional settings
+#define REG_LR_PLLHOP                               0x4400
+#define REG_LR_TCXO                                 0x4B00
+#define REG_LR_PADAC                                0x4D00
+#define REG_LR_FORMERTEMP                           0x5B00
+
+#define REG_LR_AGCREF                               0x6100
+#define REG_LR_AGCTHRESH1                           0x6200
+#define REG_LR_AGCTHRESH2                           0x6300
+#define REG_LR_AGCTHRESH3                           0x6400
+
+#define RFLR_OPMODE_MASK                            0xF8 
+#define RFLR_OPMODE_SLEEP                           0x00 
+#define RFLR_OPMODE_STANDBY                         0x01 // Default
+#define RFLR_OPMODE_SYNTHESIZER_TX                  0x02 
+#define RFLR_OPMODE_TRANSMITTER                     0x03 
+#define RFLR_OPMODE_SYNTHESIZER_RX                  0x04 
+#define RFLR_OPMODE_RECEIVER                        0x05 
+// LoRa specific modes
+#define RFLR_OPMODE_RECEIVER_SINGLE                 0x06 
+#define RFLR_OPMODE_CAD                             0x07 
+
+#endif
+
+
+extern uint8 SpiInOut(uint8 outdata);
 
 
 #ifdef	__cplusplus
