@@ -3487,19 +3487,19 @@
         </option>
         <option>
           <name>CCDefines</name>
-          <state>RION_CODE</state>
-          <state>RX_MODE=0</state>
+          <state>xRION_CODE</state>
+          <state>xRX_MODE=1</state>
           <state>USE_SX1278_RF</state>
-          <state>GME_WORKING</state>
+          <state>xGME_WORKING</state>
           <state>xGM_TEST_COMM</state>
           <state>xUSE_BLE_STACK</state>
           <state>xALLOW_DEBUG_OUTPUT</state>
           <state>xTEN_DEBUG_MODE</state>
           <state>HW_VERN=1</state>
-          <state>GDE_DEV_ID=1</state>
+          <state>GDE_DEV_ID=22</state>
           <state>GME_DEV_ID=1001</state>
           <state>VERSION_NUMBER=0x0100</state>
-          <state>xPOWER_SAVING</state>
+          <state>POWER_SAVING</state>
           <state>IMAGE_VERSION_NUM=1</state>
           <state>INT_HEAP_LEN=2000</state>
           <state>HALNODEBUG</state>
@@ -4456,20 +4456,20 @@
         <option>
           <name>Input variant</name>
           <version>0</version>
-          <state>2</state>
+          <state>1</state>
         </option>
         <option>
           <name>Input description</name>
-          <state>No float.</state>
+          <state>Full formatting.</state>
         </option>
         <option>
           <name>Output variant</name>
           <version>0</version>
-          <state>3</state>
+          <state>1</state>
         </option>
         <option>
           <name>Output description</name>
-          <state>No float, no field width, no precision.</state>
+          <state>Full formatting.</state>
         </option>
         <option>
           <name>GeneralEnableMisra</name>
@@ -4489,7 +4489,7 @@
         </option>
         <option>
           <name>General Xdata Stack Size</name>
-          <state>0x380</state>
+          <state>0x280</state>
         </option>
         <option>
           <name>General Ext Stack Size</name>
@@ -4566,15 +4566,20 @@
         </option>
         <option>
           <name>CCDefines</name>
+          <state>HAL_IMAGE_A</state>
+          <state>FEATURE_OAD_BIM</state>
+          <state>FEATURE_OAD</state>
+          <state>OAD_UPGRADE</state>
+          <state>OAD_KEEP_NV_PAGES</state>
+          <state>USE_SX1278_RF</state>
           <state>GDE_DEV_ID=7</state>
           <state>GME_DEV_ID=1001</state>
           <state>VERSION_NUMBER=0x0100</state>
           <state>xGME_WORKING</state>
-          <state>GM_TEST_COMM</state>
+          <state>xGM_TEST_COMM</state>
           <state>xALLOW_DEBUG_OUTPUT</state>
           <state>xUSE_BLE_STACK</state>
           <state>HW_VERN=1</state>
-          <state>USE_CC112X_RF</state>
           <state>HAL_UART_PORT=1</state>
           <state>HAL_UART_SPI=2</state>
           <state>HAL_SPI_MASTER</state>
@@ -4767,6 +4772,8 @@
         </option>
         <option>
           <name>CCIncludePath2</name>
+          <state>$PROJ_DIR$\..\Source</state>
+          <state>$PROJ_DIR$\..\Source\Radio</state>
           <state>$PROJ_DIR$\..\..\common</state>
           <state>$PROJ_DIR$\..\..\..\..\Components\hal\include</state>
           <state>$PROJ_DIR$\..\..\..\..\Components\hal\target\CC2540EB</state>
@@ -5020,7 +5027,7 @@
       <archiveVersion>1</archiveVersion>
       <data>
         <prebuild></prebuild>
-        <postbuild>"$PROJ_DIR$\..\..\common\cc2540\cc254x_sim2bin.exe" "$PROJ_DIR$\GDE_RELEASE\Exe\GDE_release.sim" "$PROJ_DIR$\GDE_RELEASE\Exe\GDE_release.bin"</postbuild>
+        <postbuild>"$PROJ_DIR$\..\..\common\cc2540\cc254x_sim2bin.exe" "$PROJ_DIR$\GDE_SMALL_IMG_RELEASE\Exe\GDE_release.sim" "$PROJ_DIR$\GDE_SMALL_IMG_RELEASE\Exe\GDE_release.bin"</postbuild>
       </data>
     </settings>
     <settings>
@@ -5102,7 +5109,7 @@
         </option>
         <option>
           <name>XclFile</name>
-          <state>$PROJ_DIR$\..\..\common\cc2540\ti_51ew_cc2540b.xcl</state>
+          <state>G:\Software\BLE-CC254x-1.3.2\Projects\ble\Gm433\Source\GDE_small_imgA.xcl</state>
         </option>
         <option>
           <name>XclFileSlave</name>
@@ -5644,7 +5651,7 @@
           <state>xALLOW_DEBUG_OUTPUT</state>
           <state>xTEN_DEBUG_MODE</state>
           <state>HW_VERN=1</state>
-          <state>GDE_DEV_ID=15</state>
+          <state>GDE_DEV_ID=21</state>
           <state>GME_DEV_ID=1001</state>
           <state>VERSION_NUMBER=0x0100</state>
           <state>POWER_SAVING</state>
@@ -6459,6 +6466,7 @@
         <name>$PROJ_DIR$\..\Source\Radio\Cc112x.c</name>
         <excluded>
           <configuration>GDE_SMTK_RELEASE</configuration>
+          <configuration>GDE_SMALL_IMG_RELEASE</configuration>
           <configuration>GDE_COMTP_RELEASE</configuration>
         </excluded>
       </file>
@@ -6466,6 +6474,7 @@
         <name>$PROJ_DIR$\..\Source\Radio\Cc112x.h</name>
         <excluded>
           <configuration>GDE_SMTK_RELEASE</configuration>
+          <configuration>GDE_SMALL_IMG_RELEASE</configuration>
           <configuration>GDE_COMTP_RELEASE</configuration>
         </excluded>
       </file>
@@ -6473,7 +6482,6 @@
         <name>$PROJ_DIR$\..\Source\Radio\Sx1278-LoRa.c</name>
         <excluded>
           <configuration>GDE_RELEASE</configuration>
-          <configuration>GDE_SMTK_RELEASE</configuration>
           <configuration>GDE_COMTP_RELEASE</configuration>
         </excluded>
       </file>
@@ -6487,11 +6495,14 @@
       <file>
         <name>$PROJ_DIR$\..\Source\Radio\Sx1278-LoRaMisc.c</name>
         <excluded>
-          <configuration>GDE_SMTK_RELEASE</configuration>
+          <configuration>GDE_COMTP_RELEASE</configuration>
         </excluded>
       </file>
       <file>
         <name>$PROJ_DIR$\..\Source\Radio\Sx1278-LoRaMisc.h</name>
+        <excluded>
+          <configuration>GDE_COMTP_RELEASE</configuration>
+        </excluded>
       </file>
       <file>
         <name>$PROJ_DIR$\..\Source\Radio\Sx1278.c</name>
@@ -6512,6 +6523,7 @@
         <excluded>
           <configuration>GDE_RELEASE</configuration>
           <configuration>GDE_SMTK_RELEASE</configuration>
+          <configuration>GDE_SMALL_IMG_RELEASE</configuration>
         </excluded>
       </file>
       <file>
@@ -6519,6 +6531,7 @@
         <excluded>
           <configuration>GDE_RELEASE</configuration>
           <configuration>GDE_SMTK_RELEASE</configuration>
+          <configuration>GDE_SMALL_IMG_RELEASE</configuration>
         </excluded>
       </file>
     </group>
@@ -6797,27 +6810,55 @@
     <name>PROFILES</name>
     <file>
       <name>$PROJ_DIR$\..\..\Profiles\Roles\gap.c</name>
+      <excluded>
+        <configuration>GDE_RELEASE</configuration>
+        <configuration>GDE_SMALL_IMG_RELEASE</configuration>
+      </excluded>
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\Profiles\Roles\gapbondmgr.c</name>
+      <excluded>
+        <configuration>GDE_RELEASE</configuration>
+        <configuration>GDE_SMALL_IMG_RELEASE</configuration>
+      </excluded>
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\Profiles\Roles\gapbondmgr.h</name>
+      <excluded>
+        <configuration>GDE_SMALL_IMG_RELEASE</configuration>
+      </excluded>
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\Include\gapgattserver.h</name>
+      <excluded>
+        <configuration>GDE_SMALL_IMG_RELEASE</configuration>
+      </excluded>
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\..\..\Components\ble\host\gatt_uuid.c</name>
+      <excluded>
+        <configuration>GDE_RELEASE</configuration>
+        <configuration>GDE_SMALL_IMG_RELEASE</configuration>
+      </excluded>
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\Include\gattservapp.h</name>
+      <excluded>
+        <configuration>GDE_SMALL_IMG_RELEASE</configuration>
+      </excluded>
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\Profiles\Roles\peripheral.c</name>
+      <excluded>
+        <configuration>GDE_RELEASE</configuration>
+        <configuration>GDE_SMALL_IMG_RELEASE</configuration>
+      </excluded>
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\Profiles\Roles\peripheral.h</name>
+      <excluded>
+        <configuration>GDE_SMALL_IMG_RELEASE</configuration>
+      </excluded>
     </file>
   </group>
   <group>

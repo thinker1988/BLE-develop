@@ -148,6 +148,7 @@ static uint8 btprcnt = 100;
 static void InitGMState(void);
 
 static bool GM_dev_init(void);
+static void GM_DRDY_INT_Cfg(void);
 static void GM_dev_stop(void);
 
 static void GM_dev_preread(void);
@@ -184,8 +185,8 @@ static void WghtRgltOcpBenchmk(int16 xVal, int16 yVal, int16 zVal);
 static int16 CalcWeight(int16 * buf, uint8 len, uint8 bound);
 static int16 CalcAvrg(int16 *buf, uint8 n);
 
+
 #if 0
-static void GM_DRDY_INT_Cfg(void);
 static void storeGMstate(void);
 #endif
 
@@ -222,14 +223,16 @@ void GM_working(uint8 task_id, gmsensor_t ngmsnst)
 			{
 				gmsnst = GMSnErr;
 			}
-			osal_start_timerEx(task_id,GM_DATA_PROC_EVT,WAIT_RF_START_PERIOD);
+			osal_start_timerEx(task_id,GM_DATA_PROC_EVT,WAIT_RF_WORK_PERIOD);
 			break;
 		}
 		case GMSnReq:
 			PowerHold(task_id);
 			GM_dev_preread();
 			gmsnst = GMSnRead;
-			osal_start_timerEx(task_id, GM_DATA_PROC_EVT, GM_READ_ONCE_PERIOD);
+			//osal_start_timerEx(task_id, GM_DATA_PROC_EVT, GM_READ_ONCE_PERIOD);
+			while(! GM_DRDY_INT_PIN);
+			osal_set_event(task_id, GM_DATA_PROC_EVT);
 			break;
 		case GMSnRead:
 			gmsnst = GMSnReq;
@@ -416,13 +419,39 @@ static bool GM_dev_init(void)
 	GM_write_reg(GM_CONFIG_A_REG,&gm_cfg,1);
 	GM_write_reg(GM_CONFIG_B_REG,&gm_gain,1);
 
-#if 0
 	GM_DRDY_INT_Cfg();
-#endif
 
 	return TRUE;
 }
 
+static void GM_DRDY_INT_Cfg(void)
+{
+	GM_DRDY_INT_PINSEL &= (uint8) ~GM_DRDY_INT_IE;
+	GM_DRDY_INT_PINDIR &= (uint8) ~GM_DRDY_INT_IE;
+#if 0
+
+#if ( !defined HW_VERN ) || ( HW_VERN == 0 )
+	SET_P1_INT_DISABLE();
+#else
+	SET_P0_INT_DISABLE();
+#endif
+
+	GM_DRDY_INT_DISABLE();
+	
+	//Confige CC2541 pin
+	GM_DRDY_INT_PINSEL &= (uint8) ~GM_DRDY_INT_IE;
+	GM_DRDY_INT_PINDIR &= (uint8) ~GM_DRDY_INT_IE;
+
+	GM_DRDY_INT_ENABLE();
+
+#if ( !defined HW_VERN ) || ( HW_VERN == 0 )
+	SET_P1_INT_DISABLE();
+#else
+	SET_P0_INT_ENABLE();
+#endif
+
+#endif
+}
 
 void InitGMState(void)
 {
@@ -440,6 +469,7 @@ void InitGMState(void)
 	
 	gmst = GMFirstBoot;
 	sndtyp =SEND_NOTHG;
+
 /*
 	int16 tmpx,tmpy,tmpz;
 	bool initflag = FALSE;
@@ -1227,29 +1257,4 @@ static void storeGMstate(void)
 	 	Com433WriteStr(COM433_DEBUG_PORT,"\r\n!!!NV Failed!!!");
 }
 */
-
-#if 0
-static void GM_DRDY_INT_Cfg(void)
-{
-#if ( !defined HW_VERN ) || ( HW_VERN == 0 )
-	SET_P1_INT_DISABLE();
-#else
-	SET_P0_INT_DISABLE();
-#endif
-
-	GM_DRDY_INT_DISABLE();
-	
-	//Confige CC2541 pin
-	GM_DRDY_INT_PINSEL &= (uint8) ~GM_DRDY_INT_IE;
-	GM_DRDY_INT_PINDIR &= (uint8) ~GM_DRDY_INT_IE;
-
-	GM_DRDY_INT_ENABLE();
-
-#if ( !defined HW_VERN ) || ( HW_VERN == 0 )
-	SET_P1_INT_DISABLE();
-#else
-	SET_P0_INT_ENABLE();
-#endif
-}
-#endif
 

@@ -46,12 +46,22 @@ extern "C" {
 #include "BLECore.h"
 #include "Pktfmt.h"
 
+#if ( defined USE_SX1278_RF )
+#include "Sx1278.h"
+#elif ( defined USE_CC112X_RF )
+#include "Cc112x.h"
+#elif ( defined USE_TEN308_RF )
+#include "Ten308.h"
+#else
+	#error "Not defined RF!"
+#endif
+
+
 /******************************************************************************
  * CONSTANTS
  */
+#define WAIT_RF_PRESET_PERIOD		100
 
-// Wait 100ms for TEN module serial wakeup or CC112X reset command
-#define WAIT_RF_START_PERIOD		100
 
 #if ( defined HAL_SPI_MASTER )
 //modified by lan 15.8.3, control by app
@@ -68,14 +78,10 @@ extern "C" {
 #define RF_SYNC_INT_IEN				P1IEN
 #define RF_SYNC_INT_IE				BV(3)
 
-#endif	// HAL_SPI_MASTER
-
-
 /*********************************************************************
  * MACROS
  */
 
-#if ( defined HAL_SPI_MASTER )
 #define TRXEN_SPI_BEGIN()			st(SPI_CSN_PIN = 0; asm("NOP");)
 #define TRXEN_SPI_END()				st(asm("NOP"); SPI_CSN_PIN = 1;)
 

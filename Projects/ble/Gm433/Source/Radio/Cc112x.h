@@ -329,13 +329,13 @@ extern "C" {
 #define SMARTRF_SETTING_PREAMBLE_CFG0			0x2A
 #define SMARTRF_SETTING_SYNC_CFG0				0x17
 
-#define RADIO_BURST_ACCESS					0x40
-#define RADIO_SINGLE_ACCESS					0x00
-#define RADIO_READ_ACCESS					0x80
-#define RADIO_WRITE_ACCESS					0x00
+#define RADIO_BURST_ACCESS						0x40
+#define RADIO_SINGLE_ACCESS						0x00
+#define RADIO_READ_ACCESS						0x80
+#define RADIO_WRITE_ACCESS						0x00
 
 
-#define WAIT_RF_WORK_PERIOD						WAIT_RF_START_PERIOD
+#define WAIT_RF_WORK_PERIOD						WAIT_RF_PRESET_PERIOD
 
 
 /*********************************************************************

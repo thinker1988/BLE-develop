@@ -3,17 +3,6 @@
  */
 #include "RFProc.h"
 
-#if ( defined USE_SX1278_RF )
-#include "Sx1278.h"
-#elif ( defined USE_CC112X_RF )
-#include "Cc112x.h"
-#elif ( defined USE_TEN308_RF )
-#include "Ten308.h"
-#else
-	#error "Not defined RF!"
-#endif
-
-
 /*********************************************************************
  * MACROS
  */

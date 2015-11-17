@@ -62,11 +62,14 @@ extern "C" {
 // HW_VERN 0: use Dupont line connect GM detector
 #define GM_DRDY_INT_PINSEL 			P1SEL
 #define GM_DRDY_INT_PINDIR			P1DIR
+
 #define GM_DRDY_INT_PXIFG			P1IFG
 #define GM_DRDY_INT_PXIF 			P1IF
 #define GM_DRDY_INT_PXIEN 			P1IEN
 
 #define GM_DRDY_INT_IE				BV(6)
+#define GM_DRDY_INT_PIN				P1_6
+
 
 #elif ( HW_VERN >= 1 )
 
@@ -74,21 +77,25 @@ extern "C" {
 // HW_VERN 2: use TI CC1121 as RF
 #define GM_DRDY_INT_PINSEL 			P0SEL
 #define GM_DRDY_INT_PINDIR			P0DIR
+
 #define GM_DRDY_INT_PXIFG			P0IFG
 #define GM_DRDY_INT_PXIF 			P0IF
 #define GM_DRDY_INT_PXIEN 			P0IEN
+
 #define GM_DRDY_INT_IE				BV(1)
+#define GM_DRDY_INT_PIN				P0_1
+
 
 // Hgswitch high:deep sleep; low:working
 #define DEV_EN_INT_PINSEL 			P0SEL
 #define DEV_EN_INT_PINDIR			P0DIR
 #define DEV_EN_INT_PININP			P0INP
 
-#define DEV_EN_INT_PXIEN 			P0IEN
-#define DEV_EN_INT_IE				BV(4)
 #define DEV_EN_INT_PXIFG			P0IFG
 #define DEV_EN_INT_PXIF				P0IF
+#define DEV_EN_INT_PXIEN 			P0IEN
 
+#define DEV_EN_INT_IE				BV(4)
 #define DEV_EN_INT_PIN				P0_4
 
 #endif	// HW_VERN

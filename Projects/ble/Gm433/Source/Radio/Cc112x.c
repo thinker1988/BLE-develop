@@ -92,7 +92,7 @@ void RF_working(uint8 task_id, rfstate_t newrfstate)
 		{
 			trxSpiCmdStrobe(CC112X_SRES);	// Reset radio
 			SetRFstate(RF_BEG_SET);
-			osal_start_timerEx(task_id, RF_DATA_PROC_EVT,WAIT_RF_START_PERIOD);
+			osal_start_timerEx(task_id, RF_DATA_PROC_EVT,WAIT_RF_PRESET_PERIOD);
 			break;
 		}
 		case RF_BEG_SET:

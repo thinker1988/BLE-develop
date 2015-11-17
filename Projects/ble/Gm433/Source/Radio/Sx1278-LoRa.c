@@ -183,9 +183,6 @@ void SX1276LoRaInit( void )
 	SX1276LoRaSetPayloadLength( LoRaSettings.PayloadLength );
 	SX1276LoRaSetLowDatarateOptimize( true );
 
-// add for ten308
-	SX1276Write(REG_LR_PREAMBLELSB, 0x8);
-
 #if( ( MODULE_SX1276RF1IAS == 1 ) || ( MODULE_SX1276RF1KAS == 1 ) )
 	if( LoRaSettings.RFFrequency > 860000000 )
 	{
@@ -319,7 +316,15 @@ void SX1276LoRaGetRxPacket( void *buffer, uint16_t *size )
 void SX1276LoRaSetTxPacket( const void *buffer, uint16_t size )
 {
 	TxPacketSize = size;
-	osal_memcpy( ( void * )RFBuffer, buffer, ( size_t )TxPacketSize ); 
+	osal_memcpy( ( void * )RFBuffer, buffer, ( size_t )TxPacketSize );
+
+	uint8 i,sum=0;
+	for (i=0;i<TxPacketSize;i++)
+	{
+		sum += RFBuffer[i];
+	}
+	RFBuffer[i]=sum;
+	TxPacketSize += 1;
 
 	RFLRState = RFLR_STATE_TX_INIT;
 }
@@ -437,7 +442,7 @@ uint32_t SX1276LoRaProcess( void )
 				RFLRState = RFLR_STATE_RX_TIMEOUT;
 			}
 		}
-		break;
+		//break;
 	case RFLR_STATE_RX_DONE:
 		SX1276Read( REG_LR_IRQFLAGS, &SX1276LR->RegIrqFlags );
 		if( ( SX1276LR->RegIrqFlags & RFLR_IRQFLAGS_PAYLOADCRCERROR ) == RFLR_IRQFLAGS_PAYLOADCRCERROR )
@@ -622,7 +627,7 @@ uint32_t SX1276LoRaProcess( void )
 			// Clear Irq
 			SX1276Write( REG_LR_IRQFLAGS, RFLR_IRQFLAGS_FHSSCHANGEDCHANNEL );
 		}
-		break;
+		//break;
 	case RFLR_STATE_TX_DONE:
 		// optimize the power consumption by switching off the transmitter as soon as the packet has been sent
 		SX1276LoRaSetOpMode( RFLR_OPMODE_STANDBY );
@@ -677,5 +682,6 @@ uint32_t SX1276LoRaProcess( void )
 	default:
 		break;
 	} 
+
 	return result;
 }

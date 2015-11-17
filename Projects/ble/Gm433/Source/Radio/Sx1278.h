@@ -57,7 +57,7 @@ typedef unsigned long   uint32_t;
 
 
 // Total RF work period
-#define WAIT_RF_WORK_PERIOD							100
+#define WAIT_RF_WORK_PERIOD						WAIT_RF_PRESET_PERIOD
 
 
 #define SX1278_RESET_PINSEL			P0SEL

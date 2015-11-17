@@ -61,6 +61,12 @@ extern "C"
 // Max of c_rand results : 0.001~32s
 #define MAX_RANDOM_SECONDS			33UL
 
+// BLECore image size 64k = 32pages
+#define BLECORE_IMG_PG_SIZE			54//32
+
+// CRC position in flash
+#define FLASH_PAGE_IN_WORD				((uint16)(HAL_FLASH_PAGE_SIZE / HAL_FLASH_WORD_SIZE))
+
 /*********************************************************************
  * MACROS
  */

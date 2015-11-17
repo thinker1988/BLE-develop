@@ -105,14 +105,14 @@ void RF_working(uint8 task_id, rfstate_t newrfstate)
 		{
 			SX1278Reset(FALSE);	// Reset radio
 			SetRFstate(RF_WAIT_RESET);
-			osal_start_timerEx(task_id, RF_DATA_PROC_EVT,WAIT_RF_START_PERIOD);
+			osal_start_timerEx(task_id, RF_DATA_PROC_EVT, WAIT_RF_PRESET_PERIOD/2);
 			break;
 		}
 		case RF_WAIT_RESET:
 		{
 			SX1278Reset(TRUE);	// Reset radio
 			SetRFstate(RF_BEG_SET);
-			osal_start_timerEx(task_id, RF_DATA_PROC_EVT,WAIT_RF_START_PERIOD);
+			osal_start_timerEx(task_id, RF_DATA_PROC_EVT, WAIT_RF_PRESET_PERIOD/2);
 			break;
 		}
 		case RF_BEG_SET:
@@ -132,14 +132,12 @@ void RF_working(uint8 task_id, rfstate_t newrfstate)
 			RFM96_LoRaEntryTx();//进入发送模式
 			Com433WriteStr(COM433_DEBUG_PORT,"\r\nWR");
 			RFM96_LoRaTxPacket();//发送数据
-			osal_start_timerEx(task_id, RF_DATA_PROC_EVT,WAIT_RF_START_PERIOD*10);
+			osal_start_timerEx(task_id, RF_DATA_PROC_EVT,WAIT_RF_PRESET_PERIOD*10);
 #endif
-
-
+			break;
 		}
 #else
 
-			LoRaOn = true;
 			osal_memset(SX1276Regs+1, 0x00, SX1278_REG_SIZE-1);
 			SX1276LR = ( tSX1276LR* )SX1276Regs;
 
@@ -148,25 +146,21 @@ void RF_working(uint8 task_id, rfstate_t newrfstate)
 			SX1276LoRaInit();
 			trxSyncIntCfg();
 
+			SetRFstate(RF_RECV);
 			SX1276StartRx();
 			SX1276Process();
-			SetRFstate(RF_RECV);
-			Com433WriteStr(COM433_DEBUG_PORT, "\r\nR");
 			break;
 		}
 		case RF_SEND:	// This state changed by interrupt
 		{
 			if (GetRTxRdyFlg() == TRUE)	// In case SYS_WORKING reentry
 			{
-				Com433WriteStr(COM433_DEBUG_PORT, "\r\nTO");
 				SetRTxRdyFlg(FALSE);
-				SetRFstate(RF_RECV);
-				if (SX1276Process() == RFLR_STATE_TX_DONE)
+				if (SX1276Process() == RF_TX_DONE)
 				{
-					SX1276Process();
+					SetRFstate(RF_RECV);
 					SX1276StartRx();
 					SX1276Process();
-					Com433WriteStr(COM433_DEBUG_PORT, "\r\nR");
 				}
 			}
 			break;
@@ -176,14 +170,17 @@ void RF_working(uint8 task_id, rfstate_t newrfstate)
 			if (GetRTxRdyFlg() == TRUE)	// In case SYS_WORKING reentry
 			{
 				SetRTxRdyFlg(FALSE);
-				if (SX1276Process() == RFLR_STATE_RX_DONE)
+				if ( SX1276Process() == RF_RX_DONE)
 				{
-					uint8 gmdata[RF_BUFFER_SIZE];
+					uint8 gmdata[RF_BUFFER_SIZE+1];
 					uint16 len;
-					SX1276GetRxPacket(gmdata, &len);
+
+					SX1276GetRxPacket(gmdata+1, &len);
+					gmdata[0] = ' ';
+					gmdata[len] = '\0';
+					Com433WriteInt(COM433_DEBUG_PORT, "\r\nR:",len,10);
 					Com433WriteStr(COM433_DEBUG_PORT, gmdata);
 					//GMSPktForm(gmdata,len);
-					SX1276Process();
 				}
 			}
 			break;
@@ -204,7 +201,6 @@ void RF_working(uint8 task_id, rfstate_t newrfstate)
 rferr_t RFDataSend(uint8 *buf, uint8 len)
 {
 #if ( !defined RION_CODE )
-	//Com433WriteStr(COM433_DEBUG_PORT, "\r\nT");
 	SetRFstate(RF_SEND);
 	SX1276SetTxPacket(buf, len);
 	RXTXAntSet(RFLR_OPMODE_TRANSMITTER);
@@ -238,14 +234,20 @@ void Com433Handle(uint8 port,uint8 *pBuffer, uint16 length)
 
 void SX1278Reset(bool flg)
 {
-	if (flg)
+	if (flg)	// Resume
 	{
 		SX1278_RESET_PINSEL &= (uint8) ~(SX1278_RESET_GPIO);
 		SX1278_RESET_PINDIR &= (uint8) ~(SX1278_RESET_GPIO);
-		SX1278_RESET_PININP |= SX1278_RESET_GPIO;
+		SX1278_RESET_PININP |= (uint8) (SX1278_RESET_GPIO);
+		
+		LoRaOn = TRUE;
+//		SX1278_RESET_PINDIR |= (uint8) (SX1278_RESET_GPIO);
+//		SX1278_RESET_PIN = 1;
 	}
-	else
-	{
+	else	// Reset
+	{		
+		LoRaOn = FALSE;
+		LoRaOnState = FALSE;
 		SX1278_RESET_PINSEL &= (uint8) ~(SX1278_RESET_GPIO);
 		SX1278_RESET_PINDIR |= (uint8) (SX1278_RESET_GPIO);
 		SX1278_RESET_PIN = 0;
@@ -740,6 +742,7 @@ void RFM96_Config(uint8 mode)
 	SPIWrite(LR_RegPreambleLsb + 8);					  //RegPreambleLsb 8+4=12byte Preamble
 	
 	SPIWrite(REG_LR_DIOMAPPING2+0x01);					 //RegDioMapping2 DIO5=00, DIO4=01
+	SPIWrite(LR_RegModemConfig3+0x0c);
 	RFM96_Standby();										 //Entry standby mode*/
 }
 
