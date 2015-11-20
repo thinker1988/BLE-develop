@@ -180,7 +180,7 @@ void RF_working(uint8 task_id, rfstate_t newrfstate)
 					gmdata[len] = '\0';
 					Com433WriteInt(COM433_DEBUG_PORT, "\r\nR:",len,10);
 					Com433WriteStr(COM433_DEBUG_PORT, gmdata);
-					//GMSPktForm(gmdata,len);
+					GMSPktForm(gmdata,len);
 				}
 			}
 			break;

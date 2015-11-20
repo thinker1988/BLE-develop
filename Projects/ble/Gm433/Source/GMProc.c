@@ -80,6 +80,9 @@ uint8 detectlevel = 2;
  * EXTERNAL VARIABLES
  */
 
+// Basic benchmark
+int16 Xbenchmk,Ybenchmk,Zbenchmk;
+
 /*********************************************************************
  * EXTERNAL FUNCTIONS
  */
@@ -122,9 +125,6 @@ static uint16 empcnt = 0;
 // Unknow status detect counts
 static uint16 unkwncnt = 0;
 
-
-// Basic benchmark
-static int16 Xbenchmk,Ybenchmk,Zbenchmk;
 // Temporary benchmark set and counts
 static int16 tmpXbench[BENCH_AVG_LEN],tmpYbench[BENCH_AVG_LEN],tmpZbench[BENCH_AVG_LEN];
 static uint8 tmpbenchcnt;
@@ -265,7 +265,7 @@ void SendSyncTMReq(void)
 {
 	uint8 tmsync=TRUE;
 
-	RFDataForm(GDE_ST_TMSYN_REQ,&tmsync,sizeof(tmsync));
+	RFDataForm(GDE_SUBTYPE_TMSYN_REQ,&tmsync,sizeof(tmsync));
 
 #if ( !defined GM_TEST_COMM )
 	if (++syncautostop > MAX_TM_SYNC_TIMES)
@@ -295,14 +295,14 @@ void SendGDEData(int16 tmpX, int16 tmpY, int16 tmpZ)
 	hrtbtdata[HRT_BT_BATT_POS]=btprcnt;
 	hrtbtdata[HRT_BT_TMPR_POS]=gdetmpr;
 	
-	hrtbtdata[HRT_BT_XVAL_POS]=HI_UINT16(tmpX);
-	hrtbtdata[HRT_BT_XVAL_POS+1]=LO_UINT16(tmpX);
+	hrtbtdata[HRT_BT_XVAL_H_POS]=HI_UINT16(tmpX);
+	hrtbtdata[HRT_BT_XVAL_L_POS]=LO_UINT16(tmpX);
 
-	hrtbtdata[HRT_BT_YVAL_POS]=HI_UINT16(tmpY);
-	hrtbtdata[HRT_BT_YVAL_POS+1]=LO_UINT16(tmpY);
+	hrtbtdata[HRT_BT_YVAL_H_POS]=HI_UINT16(tmpY);
+	hrtbtdata[HRT_BT_YVAL_L_POS]=LO_UINT16(tmpY);
 
-	hrtbtdata[HRT_BT_ZVAL_POS]=HI_UINT16(tmpZ);
-	hrtbtdata[HRT_BT_ZVAL_POS+1]=LO_UINT16(tmpZ);
+	hrtbtdata[HRT_BT_ZVAL_H_POS]=HI_UINT16(tmpZ);
+	hrtbtdata[HRT_BT_ZVAL_L_POS]=LO_UINT16(tmpZ);
 	
 	hrtbtdata[HRT_BT_STAT_POS]=gmst;
 
@@ -311,12 +311,12 @@ void SendGDEData(int16 tmpX, int16 tmpY, int16 tmpZ)
 
 	if (sndtyp == SEND_HRTBY)
 	{
-		RFDataForm(GDE_ST_HRTBEAT_REQ,hrtbtdata,GDE_HRTBT_LEN);
+		RFDataForm(GDE_SUBTYPE_HRTBEAT_REQ,hrtbtdata,GDE_HRTBT_LEN);
 		ClearDataResend();
 	}
 	else if (sndtyp == SEND_CHNG)
 	{
-		RFDataForm(GDE_ST_CARINFO_REQ,hrtbtdata,GDE_HRTBT_LEN);
+		RFDataForm(GDE_SUBTYPE_CARINFO_REQ,hrtbtdata,GDE_HRTBT_LEN);
 		if (rsndautostop++ > MAX_RESEND_TIMES)
 			ClearDataResend();
 	}
@@ -357,8 +357,8 @@ void ClearDataResend(void)
 void ReadGMParam(uint8 *rdbuf)
 {
 	rdbuf[ST_GM_HB_FREQ_POS] = hrtbt_inmin;
-	rdbuf[ST_GM_DTCT_VAL_POS] = detectlevel;
-	rdbuf[ST_GM_DTCT_ALG_POS] = 0;
+	rdbuf[ST_GM_DTCT_SENS_POS] = detectlevel;
+	rdbuf[ST_GM_BENCH_ALG_POS] = 0;
 	rdbuf[ST_GM_STATUS_POS] = gmst;
 }
 
@@ -377,12 +377,10 @@ void ReadGMParam(uint8 *rdbuf)
 bool SetGMParam(uint8 hrtbtmin, uint8 dtval, uint8 alg, uint8 status)
 {
 	VOID alg;
-
-	if ( hrtbtmin==0 || dtval==0 || dtval>sizeof(sqrthrhldarr))
-		return FALSE;
 	
-	hrtbt_inmin = hrtbtmin;
-	detectlevel = dtval;
+	hrtbt_inmin = (hrtbtmin==0? hrtbt_inmin: hrtbtmin);
+	detectlevel = (dtval==0||dtval>sizeof(sqrthrhldarr)? detectlevel: dtval);
+	
 	ModifyBenchmk((gmstatus_t)status);
 
 	return TRUE;

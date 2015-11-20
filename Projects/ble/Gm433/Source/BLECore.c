@@ -303,7 +303,7 @@ void sys_working(uint8 task_id, sysstate_t newDevstate)
 			SYS_WS_INT_Cfg(task_id, WS_INT_DISABLE);
 			// Do not enter power saving
 			PowerHold(task_id);
-			//RF_working(task_id, RF_PRESET);
+			RF_working(task_id, RF_PRESET);
 #if ( !defined GME_WORKING )
 			//GM_working(task_id, GMSnTest);
 #endif	// !GME_WORKING

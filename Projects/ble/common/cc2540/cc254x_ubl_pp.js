@@ -67,6 +67,8 @@ var ForWriting = 2;
   case "ProdHex":
     var ublFile = WScript.Arguments(2);
     var rootCnt = WScript.Arguments(3);
+    var appFile = WScript.Arguments(4);
+
     var fubl = fso.OpenTextFile(ublFile, ForReading);
     fout = fso.CreateTextFile(ppPath + ".hex", true);
 
@@ -78,15 +80,15 @@ var ForWriting = 2;
       rootCnt--;
     }
 
-    fin = fso.OpenTextFile(ppPath + ".a51", ForReading)
+    fin = fso.OpenTextFile(appFile, ForReading)
     fin.ReadLine();  // Throw away the first line since appending to a valid .hex file.
 
     // Throw away the last two lines since a valid .hex file will be appended.
     var line = new Array(3);
-    var rIdx = 2;
+    var rIdx = 1;
     var wIdx = 0;
     line[0] = fin.ReadLine();
-    line[1] = fin.ReadLine();
+    //line[1] = fin.ReadLine();
     while (1)
     {
       fout.WriteLine(line[wIdx]);

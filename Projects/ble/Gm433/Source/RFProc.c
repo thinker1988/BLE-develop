@@ -69,10 +69,10 @@ rfstate_t GetRFstate(void)
  */
 void ReadRFParam(uint8 * rdbuf)
 {
-	rdbuf[ST_RF_FREQ_POS] = RFwkfrq;
+	rdbuf[ST_RF_WK_FREQ_POS] = RFwkfrq;
 	rdbuf[ST_RF_ST_FREQ_POS] = RFstfrq;
 	rdbuf[ST_RF_UPGD_FREQ_POS] = RFupgfrq;
-	rdbuf[ST_RF_BAUD_POS] = RFairbaud;
+	rdbuf[ST_RF_AIR_BAUD_POS] = RFairbaud;
 	rdbuf[ST_RF_PWR_LVL_POS] = RFpwr;
 }
 

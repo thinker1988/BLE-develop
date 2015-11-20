@@ -99,20 +99,20 @@ mtd5: 00010000 00010000 "cfg"
 #define GMS_SUB_TYPE_POS	(GMS_TOT_LEN_POS+GMS_TOT_LEN_SIZE)
 #define GMS_SUB_TYPE_SIZE	1
 
-#define GME_ST_HRTBEAT_ACK	1
-#define GME_ST_CARINFO_ACK	2
-#define GME_ST_TMSYN_ACK	3
-#define GME_ST_UPGD_REQ		4
+#define GME_SUBTYPE_HRTBEAT_ACK	1
+#define GME_SUBTYPE_CARINFO_ACK	2
+#define GME_SUBTYPE_TMSYN_ACK	3
+#define GME_SUBTYPE_UPGD_PKT		4
 
-#define GDE_ST_HRTBEAT_REQ	21
-#define GDE_ST_CARINFO_REQ	22
-#define GDE_ST_TMSYN_REQ	23
-#define GDE_ST_M_UPGD_ACK	24
-#define GDE_ST_T_UPGD_ACK	25
-#define GDE_ST_T_SET_ACK	26
+#define GDE_SUBTYPE_HRTBEAT_REQ	21
+#define GDE_SUBTYPE_CARINFO_REQ	22
+#define GDE_SUBTYPE_TMSYN_REQ	23
+#define GDE_SUBTYPE_M_UPGD_ACK	24
+#define GDE_SUBTYPE_T_UPGD_ACK	25
+#define GDE_SUBTYPE_T_SET_ACK	26
 
-#define GTE_ST_PARAM_SET	41
-#define GTE_ST_UPGD_REQ		42
+#define GTE_SUBTYPE_PARAM_SET	41
+#define GTE_SUBTYPE_UPGD_REQ		42
 
 /**************reserved*******************/
 #define GMS_RESERVE_POS		(GMS_SUB_TYPE_POS+GMS_SUB_TYPE_SIZE)
@@ -145,25 +145,25 @@ mtd5: 00010000 00010000 "cfg"
 #define EVAL_LEN_SIZE		1
 #define ELM_HDR_SIZE		(EID_SIZE+EVAL_LEN_SIZE)
 
-#define EID_UTCL			1
+#define EID_GDE_LOC_TM			1
 #define EID_GDE_HRTBT		2
 #define EID_GDE_CAR_INFO	3
-#define EID_GME_INFO_ACK	4
-#define EID_GTE_SET			5
-#define EID_GDE_SET_ACK		6
+#define EID_GMS_INFO_ACK	4
+#define EID_GDE_PARAMS			5
+#define EID_GMS_RF_FREQ		6
 #define EID_GDE_TMSYN		7
-#define EID_GME_TMSYN_ACK	8
+#define EID_GME_NT_TM	8
 #define EID_GMS_UPGD		9
 #define EID_GDE_UPGD_ACK	10
 
-#define UTCL_EVAL_LEN		(UTCL_YEAR_POS+ UTCL_YEAR_SIZE)// 6
+#define GDE_LOC_TM_LEN		(UTCL_YEAR_POS+ UTCL_YEAR_SIZE)// 6
 #define GDE_HRTBT_LEN		(HRT_BT_STAT_POS+HRT_BT_STAT_SIZE)// 9
 #define GDE_CAR_INFO_LEN	9
-#define GME_INFO_ACK_LEN	(GDE_RESP_POS+GDE_RESP_SIZE)// 1
-#define GTE_SET_LEN			(ST_VERSION_L_POS+ST_VERSION_L_SIZE)// 15
-#define GDE_SET_ACK_LEN		1
+#define GMS_INFO_ACK_LEN	(GDE_RESP_POS+GDE_RESP_SIZE)// 1
+#define GTE_PARAMS_LEN			(ST_VERSION_L_POS+ST_VERSION_L_SIZE)// 15
+#define GMS_RF_FREQ_LEN		1
 #define GDE_TMSYN_LEN		1
-#define GME_TMSYN_ACK_LEN	6
+#define GME_NT_TM_LEN	6
 #define GMS_UPGD_LEN		7
 #define GDE_UPGD_ACK_LEN	1
 
@@ -601,26 +601,26 @@ static rferr_t rfdataparse(uint8 *rfdata,uint8 len)
 	{
 		switch(rfdata[GMS_SUB_TYPE_POS])
 		{
-			case GDE_ST_HRTBEAT_REQ:
+			case GDE_SUBTYPE_HRTBEAT_REQ:
 				httpsend(rfdata, len);
 				break;
-			case GDE_ST_CARINFO_REQ:
+			case GDE_SUBTYPE_CARINFO_REQ:
 			{
 				// GDE carinfo
 				uint8 val = TRUE;
-				formGMEpkt(GME_ST_CARINFO_ACK, &val, sizeof(val));
+				formGMEpkt(GME_SUBTYPE_CARINFO_ACK, &val, sizeof(val));
 				httpsend(rfdata, len);
 				break;
 			}
-			case GDE_ST_TMSYN_REQ:
+			case GDE_SUBTYPE_TMSYN_REQ:
 				// set GDE time
-				formGMEpkt(GME_ST_TMSYN_ACK, NULL, 0);
+				formGMEpkt(GME_SUBTYPE_TMSYN_ACK, NULL, 0);
 				break;
-			case GDE_ST_M_UPGD_ACK:
+			case GDE_SUBTYPE_M_UPGD_ACK:
 				// upgrade process
 				break;
-			case GDE_ST_T_UPGD_ACK:
-			case GDE_ST_T_SET_ACK:
+			case GDE_SUBTYPE_T_UPGD_ACK:
+			case GDE_SUBTYPE_T_SET_ACK:
 			default:
 				return SUB_TYPE_ERR;
 		}
@@ -642,8 +642,8 @@ static uint8 filllocaltime(uint8 *timebuf)
 	printf("++++++++++time:%d/%d/%d.\r\n",(1900+p->tm_year),(1+p->tm_mon),p->tm_mday);
 	printf("++++++++++%d:%d:%d\r\n",p->tm_hour, p->tm_min, p->tm_sec);
 
-	timebuf[0] = EID_GME_TMSYN_ACK;
-	timebuf[EID_SIZE] = GME_TMSYN_ACK_LEN;
+	timebuf[0] = EID_GME_NT_TM;
+	timebuf[EID_SIZE] = GME_NT_TM_LEN;
 
 	timebuf[ELM_HDR_SIZE+UTCL_HOUR_POS]=(unsigned char)p->tm_hour;
 	timebuf[ELM_HDR_SIZE+UTCL_MINTS_POS]=(unsigned char)p->tm_min;
@@ -652,7 +652,7 @@ static uint8 filllocaltime(uint8 *timebuf)
 	timebuf[ELM_HDR_SIZE+UTCL_MONTH_POS]=(unsigned char)(p->tm_mon+1);
 	timebuf[ELM_HDR_SIZE+UTCL_YEAR_POS]=(unsigned char)(p->tm_year + 1900 -2000); //year, should plus 2000
 
-	return (ELM_HDR_SIZE+GME_TMSYN_ACK_LEN);
+	return (ELM_HDR_SIZE+GME_NT_TM_LEN);
 }
 
 
@@ -660,11 +660,11 @@ static uint8 fillGDEresp(uint8 *respbuf, uint8 *data, uint8 len)
 {
 	(void) len;
 
-	respbuf[0] = EID_GME_INFO_ACK;
-	respbuf[EID_SIZE] = GME_INFO_ACK_LEN;
+	respbuf[0] = EID_GMS_INFO_ACK;
+	respbuf[EID_SIZE] = GMS_INFO_ACK_LEN;
 	respbuf[ELM_HDR_SIZE+GDE_RESP_POS]= *data;
 
-	return (ELM_HDR_SIZE+GME_INFO_ACK_LEN);
+	return (ELM_HDR_SIZE+GMS_INFO_ACK_LEN);
 }
 
 
@@ -690,19 +690,19 @@ static rferr_t  formGMEpkt(uint8 subtype, uint8 *data, uint8 len)
 
 	switch(subtype)
 	{
-		case GME_ST_HRTBEAT_ACK:
+		case GME_SUBTYPE_HRTBEAT_ACK:
 			break;
-		case GME_ST_CARINFO_ACK:
-			if (len != GME_INFO_ACK_LEN)
+		case GME_SUBTYPE_CARINFO_ACK:
+			if (len != GMS_INFO_ACK_LEN)
 				return DATA_ERR;
 			// heart beat packet format
 			curpldpos += fillGDEresp(rfbuf+GMS_PKT_PAYLOAD_POS, data, len);
 			break;
-		case GME_ST_TMSYN_ACK:
+		case GME_SUBTYPE_TMSYN_ACK:
 			// car info request
 			curpldpos += filllocaltime(rfbuf+GMS_PKT_PAYLOAD_POS);
 			break;
-		case GME_ST_UPGD_REQ:
+		case GME_SUBTYPE_UPGD_PKT:
 			break;
 		default:
 			return SUB_TYPE_ERR;

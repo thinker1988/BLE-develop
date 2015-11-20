@@ -89,6 +89,8 @@ __low_level_init(void)
   MEMCTR = (MEMCTR & 0xF8) | 0x05;
 #elif defined HAL_IMAGE_B
   MEMCTR = (MEMCTR & 0xF8) | 0x04;
+#elif defined GM_IMAGE_A
+  MEMCTR = (MEMCTR & 0xF8) | 0x03;
 #else
   MEMCTR = (MEMCTR & 0xF8) | 0x01;
 #endif

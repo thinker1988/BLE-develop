@@ -4566,10 +4566,7 @@
         </option>
         <option>
           <name>CCDefines</name>
-          <state>HAL_IMAGE_A</state>
-          <state>FEATURE_OAD_BIM</state>
-          <state>FEATURE_OAD</state>
-          <state>OAD_UPGRADE</state>
+          <state>GM_IMAGE_A</state>
           <state>OAD_KEEP_NV_PAGES</state>
           <state>USE_SX1278_RF</state>
           <state>GDE_DEV_ID=7</state>
@@ -5027,7 +5024,7 @@
       <archiveVersion>1</archiveVersion>
       <data>
         <prebuild></prebuild>
-        <postbuild>"$PROJ_DIR$\..\..\common\cc2540\cc254x_sim2bin.exe" "$PROJ_DIR$\GDE_SMALL_IMG_RELEASE\Exe\GDE_release.sim" "$PROJ_DIR$\GDE_SMALL_IMG_RELEASE\Exe\GDE_release.bin"</postbuild>
+        <postbuild>"$PROJ_DIR$\..\..\common\cc2540\cc254x_ubl_pp.bat" "$PROJ_DIR$" "ProdHex" "$PROJ_DIR$\GDE_SMALL_IMG_RELEASE\Exe\BL+IMGA" "$PROJ_DIR$\GDE_SMALL_IMG_RELEASE\Exe\bimsbl.hex" "257" "$PROJ_DIR$\GDE_SMALL_IMG_RELEASE\Exe\GDE_release.hex"</postbuild>
       </data>
     </settings>
     <settings>
@@ -6549,6 +6546,12 @@
     </file>
     <file>
       <name>$PROJ_DIR$\..\Source\Com433.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\Source\CoreUpgrade.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\Source\CoreUpgrade.h</name>
     </file>
     <file>
       <name>$PROJ_DIR$\..\Source\GMProc.c</name>
