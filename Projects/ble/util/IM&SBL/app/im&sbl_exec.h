@@ -24,7 +24,7 @@
 	its documentation for any purpose.
 
 	YOU FURTHER ACKNOWLEDGE AND AGREE THAT THE SOFTWARE AND DOCUMENTATION ARE
-	PROVIDED “AS IS” WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+	PROVIDED “AS IS?WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 	INCLUDING WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, TITLE,
 	NON-INFRINGEMENT AND FITNESS FOR A PARTICULAR PURPOSE. IN NO EVENT SHALL
 	TEXAS INSTRUMENTS OR ITS LICENSORS BE LIABLE OR OBLIGATED UNDER CONTRACT,
@@ -57,14 +57,14 @@
 #define SBL_FORCE_RUN						(SBL_FORCE_BOOT ^ 0xFF)
 
 
-// FLASH 256k = 128 pages, includes 125~126 NV pages and 127 non erasable page, total available pages is 125 (0~124)
-#define TOTAL_AVAIL_PAGE					125
+// FLASH 256k = 128 pages, includes 125~126 NV 2 pages and 127 1 non erasable page, total available pages is 125 (0~124)
+#define TOTAL_AVAIL_PAGE					125-13-16
 
 #define BIM_IMG_A_PAGE						2
-#define BIM_IMG_A_AREA						46
+#define BIM_IMG_A_AREA						32
 
 #define BIM_IMG_B_PAGE						8
-#define BIM_IMG_B_AREA						(TOTAL_AVAIL_PAGE-BIM_IMG_A_PAGE-BIM_IMG_A_AREA)
+#define BIM_IMG_B_AREA						32//(TOTAL_AVAIL_PAGE-BIM_IMG_A_PAGE-BIM_IMG_A_AREA)
 
 #define BIM_CRC_OSET						0x00
 #define BIM_HDR_OSET						0x00
@@ -84,6 +84,9 @@ enum
  */
 
 uint8 sbl_Poll(void);
+
+void UARTWriteBuf(uint8 *pBuffer, uint16 length);
+
 
 //void load_img(uint8 img_choice);
 

@@ -24,7 +24,7 @@
 	its documentation for any purpose.
 
 	YOU FURTHER ACKNOWLEDGE AND AGREE THAT THE SOFTWARE AND DOCUMENTATION ARE
-	PROVIDED “AS IS” WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+	PROVIDED “AS IS?WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED,
 	INCLUDING WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, TITLE,
 	NON-INFRINGEMENT AND FITNESS FOR A PARTICULAR PURPOSE. IN NO EVENT SHALL
 	TEXAS INSTRUMENTS OR ITS LICENSORS BE LIABLE OR OBLIGATED UNDER CONTRACT,
@@ -248,12 +248,20 @@ void main(void)
 	 * descriptors in addition to just Channel 0.
 	 */
 	HAL_DMA_SET_ADDR_DESC0(&dmaCh0);
+	uart_Init();
+
 	
 	// Prefer to run Image-B over Image-A so that Image-A does not have to invalidate itself.
 	HalFlashRead(BIM_IMG_B_PAGE, BIM_CRC_OSET, (uint8 *)crc, 4);
 	if ((crc[0] != 0xFFFF) && (crc[0] != 0x0000))
+	{
 		if (crc[0] == crc[1])
+		{
+			//
+			UARTWriteBuf("\r\nB\r\n",5);
 			imgchs = IMG_B;
+		}
+	}
 
 	if (imgchs != IMG_B)
 	{
@@ -261,30 +269,40 @@ void main(void)
 		if ((crc[0] != 0xFFFF) && (crc[0] != 0x0000))
 		{
 			if (crc[0] == crc[1])
+			{
+				UARTWriteBuf("\r\nA\r\n",5);
 				imgchs = IMG_A;
+			}
 			else if (crc[1] == 0xFFFF)	// If first run of an image that was physically downloaded, need check crc
+			{
+				UARTWriteBuf("\r\nC\r\n",5);
 				ImgCrcCheck(BIM_IMG_A_PAGE, crc);
+			}
 			else
 				halDeepSleepExec();
 		}
 	}
 	
 	JumpToImageAorB = imgchs;
-	
-	uart_Init();
+
 	if (sbl_input_Wait() == TRUE)  // If the run code image is valid.
 		sbl_Run();		// always flash image B
 	else
 	{
 		if (imgchs == IMG_A)
+		{
+			UARTWriteBuf("\r\nO\r\n",5);
 			// Simulate a reset for the Application code by an absolute jump to the expected INTVEC addr.
 			asm("LJMP 0x1030");
+		}
 		else if (imgchs == IMG_B)
+		{
 			asm("LJMP 0x4030");
+		}
 		
-		HAL_SYSTEM_RESET();	// Should not get here.
+		//HAL_SYSTEM_RESET();	// Should not get here.
 	}
-	
+
 	halDeepSleepExec();
 	
 }

@@ -151,9 +151,9 @@ static uint8 txIdx, txLen, *pTxBuf;
  */
 
 /**************************************************************************************************
- * @fn					uartInit
+ * @fn				uartInit
  *
- * @brief			 Initialize the UART for SBL polling use.
+ * @brief			Initialize the UART for SBL polling use.
  *
  * input parameters
  *
@@ -290,6 +290,31 @@ static uint8 sbl_input_Wait(void)
 	}
 
 	return FALSE;
+}
+
+void UARTWriteBuf(uint8 *pBuffer, uint16 length)
+{
+	pTxBuf = pBuffer;
+	txLen = length;
+	txIdx = 1;
+	UxCSR &= ~CSR_TX_BYTE;
+	UxDBUF = *pBuffer;
+
+	while (txLen != 0)
+	{
+		if (UxCSR & CSR_TX_BYTE)
+		{
+			if (txIdx++ == txLen)
+			{
+				txLen = 0;
+			}
+			else
+			{
+				UxCSR &= ~CSR_TX_BYTE;
+				UxDBUF = pTxBuf[txIdx];
+			}
+		}
+	}
 }
 
 
