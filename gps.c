@@ -138,7 +138,7 @@ typedef struct fw_img_hdr
  * LOCAL VARIABLES
  */
 // Device serial fd
-static int gme_sfd, fd2;
+static int gme_sfd;// fd2;
 
 // RF ID and version
 static uint16 RFdevID = GME_DEV_ID;
@@ -179,23 +179,42 @@ static uint8 alrmhh,alrmmm,alrmss;
 /*********************************************************************
  * LOCAL FUNCTIONS
  */
-static unsigned char calcGMchksum(unsigned char* chkbuf, unsigned short len);
-static uint8 fillGDEresp(uint8 * respbuf, uint8 * data, uint8 len);
 static void gmspktform(uint8 * rawbuf, uint8 rawlen);
-static rfpkterr_t GDEPktElmProc(uint8 subtype, uint8* pldbuf, uint8 pldlen);
-
-static void controlGDE(uint8* pldbuf, uint8 pldlen);
-
 static rfpkterr_t rfdataparse(uint8 *rfdata,uint8 len);
-static uint8 filllocaltime(uint8 *timebuf);
+
+static rfpkterr_t GDEPktElmProc(uint8 subtype, uint8* pldbuf, uint8 pldlen);
+static void controlGDE(uint8* pldbuf, uint8 pldlen);
+static void procGDEack(uint8 subtype, msgerrcd_t ecd);
+
+
 static rfpkterr_t  formGMEpkt(uint8 subtype, uint8 *data, uint8 len);
+static uint8 fillupgdfreq(uint8 * freqbuf);
+static uint8 fillupgfwinfo(uint8 * fwinfobuf);
+static uint8 filllocaltime(uint8 *timebuf);
+static uint8 fillGDEresp(uint8 * respbuf, uint8 * data, uint8 len);
+static uint8 fillupgblk(uint8 * pldbuf, uint8 * data, uint8 len);
+static uint8 fillrstbench(uint8 * pldbuf);
 
 static rfpkterr_t rfdatasend(uint8 * buf, uint8 len);
+
+static void upgrade_gde_fw(void);
+static uint32 get_file_sz(FILE * fp);
+static void prep_upgrade(char * binstr);
+static void set_upgrade_alarm(char * hmstmstr);
+
+
 static void httpsend(uint8 * buf, uint8 len);
+
+static unsigned char calcGMchksum(unsigned char* chkbuf, unsigned short len);
+static int asciitobin(char * ascbuf, int len, char * bbuf);
 
 static void display_verion(void);
 static void timeerror(void);
 static void usage(void);
+
+static uint8 CPUBigEndian(void);
+static uint16 le_tohs(uint16 n);
+
 
 /*********************************************************************
  * PUBLIC FUNCTIONS
@@ -579,7 +598,7 @@ static void controlGDE(uint8* pldbuf, uint8 pldlen)
 	}	
 }
 
-static procGDEack(uint8 subtype, msgerrcd_t ecd)
+static void procGDEack(uint8 subtype, msgerrcd_t ecd)
 {
 	switch(ecd)
 	{
@@ -777,6 +796,7 @@ static void upgrade_gde_fw(void)
 		upgdbuf[NEW_FW_CUR_BLK_H_POS] = HI_UINT16(fwblk);
 		upgdbuf[NEW_FW_CUR_BLK_L_POS] = LO_UINT16(fwblk);
 		fread(upgdbuf+RF_OAD_BLOCK_BEG_POS, 1, RF_OAD_BLOCK_SIZE, binfp);
+		printf("Write NO.%d block...\r\n",fwblk+1);
 		RFdestID = GDE_ADV_ID;
 		formGMEpkt(GME_SUBTYPE_UPGD_PKT, upgdbuf, EVLEN_GMS_UPGD);
 		usleep(100*1000);
@@ -784,6 +804,7 @@ static void upgrade_gde_fw(void)
 		formGMEpkt(GME_SUBTYPE_UPGD_PKT, upgdbuf, EVLEN_GMS_UPGD);
 		usleep(100*1000);
 	}
+	printf("Upgrade finish!\r\n");
 	fclose(binfp);
 }
 
@@ -808,20 +829,27 @@ static void prep_upgrade(char* binstr)
 		perror("upgrade bin file open failed");
 		exit(1);
 	}
-	binfp = get_file_sz(binfp);
+	len = get_file_sz(binfp);
 
-	len = fread(tmpbuf, 1, sizeof(fw_img_hdr_t), binfp);
+	fread((uint8*)&tmpbuf, 1, sizeof(fw_img_hdr_t), binfp);
 	fwvern = le_tohs(tmpbuf.oadvern);
 	fwlen = (uint32)(le_tohs(tmpbuf.oadfwdlen))*4;
 	fwcrc = le_tohs(tmpbuf.crcraw);
 	fwtotblk = fwlen/64;
 
-	if (fwvern!=0 && fwcrc!= 0 && fwlen!=0 && fwtotblk!=0 && fwlen%64==0)
+	fclose(binfp);
+
+	if (fwvern!=0 && fwcrc!= 0 && fwlen!=0 && fwtotblk!=0 && fwlen%64==0 && len!=fwlen)
 	{
+		printf("Prepare order GDE upgrade.\r\n");
 		prepupgdflg = TRUE;
 		memset(mnggdest,0,sizeof(mnggdest));
 	}
-	fclose(binfp);
+	else
+	{
+		printf("Firmware bin file format error.\r\n");
+		exit(1);
+	}
 }
 
 static void set_upgrade_alarm(char* hmstmstr)
@@ -878,7 +906,7 @@ static void set_upgrade_alarm(char* hmstmstr)
 
 	alrmsnd = (uint32)(alrmhh-pcurtm->tm_hour)*60*60+(int32)(alrmmm-pcurtm->tm_min)*60+alrmss-pcurtm->tm_sec;
 
-	printf("Wait %d seconds to alarm.\r\n",alrmsnd);
+	printf("Wait %ld seconds to alarm.\r\n",alrmsnd);
 
 	signal(SIGALRM, upgrade_gde_fw);
 	alarm(alrmsnd);
@@ -895,7 +923,6 @@ static void httpsend(uint8 *buf, uint8 len)
 	int sockfd;
 	char recvbuffer[1024]={0};
 	char request[1024]={0}; 
-	char sendtext[512];
 	
 	// Ascii data len should be 2*MAX_LEN of bin data
 	char data[GMS_PKT_MAX_LEN*2];
@@ -904,13 +931,13 @@ static void httpsend(uint8 *buf, uint8 len)
 	int con_flag;
 	int i,j;
 
-	unsigned char gdehb[31] = {0x55,0x1F,0x15,0x52,0x46,0x8B,0x00,0x01,0x03,\
+/*	unsigned char gdehb[31] = {0x55,0x1F,0x15,0x52,0x46,0x8B,0x00,0x01,0x03,\
 			0xE9,0x01,0x00,0x01,0x06,0x05,0x0E,0x30,0x1C,0x0C,0x0C,\
 			0x02,0x09,0x20,0x21,0x00,0x11,0x00,0x22,0x00,0x33,0x00};
 	//120.26.103.149:9999/gmehttpget?data=551F1552468B000103E901000106050E301C0C0C0209202100110022003300
 	unsigned char gdep[31] ={0x55,0x1F,0x16,0x52,0x46,0x88,0x00,0x01,0x03,\
 			0xE9,0x01,0x00,0x01,0x06,0x05,0x0E,0x30,0x1C,0x0C,0x0C,\
-			0x02,0x09,0x20,0x21,0x00,0x11,0x00,0x22,0x00,0x33,0x00};
+			0x02,0x09,0x20,0x21,0x00,0x11,0x00,0x22,0x00,0x33,0x00};*/
 
 	for(i=0;i<len;i++)
 		sprintf(data+i*2,"%02x",buf[i]);
@@ -1026,7 +1053,7 @@ static void usage()
 int main(int argc, char ** argv)
 {
 	char *c,*p;
-	int nset1,len,ret,Param;
+	int nset1,len,Param;
 	unsigned char buf[GMS_PKT_MAX_LEN];
 	unsigned char crc_buf[GMS_PKT_MAX_LEN];
 	sworkstate_t wkst=NORMAL_MODE;
@@ -1152,10 +1179,10 @@ int main(int argc, char ** argv)
 		{
 			printf("Serial command set module:\r\n");
 			scanf("%s",buf);
-			len = strlen(buf);
+			len = strlen((char *)buf);
 			if ( len > 0 )
 			{
-				if (strcmp(buf,"exit") == 0)
+				if (strcmp((char *)buf,"exit") == 0)
 				{
 					wkst = NORMAL_MODE;
 					printf("back to read mode:\r\n");
@@ -1163,7 +1190,7 @@ int main(int argc, char ** argv)
 				}
 				else
 				{
-					len = asciitobin(buf,len,crc_buf);
+					len = asciitobin((char *)buf,len,(char *)crc_buf);
 					printf("\r\nSend bin command: ");
 					db(crc_buf,len);
 					write(gme_sfd,crc_buf,len);	
