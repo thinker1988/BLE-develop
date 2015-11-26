@@ -53,8 +53,8 @@ extern "C" {
 #define GM_BASE_TEMPR 				25
 #define GM_INVALID_TEMPR			127
 
-// GM read once wait data ready period
-#define GM_READ_ONCE_PERIOD			150
+// GM read once wait data ready period, see HMC
+#define GM_SNSR_MEASURE_PERIOD			6
 
 /**********Hardware version define**********/
 #if ( !defined HW_VERN ) || ( HW_VERN == 0 )
@@ -107,15 +107,21 @@ extern "C" {
 #define DEV_EN_INT_ENABLE()			st( DEV_EN_INT_PXIEN |= DEV_EN_INT_IE; )
 #define DEV_EN_INT_DISABLE()		st( DEV_EN_INT_PXIEN &= ~DEV_EN_INT_IE; )
 
+
 /*********************************************************************
  * MACROS
  */
 // Calculate GM temperature base on HMC
-#define CLAC_GM_TEMPR(HiBt,LoBt)			(((HiBt)<<8+(LoBt))>>7+GM_BASE_TEMPR)
+#define CLAC_GM_TEMPR(HiBt,LoBt)		(((HiBt)<<8+(LoBt))>>7+GM_BASE_TEMPR)
 
 // Claculate absolute value
-#define CALC_ABS(x)	((x)>0?(x):-(x))
+#define CALC_ABS(x)						((x)>0?(x):-(x))
 
+
+#define NO_MSG_SEND(sndtyp)			(sndtyp == 0)
+
+#define SET_SEND_BIT(sndtyp, sndbit)	(sndtyp |= BV(sndbit))
+#define CLR_SEND_BIT(sndtyp, sndbit)	(sndtyp &= ~ BV(sndbit))
 
 /*********************************************************************
  * TYPEDEFS
@@ -131,21 +137,24 @@ typedef enum gmsensor
 }gmsensor_t;
 
 
-typedef enum gmstatus
+typedef enum detectstatus
 {
-	GMNoCar=0,
-	GMGetCar,
-	GMFirstBoot,
-	GMError
-}gmstatus_t;
+	NO_CAR_DETECTED=0,
+	CAR_DETECTED_OK,
+	BENCH_CALIBRATING,
+	ABNORMAL_DETECTION
+}detectstatus_t;
 
-typedef enum sendtype
+
+// Bit define of send type
+// Highest priority: data change; middle : heart beat; lowest: time sync
+typedef enum sndtypbit
 {
-	SEND_NOTHG,
-	SEND_HRTBY,
-	SEND_CHNG,
-	SEND_SYNC,
-}sendtype_t;
+	SND_BIT_DAT_CHNG=0,
+	SND_BIT_HRT_BT,
+	SND_BIT_TM_SYNC
+}sndtypbit_t;
+
 /******************************************************************************
  * PROTPTYPES
  */
@@ -154,11 +163,13 @@ extern gmsensor_t GetGMSnState(void);
 
 extern void GM_working(uint8 task_id, gmsensor_t ngmsnst);
 
-extern void SetGMState(gmstatus_t nwst);
-extern gmstatus_t GetGMState(void);
+extern void SetGMState(detectstatus_t nwst);
+extern detectstatus_t GetGMState(void);
+
+extern void ResetBenchmark(uint8 *bnchmk, uint8 len);
 
 extern void SendSyncTMReq(void);
-extern void SendGDEData(int16 tmpX, int16 tmpY, int16 tmpZ);
+extern void FormHrtbtData(uint8 *hrtbtdata,int16 tmpX, int16 tmpY, int16 tmpZ);
 
 extern void ClearSyncTMReq(void);
 extern void ClearDataResend(void);

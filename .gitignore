@@ -62,6 +62,7 @@ SimpleBLEObserver/
 SimpleBLEPeripheral/
 Thermometer/
 TimeApp/
+settings/
 util/
 
 # IAR irrelevant files

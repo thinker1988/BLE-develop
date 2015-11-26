@@ -7,11 +7,20 @@ extern "C"
 {
 #endif
 
-#include "bcomdef.h"
+#ifndef __linux__
+#include "comdef.h"
+#endif
+
+#define GET_RF_SRC_ADDR(rfbuf)	\
+	(BUILD_UINT16(rfbuf[GMS_SRC_ADDR_POS+1],rfbuf[GMS_SRC_ADDR_POS]))
+
+#define GET_RF_DEST_ADDR(rfbuf)	\
+	(BUILD_UINT16(rfbuf[GMS_DEST_ADDR_POS+1],rfbuf[GMS_DEST_ADDR_POS]))
+
 
 /********************************************************************************
-| ID | Tot len | Sub type | reserved | chk sum | src ID | dest ID | version | payload |
-| 1  |    1     |    1     |    2     |    1    |    2   |    2    |    2    |  128-12 |
+| ID | Tot len | Sub type | reserved | chk sum | src ID | dest ID | version |     payload    |
+| 1  |    1      |        1      |     2       |      1      |     2   |     2      |      2     |    128-12     |
 */
 /****************RF ID*******************/
 #define GMS_ID_POS		0
@@ -32,9 +41,9 @@ extern "C"
 #define GMS_SUB_TYPE_SIZE	1
 
 // Direction: GME==>GDE
-#define GME_SUBTYPE_HRTBEAT_ACK		1	// ELE 6+9+8+1
-#define GME_SUBTYPE_CARINFO_ACK		2	// ELE 4
-#define GME_SUBTYPE_TMSYN_ACK		3	// ELE 8
+#define GME_SUBTYPE_ORDER_UPGD_REQ	1	// ELE 6+8+9
+#define GME_SUBTYPE_CARINFO_RESP	2	// ELE 4
+#define GME_SUBTYPE_TMSYN_RESP		3	// ELE 8
 #define GME_SUBTYPE_UPGD_PKT		4	// ELE 11
 #define GME_SUBTYPE_RST_BENCH_PKT	5	// ELE 3
 
@@ -42,22 +51,22 @@ extern "C"
 #define GDE_SUBTYPE_HRTBEAT_REQ		21	// ELE 1+2
 #define GDE_SUBTYPE_CARINFO_REQ		22	// ELE 1+2+3
 #define GDE_SUBTYPE_TMSYN_REQ		23	// ELE 7
-#define GDE_SUBTYPE_UPGD_REQ_ACK	24	// ELE 6
+#define GDE_SUBTYPE_ORDER_RESP		24	// ELE 4+6
 #define GDE_SUBTYPE_UPGD_ACK		25	// ELE 4
 
 // Direction: GDE==>GTE
-#define GDE_SUBTYPE_T_PRESET_ACK	26	// ELE 6
-#define GDE_SUBTYPE_T_READ_ACK		27	// ELE 5+3
-#define GDE_SUBTYPE_T_SET_ACK		28	// ELE 4
-#define GDE_SUBTYPE_T_UPGD_REQ_ACK	29	// ELE 6
+#define GDE_SUBTYPE_T_PRESET_RESP	26	// ELE 6
+#define GDE_SUBTYPE_T_READ_RESP		27	// ELE 5+3
+#define GDE_SUBTYPE_T_SET_RESP		28	// ELE 4
+#define GDE_SUBTYPE_T_ORDER_RESP	29	// ELE 4+6
 #define GDE_SUBTYPE_T_UPGD_ACK		30	// ELE 4
 
 
 // Direction: GTE==>GDE
 #define GTE_SUBTYPE_PRESET_REQ		41	// ELE 6
-#define GTE_SUBTYPE_PARAM_READ		42	// ELE 10
-#define GTE_SUBTYPE_PARAM_SET		43	// ELE 5
-#define GTE_SUBTYPE_UPGD_REQ		44	// ELE 6+9
+#define GTE_SUBTYPE_PARAM_READ_REQ	42	// ELE 10
+#define GTE_SUBTYPE_PARAM_SET_REQ	43	// ELE 5
+#define GTE_SUBTYPE_ORDER_UPGD_REQ	44	// ELE 6+9
 #define GTE_SUBTYPE_UPGD_PKT		45	// ELE 11
 #define GTE_SUBTYPE_RST_BENCH_PKT	46	// ELE 3
 
@@ -79,6 +88,12 @@ extern "C"
 #define GMS_DEST_ADDR_POS	(GMS_SRC_ADDR_POS+GMS_SRC_ADDR_SIZE)	//6+2
 #define GMS_DEST_ADDR_SIZE	2
 
+// Special address in GMS
+#define GDE_ADV_ID		7999
+#define GME_ADV_ID		8999
+#define GTE_ADV_ID		9999
+
+
 /**************version number****************/
 #define GMS_VERSION_POS		(GMS_DEST_ADDR_POS+GMS_DEST_ADDR_SIZE)	//8+2
 #define GMS_VERSION_SIZE	2
@@ -86,14 +101,42 @@ extern "C"
 /**************packet header*****************/
 #define GMS_PKT_HDR_SIZE	(GMS_VERSION_POS+GMS_VERSION_SIZE)	//12
 #define GMS_PKT_PLD_MAX_LEN	(GMS_PKT_MAX_LEN-GMS_PKT_HDR_SIZE)	//128-12
-
-// Payload start position
 #define GMS_PKT_PAYLOAD_POS	GMS_PKT_HDR_SIZE	//12
+
+/**********payload length of subtypes***********/
+#define GME_SUBTYPE_ORDER_UPGD_REQ_PL_LEN	(ELM_HDR_SIZE*3+EVLEN_GMS_RF_FREQ+EVLEN_GME_NT_TM+EVLEN_GMS_FW_INFO)// ELE 6+8+9
+#define GME_SUBTYPE_CARINFO_RESP_PL_LEN		(ELM_HDR_SIZE+EVLEN_GMS_INFO_ACK)	// ELE 4
+#define GME_SUBTYPE_TMSYN_RESP_PL_LEN		(ELM_HDR_SIZE+EVLEN_GME_NT_TM)	// ELE 8
+#define GME_SUBTYPE_UPGD_PKT_PL_LEN			(ELM_HDR_SIZE+EVLEN_GMS_UPGD)	// ELE 11
+#define GME_SUBTYPE_RST_BENCH_PKT_PL_LEN	(ELM_HDR_SIZE+EVLEN_GDE_BENCH_INFO)	// ELE 3
+
+#define GDE_SUBTYPE_HRTBEAT_REQ_PL_LEN		(ELM_HDR_SIZE*2+EVLEN_GDE_LOC_TM+EVLEN_GDE_HRTBT)	// ELE 1+2
+#define GDE_SUBTYPE_CARINFO_REQ_PL_LEN		(ELM_HDR_SIZE*3+EVLEN_GDE_LOC_TM+EVLEN_GDE_HRTBT)	// ELE 1+2+3
+#define GDE_SUBTYPE_TMSYN_REQ_PL_LEN		(ELM_HDR_SIZE+EVLEN_GDE_TMSYN)	// ELE 7
+#define GDE_SUBTYPE_ORDER_RESP_PL_LEN		(ELM_HDR_SIZE*2+EVLEN_GMS_RF_FREQ+EVLEN_GMS_INFO_ACK)	// ELE 6+4
+#define GDE_SUBTYPE_UPGD_ACK_PL_LEN			(ELM_HDR_SIZE+EVLEN_GMS_INFO_ACK)	// ELE 4
+#define GDE_SUBTYPE_T_PRESET_RESP_PL_LEN	(ELM_HDR_SIZE+EVLEN_GMS_RF_FREQ)	// ELE 6
+#define GDE_SUBTYPE_T_READ_RESP_PL_LEN		(ELM_HDR_SIZE*2+EVLEN_GDE_PARAMS+EVLEN_GDE_BENCH_INFO)	// ELE 5+3
+#define GDE_SUBTYPE_T_SET_RESP_PL_LEN		(ELM_HDR_SIZE+EVLEN_GMS_INFO_ACK)	// ELE 4
+#define GDE_SUBTYPE_T_ORDER_RESP_PL_LEN		(ELM_HDR_SIZE*2+EVLEN_GMS_RF_FREQ+EVLEN_GMS_INFO_ACK)	// ELE 6+4
+#define GDE_SUBTYPE_T_UPGD_ACK_PL_LEN		(ELM_HDR_SIZE+EVLEN_GMS_INFO_ACK)	// ELE 4
+
+#define GTE_SUBTYPE_PRESET_REQ_PL_LEN		(ELM_HDR_SIZE+EVLEN_GMS_RF_FREQ)	// ELE 6
+#define GTE_SUBTYPE_PARAM_READ_REQ_PL_LEN	(ELM_HDR_SIZE+EVLEN_GTE_READ)	// ELE 10
+#define GTE_SUBTYPE_PARAM_SET_REQ_PL_LEN	(ELM_HDR_SIZE+EVLEN_GDE_PARAMS)	// ELE 5
+#define GTE_SUBTYPE_ORDER_UPGD_REQ_PL_LEN	(ELM_HDR_SIZE*2+EVLEN_GMS_RF_FREQ+EVLEN_GMS_FW_INFO)	// ELE 6+9
+#define GTE_SUBTYPE_UPGD_PKT_PL_LEN			(ELM_HDR_SIZE+EVLEN_GMS_UPGD)	// ELE 11
+#define GTE_SUBTYPE_RST_BENCH_PKT_PL_LEN	(ELM_HDR_SIZE+EVLEN_GDE_BENCH_INFO)	// ELE 3
+
+
 
 /**************element header*****************/
 #define EID_SIZE			1
+
+#define EVAL_LEN_POS		(EID_SIZE)
 #define EVAL_LEN_SIZE		1
-#define ELM_HDR_SIZE		(EID_SIZE+EVAL_LEN_SIZE)	// 2
+
+#define ELM_HDR_SIZE		(EVAL_LEN_POS+EVAL_LEN_SIZE)	// 2
 
 /************** list of element ID*****************/
 #define EID_GDE_LOC_TM		1
@@ -108,60 +151,36 @@ extern "C"
 #define EID_GTE_READ		10
 #define EID_GMS_UPGD		11
 
-/*
-#define EID_GTE_PRESET_REQ	11
-#define EID_GDE_PRESET_RESP	12
-#define EID_GTE_READ		13
-#define EID_GMS_UPGD_REQ	14
-#define EID_GDE_UPGD_RESP	15
-*/
 
 /**************element length of different ID*****************/
 // EID = 1
-#define GDE_LOC_TM_LEN		(UTCL_YEAR_POS+ UTCL_YEAR_SIZE)	// 6
+#define EVLEN_GDE_LOC_TM	(UTCL_YEAR_POS+ UTCL_YEAR_SIZE)	// 6
 // EID = 2
-#define GDE_HRTBT_LEN		(HRT_BT_STAT_POS+HRT_BT_STAT_SIZE)	// 9
+#define EVLEN_GDE_HRTBT		(HRT_BT_STAT_POS+HRT_BT_STAT_SIZE)	// 9
 // EID = 3
-#define GDE_BENCH_INFO_LEN	(GDE_Z_L_BCHMRK_POS+GDE_Z_L_BCHMRK_SIZE)	// 6
+#define EVLEN_GDE_BENCH_INFO	(GDE_Z_L_BCHMRK_POS+GDE_Z_L_BCHMRK_SIZE)	// 6
 // EID = 4
-#define GMS_INFO_ACK_LEN	(GME_INFO_ACK_MSG_POS+GME_INFO_ACK_MSG_SIZE)	// 1
+#define EVLEN_GMS_INFO_ACK	(GMS_INFO_ACK_MSG_POS+GMS_INFO_ACK_MSG_SIZE)	// 1
 // EID = 5
-#define GDE_PARAMS_LEN		(ST_GME_ADDR_L_POS+ST_GME_ADDR_L_SIZE)	// 13
+#define EVLEN_GDE_PARAMS	(ST_GME_ADDR_L_POS+ST_GME_ADDR_L_SIZE)	// 13
 // EID = 6
-#define GMS_RF_FREQ_LEN		(GMS_RF_FREQ_MSG_POS+GMS_RF_FREQ_MSG_SIZE)	// 1
+#define EVLEN_GMS_RF_FREQ	(GMS_RF_FREQ_MSG_POS+GMS_RF_FREQ_MSG_SIZE)	// 1
 // EID = 7
-#define GDE_TMSYN_LEN		(GDE_TMSYNC_MSG_POS+GDE_TMSYNC_MSG_SIZE)	// 1
+#define EVLEN_GDE_TMSYN		(GDE_TMSYNC_MSG_POS+GDE_TMSYNC_MSG_SIZE)	// 1
 // EID = 8
-#define GME_NT_TM_LEN		GDE_LOC_TM_LEN
+#define EVLEN_GME_NT_TM		EVLEN_GDE_LOC_TM
 // EID = 9
-#define GMS_FW_INFO_LEN		(NEW_FW_UPGD_SECND_POS+NEW_FW_UPGD_SECND_SIZE)	// 13
+#define EVLEN_GMS_FW_INFO	(NEW_FW_UPGD_SECND_POS+NEW_FW_UPGD_SECND_SIZE)	// 13
 // EID = 10
-#define GTE_READ_LEN		(GTE_RD_REQ_MSG_POS+GTE_RD_REQ_MSG_SIZE)	// 1
-
+#define EVLEN_GTE_READ		(GTE_RD_REQ_MSG_POS+GTE_RD_REQ_MSG_SIZE)	// 1
 // EID = 11
-// Caution : this length does not include firmware block length, it should add at most RF_OAD_BLOCK_SIZE. 
-#define GMS_UPGD_LEN		(NEW_FW_CUR_BLK_L_POS+NEW_FW_CUR_BLK_L_SIZE+RF_OAD_BLOCK_SIZE)	// 66
-
-/*
-// EID = 11
-#define GDE_MOD_CHG_LEN		()
-
-#define GTE_PRESET_REQ_LEN	(PRESET_REQ_MSG_POS+PRESET_REQ_MSG_SIZE)	// 1
-// EID = 12
-#define GDE_PRESET_RESP_LEN	(PRESET_RESP_MSG_POS+PRESET_RESP_MSG_SIZE)	// 1
-// EID = 13
-#define GTE_READ_LEN		(GTE_RD_REQ_MSG_POS+GTE_RD_REQ_MSG_SIZE)	// 1
-// EID = 14
-#define GMS_UPGD_REQ_LEN	(PREUPGD_REQ_MSG_POS+PREUPGD_REQ_MSG_SIZE)	// 1
-// EID = 15
-#define GDE_UPGD_RESP_LEN	(PREUPGD_RESP_MSG_POS+PREUPGD_RESP_MSG_SIZE)	// 1
-*/
+#define EVLEN_GMS_UPGD		(RF_OAD_BLOCK_BEG_POS+RF_OAD_BLOCK_SIZE)	// 66
 
 
 /**************element value content length*****************/
 
 // UTC local element position define
-// Element ID = 1, Len = GDE_LOC_TM_LEN
+// Element ID = 1, Len = EVLEN_GDE_LOC_TM
 #define UTCL_HOUR_POS		0
 #define UTCL_HOUR_SIZE		1
 
@@ -182,7 +201,7 @@ extern "C"
 
 
 // Heart beat data element position define
-// Element ID = 2, Len = GDE_HRTBT_LEN
+// Element ID = 2, Len = EVLEN_GDE_HRTBT
 #define HRT_BT_BATT_POS		0	// 0
 #define HRT_BT_BATT_SIZE	1
 
@@ -209,7 +228,7 @@ extern "C"
 
 
 // GDE benchmark information element position define
-// Element ID = 3, Len = GDE_BENCH_INFO_LEN
+// Element ID = 3, Len = EVLEN_GDE_BENCH_INFO
 #define GDE_X_H_BCHMRK_POS	0	// 0
 #define GDE_X_H_BCHMRK_SIZE	1
 #define GDE_X_L_BCHMRK_POS	(GDE_X_H_BCHMRK_POS+GDE_X_H_BCHMRK_SIZE) 	// 1
@@ -227,13 +246,13 @@ extern "C"
 
 
 // GME information acknowledge element position define
-// Element ID = 4, Len = GMS_INFO_ACK_LEN
-#define GME_INFO_ACK_MSG_POS	0	// 0
-#define GME_INFO_ACK_MSG_SIZE	1
+// Element ID = 4, Len = EVLEN_GMS_INFO_ACK
+#define GMS_INFO_ACK_MSG_POS	0	// 0
+#define GMS_INFO_ACK_MSG_SIZE	1
 
 
 // GDE parameters element position define
-// Element ID = 5, Len = GDE_PARAMS_LEN
+// Element ID = 5, Len = EVLEN_GDE_PARAMS
 #define ST_RF_WK_FREQ_POS		0	// 0
 #define ST_RF_WK_FREQ_SIZE		1
 
@@ -273,20 +292,20 @@ extern "C"
 
 
 // GDE answer set command element position define
-// Element ID = 6, Len = GMS_RF_FREQ_LEN
+// Element ID = 6, Len = EVLEN_GMS_RF_FREQ
 #define GMS_RF_FREQ_MSG_POS		0	// 0
 #define GMS_RF_FREQ_MSG_SIZE	1
 
 // GDE time synchronization element position define
-// Element ID = 7, Len = GDE_TMSYN_LEN
+// Element ID = 7, Len = EVLEN_GDE_TMSYN
 #define GDE_TMSYNC_MSG_POS		0	// 0
 #define GDE_TMSYNC_MSG_SIZE		1
 
 // GME time synchronization respose element position define
-// Element ID = 8, Len = GDE_LOC_TM_LEN
+// Element ID = 8, Len = EVLEN_GDE_LOC_TM
 
 // GME upgrade element position define
-// Element ID = 9, Len = GMS_FW_INFO_LEN
+// Element ID = 9, Len = EVLEN_GMS_FW_INFO
 #define NEW_FW_VERN_NUM_H_POS	0
 #define NEW_FW_VERN_NUM_H_SIZE	1
 #define NEW_FW_VERN_NUM_L_POS	(NEW_FW_VERN_NUM_H_POS+NEW_FW_VERN_NUM_H_SIZE)	// 1
@@ -296,13 +315,13 @@ extern "C"
 #define NEW_FW_TOT_LEN_HH_SIZE	1
 #define NEW_FW_TOT_LEN_HL_POS	(NEW_FW_TOT_LEN_HH_POS+NEW_FW_TOT_LEN_HH_SIZE)	// 3
 #define NEW_FW_TOT_LEN_HL_SIZE	1
-#define NEW_FW_CUR_LEN_LH_POS	(NEW_FW_TOT_LEN_HL_POS+NEW_FW_TOT_LEN_HL_SIZE)	// 4
-#define NEW_FW_CUR_LEN_LH_SIZE	1
-#define NEW_FW_CUR_LEN_LL_POS	(NEW_FW_CUR_LEN_LH_POS+NEW_FW_CUR_LEN_LH_SIZE)	// 5
-#define NEW_FW_CUR_LEN_LL_SIZE	1
+#define NEW_FW_TOT_LEN_LH_POS	(NEW_FW_TOT_LEN_HL_POS+NEW_FW_TOT_LEN_HL_SIZE)	// 4
+#define NEW_FW_TOT_LEN_LH_SIZE	1
+#define NEW_FW_TOT_LEN_LL_POS	(NEW_FW_TOT_LEN_LH_POS+NEW_FW_TOT_LEN_LH_SIZE)	// 5
+#define NEW_FW_TOT_LEN_LL_SIZE	1
 
 
-#define NEW_FW_CRC_H_POS		(NEW_FW_CUR_LEN_LL_POS+NEW_FW_CUR_LEN_LL_SIZE)	// 6
+#define NEW_FW_CRC_H_POS		(NEW_FW_TOT_LEN_LL_POS+NEW_FW_TOT_LEN_LL_SIZE)	// 6
 #define NEW_FW_CRC_H_SIZE		1
 #define NEW_FW_CRC_L_POS		(NEW_FW_CRC_H_POS+NEW_FW_CRC_H_SIZE)	// 7
 #define NEW_FW_CRC_L_SIZE		1
@@ -323,72 +342,62 @@ extern "C"
 
 
 // GTE read params command element position define
-// Element ID = 10, Len = GTE_READ_LEN
+// Element ID = 10, Len = EVLEN_GTE_READ
 #define GTE_RD_REQ_MSG_POS		0	// 0
 #define GTE_RD_REQ_MSG_SIZE		1
 
 // GME upgrade element position define
-// Element ID = 11, Len = GMS_UPGD_LEN
+// Element ID = 11, Len = EVLEN_GMS_UPGD
 #define NEW_FW_CUR_BLK_H_POS	0	// 0
 #define NEW_FW_CUR_BLK_H_SIZE	1
 #define NEW_FW_CUR_BLK_L_POS	(NEW_FW_CUR_BLK_H_POS+NEW_FW_CUR_BLK_H_SIZE)	// 1
 #define NEW_FW_CUR_BLK_L_SIZE	1
 
+#define RF_OAD_BLOCK_BEG_POS	(NEW_FW_CUR_BLK_L_POS+NEW_FW_CUR_BLK_L_SIZE)	// 2
 #define RF_OAD_BLOCK_SIZE		64
 
-/*
-// GDE upgrade finish respose element position define
-// Element ID = 10, Len = GDE_UPGD_ACK_LEN
-#define UPGD_FIN_ACK_MSG_POS		0	// 0
-#define UPGD_FIN_ACK_MSG_SIZE		1
 
-// GTE preset request element position define
-// Element ID = 11, Len = GTE_PRESET_REQ_LEN
-#define PRESET_REQ_MSG_POS		0	// 0
-#define PRESET_REQ_MSG_SIZE		1
 
-// GDE preset response element position define
-// Element ID = 12, Len = GDE_PRESET_RESP_LEN
-#define PRESET_RESP_MSG_POS		0	// 0
-#define PRESET_RESP_MSG_SIZE	1
-
-// GTE read params command element position define
-// Element ID = 13, Len = GTE_READ_LEN
-#define GTE_RD_REQ_MSG_POS		0	// 0
-#define GTE_RD_REQ_MSG_SIZE		1
-
-// GMS preupgrade request element position define
-// Element ID = 14, Len = GMS_UPGD_REQ_LEN
-#define PREUPGD_REQ_MSG_POS		0	// 0
-#define PREUPGD_REQ_MSG_SIZE	1
-
-// GDE preupgrade response element position define
-// Element ID = 15, Len = GDE_UPGD_RESP_LEN
-#define PREUPGD_RESP_MSG_POS		0	// 0
-#define PREUPGD_RESP_MSG_SIZE		1
-*/
-
-typedef enum rferr
+typedef enum rfpkterr
 {
-	RF_SUCCESS,	//0
-	PKT_DENY,
-	PKT_ERR,
-	SUB_TYPE_ERR,
-	CHKSUM_ERR,
-	BAD_ADDR,
-	DATA_ERR
-}rferr_t;
+	RF_SUCCESS,	// 0
+	RF_NOT_GMS,	// Not GMS packet ID or reserved value
+	RF_PKTLEN_ERR,	// Packet length error or not fully recieved
+	RF_SUBTYPE_UNK,	// Unknow subtype
+	RF_CHKSUM_ERR,	// Checksum error
+	RF_ADDR_DENY,	// Not expected address(i.e. device ID or adv ID)
+	RF_EID_UNK,	// Unknow element ID
+	RF_PLD_ERR	// Payload length or value error
+}rfpkterr_t;
+
+typedef enum msgerrcd
+{
+	MSG_SUCCESS=0,	// Message success
+	IMG_TYPE_ERR,	// Image type error(same with current working image)
+	IMG_SIZE_ERR,	// Image size error
+	IMG_CRC_FAIL	// Image crc fail
+}msgerrcd_t;
+
+typedef enum pktgms
+{
+	PKT_GMS_ID,
+	PKT_GMS_LEN,
+	PKT_GMS_DATA
+}pktgms_t;
 
 
-extern void InitDevID(void);
+#ifndef __linux__
+extern void InitCommDevID(void);
+extern bool SetIDParam(uint16 GDEaddr, uint16 GMEaddr);
 
 extern void GMSPktForm(uint8 *rawbuf, uint8 rawlen);
 
-extern rferr_t RFDataParse(uint8 *rfdata,uint8 len);
+extern rfpkterr_t RFDataParse(uint8 *rfdata,uint8 len);
 
-extern rferr_t RFDataForm(uint8 subtype, uint8 *data, uint8 datalen);
+extern rfpkterr_t RFDataForm(uint8 subtype, uint8 *data, uint8 datalen);
 
-extern rferr_t RFDataSend(uint8 *buf, uint8 len);
+extern rfpkterr_t RFDataSend(uint8 *buf, uint8 len);
+#endif
 
 #ifdef __cplusplus
 }

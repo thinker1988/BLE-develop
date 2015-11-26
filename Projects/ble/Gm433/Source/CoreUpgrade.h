@@ -98,6 +98,20 @@ typedef struct {
 extern const __code oad_img_hdr_t _BLECORE_imgHdr;
 extern const __code oad_aes_hdr_t _BLECORE_aesHdr;
 
+
+extern uint8 StoreSetting(uint8 NvId);
+extern void ReadSysSetting(void);
+extern bool ReadGMSetting(int16* tmpxbm, int16* tmpybm, int16* tmpzbm);
+extern void PrepareUpgrade(uint8 subtype, uint8* upgpkt, uint8 len);
+extern bool UpgdFinState(void);
+
+extern void SetPrepUpgdState(bool state);
+extern bool GetPrepUpgdState(void);
+
+extern void RFOadImgBlockWrite(uint8 subtype, uint8 *pValue, uint8 len );
+
+
+
 #ifdef __cplusplus
 }
 #endif

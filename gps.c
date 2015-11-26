@@ -7,6 +7,7 @@
 #include<unistd.h>
 #include<termios.h>
 #include<time.h>
+#include<signal.h>
 
 /* for http to data center */
 #include <sys/socket.h>
@@ -18,43 +19,7 @@
 #include <arpa/inet.h>
 #include <ctype.h>
 
-#define DEBUG_SWITCH                              1
-
-#define VOID_RMC_LEN 25
-#define MAX_RMC_LEN 100
-
-#define MIN_GME_RECEIVE_RF_LEN               15
-#define MAX_GME_RECEIVE_RF_LEN              31
-#define GME_BUFFER_LEN                              256
-
-#define GME_RESPONSE_BUFFER_LEN            20
-
-#define GDE_HEAD                                          0x55
-#define  GTE_HEAD                                         0x66
-#define   GME_HEAD                                       0xC8
-
-#define TTY_RAM "/tmp/gde_info"
-#define TTY_USB "/dev/ttyUSB4"
-
-
-/* WP543 must use uboot mode
-root@OpenWrt:/# cat /proc/mtd 
-dev:    size   erasesize  name
-mtd0: 00040000 00010000 "uboot"
-mtd1: 00010000 00010000 "env"
-mtd2: 00130000 00010000 "kernel"
-mtd3: 00670000 00010000 "rootfs"
-mtd4: 003e0000 00010000 "rootfs_data"
-mtd5: 00010000 00010000 "cfg"
-*/
-/* cfg information, gme_id is stored here in flash, ff ff is default, and after set, it is like 03 E9(1001), etc */
-#ifdef CONFIG_NVRAM
-#define NVRAM  "/dev/nvram"
-#define NVRAM_OFFSET 0
-#else
-#define NVRAM  "/dev/mtdblock5"
-#define NVRAM_OFFSET 0
-#endif
+#include "Pktfmt.h"
 
 
 /*********************************************************************
@@ -67,162 +32,12 @@ mtd5: 00010000 00010000 "cfg"
 #define HI_UINT16(a) (((a) >> 8) & 0xFF)
 #define LO_UINT16(a) ((a) & 0xFF)
 
-#define GET_RF_SRC_ADDR(rfbuf)	\
-	(BUILD_UINT16(rfbuf[GMS_SRC_ADDR_POS+1],rfbuf[GMS_SRC_ADDR_POS]))
 
-#define GET_RF_DEST_ADDR(rfbuf)	\
-	(BUILD_UINT16(rfbuf[GMS_DEST_ADDR_POS+1],rfbuf[GMS_DEST_ADDR_POS]))
-	
+#define BigLittleSwapShort(A)	((((uint16)(A) & 0xff00) >> 8) | (((uint16)(A) & 0x00ff) << 8))
+
 /*********************************************************************
  * CONSTANTS
  */
-
-/********************************************************************************
-| ID | Tot len | Sub type | reserved | chk sum | src ID | dest ID | version | payload |
-| 1  |    1     |    1     |    2     |    1    |    2   |    2    |    2    |  128-12 |
-*/
-/****************RF ID*******************/
-#define GMS_ID_POS		0
-#define GMS_ID_SIZE		1
-
-#define GME_SRC_ID		0xC8
-#define GDE_SRC_ID		0x55
-#define GTE_SRC_ID		0x66
-
-/**************total length*******************/
-#define GMS_TOT_LEN_POS		(GMS_ID_POS+GMS_ID_SIZE)	//0+1
-#define GMS_TOT_LEN_SIZE	1
-
-#define GMS_PKT_MAX_LEN	128
-
-/**************sub type*******************/
-#define GMS_SUB_TYPE_POS	(GMS_TOT_LEN_POS+GMS_TOT_LEN_SIZE)
-#define GMS_SUB_TYPE_SIZE	1
-
-#define GME_SUBTYPE_HRTBEAT_ACK	1
-#define GME_SUBTYPE_CARINFO_ACK	2
-#define GME_SUBTYPE_TMSYN_ACK	3
-#define GME_SUBTYPE_UPGD_PKT		4
-
-#define GDE_SUBTYPE_HRTBEAT_REQ	21
-#define GDE_SUBTYPE_CARINFO_REQ	22
-#define GDE_SUBTYPE_TMSYN_REQ	23
-#define GDE_SUBTYPE_M_UPGD_ACK	24
-#define GDE_SUBTYPE_T_UPGD_ACK	25
-#define GDE_SUBTYPE_T_SET_ACK	26
-
-#define GTE_SUBTYPE_PARAM_SET	41
-#define GTE_SUBTYPE_UPGD_REQ		42
-
-/**************reserved*******************/
-#define GMS_RESERVE_POS		(GMS_SUB_TYPE_POS+GMS_SUB_TYPE_SIZE)
-#define GMS_RESERVE_SIZE	2
-#define GMS_RESERVE_STR		"RF"
-
-#define GMS_CHK_SUM_POS		(GMS_RESERVE_POS+GMS_RESERVE_SIZE)
-#define GMS_CHK_SUM_SIZE	1
-
-
-#define GMS_SRC_ADDR_POS	(GMS_CHK_SUM_POS+GMS_CHK_SUM_SIZE)	//5+1
-#define GMS_SRC_ADDR_SIZE	2
-
-
-#define GMS_DEST_ADDR_POS	(GMS_SRC_ADDR_POS+GMS_SRC_ADDR_SIZE)	//6+2
-#define GMS_DEST_ADDR_SIZE	2
-
-
-#define GMS_VERSION_POS		(GMS_DEST_ADDR_POS+GMS_DEST_ADDR_SIZE)	//8+2
-#define GMS_VERSION_SIZE	2
-
-
-#define GMS_PKT_HDR_SIZE	(GMS_VERSION_POS+GMS_VERSION_SIZE)	//12
-#define GMS_PKT_PLD_MAX_LEN	(GMS_PKT_MAX_LEN-GMS_PKT_HDR_SIZE)	//128-12
-
-#define GMS_PKT_PAYLOAD_POS	GMS_PKT_HDR_SIZE		//12
-
-#define EID_SIZE			1
-
-#define EVAL_LEN_SIZE		1
-#define ELM_HDR_SIZE		(EID_SIZE+EVAL_LEN_SIZE)
-
-#define EID_GDE_LOC_TM			1
-#define EID_GDE_HRTBT		2
-#define EID_GDE_CAR_INFO	3
-#define EID_GMS_INFO_ACK	4
-#define EID_GDE_PARAMS			5
-#define EID_GMS_RF_FREQ		6
-#define EID_GDE_TMSYN		7
-#define EID_GME_NT_TM	8
-#define EID_GMS_UPGD		9
-#define EID_GDE_UPGD_ACK	10
-
-#define GDE_LOC_TM_LEN		(UTCL_YEAR_POS+ UTCL_YEAR_SIZE)// 6
-#define GDE_HRTBT_LEN		(HRT_BT_STAT_POS+HRT_BT_STAT_SIZE)// 9
-#define GDE_CAR_INFO_LEN	9
-#define GMS_INFO_ACK_LEN	(GDE_RESP_POS+GDE_RESP_SIZE)// 1
-#define GTE_PARAMS_LEN			(ST_VERSION_L_POS+ST_VERSION_L_SIZE)// 15
-#define GMS_RF_FREQ_LEN		1
-#define GDE_TMSYN_LEN		1
-#define GME_NT_TM_LEN	6
-#define GMS_UPGD_LEN		7
-#define GDE_UPGD_ACK_LEN	1
-
-/**********************************************************************
- * UTC local element position define
-*/
-#define UTCL_HOUR_POS		0
-#define UTCL_HOUR_SIZE		1
-
-#define UTCL_MINTS_POS		(UTCL_HOUR_POS+UTCL_HOUR_SIZE)	// 1
-#define UTCL_MINTS_SIZE		1
-
-#define UTCL_SECND_POS		(UTCL_MINTS_POS+UTCL_MINTS_SIZE)	// 2
-#define UTCL_SECND_SIZE		1
-
-#define UTCL_DAY_POS		(UTCL_SECND_POS+UTCL_SECND_SIZE)	// 3
-#define UTCL_DAY_SIZE		1
-
-#define UTCL_MONTH_POS		(UTCL_DAY_POS+UTCL_DAY_SIZE)	// 4
-#define UTCL_MONTH_SIZE		1
-
-#define UTCL_YEAR_POS		(UTCL_MONTH_POS+UTCL_MONTH_SIZE)	// 5
-#define UTCL_YEAR_SIZE		1
-
-/**********************************************************************
- * GDE response define
-*/
-#define GDE_RESP_POS		0
-#define GDE_RESP_SIZE		1
-
-
-/**********************************************************************
- * Heart beat data element position define
-*/
-#define HRT_BT_BATT_POS		0	// 0
-#define HRT_BT_BATT_SIZE	1
-
-#define HRT_BT_TMPR_POS		(HRT_BT_BATT_POS+HRT_BT_BATT_SIZE)	// 1
-#define HRT_BT_TMPR_SIZE	1
-
-#define HRT_BT_XVAL_POS		(HRT_BT_TMPR_POS+HRT_BT_TMPR_SIZE)	// 2
-#define HRT_BT_XVAL_SIZE	2
-
-#define HRT_BT_YVAL_POS		(HRT_BT_XVAL_POS+HRT_BT_XVAL_SIZE)	// 4
-#define HRT_BT_YVAL_SIZE	2
-
-#define HRT_BT_ZVAL_POS		(HRT_BT_YVAL_POS+HRT_BT_YVAL_SIZE)	// 6
-#define HRT_BT_ZVAL_SIZE	2
-
-#define HRT_BT_STAT_POS		(HRT_BT_ZVAL_POS+HRT_BT_ZVAL_SIZE)	// 8
-#define HRT_BT_STAT_SIZE	1
-
-
-#define GDE_ADV_ID		999
-
-#define GME_ADV_ID		1999
-
-#define GTE_ADV_ID		2999
-
 
 #ifndef GDE_DEV_ID
 #define GDE_DEV_ID		GDE_ADV_ID
@@ -250,28 +65,34 @@ mtd5: 00010000 00010000 "cfg"
 #define NULL 0
 #endif
 
+#define TTY_RAM "/tmp/gde_info"
+#define TTY_USB "/dev/ttyUSB4"
+
+
+/* WP543 must use uboot mode
+root@OpenWrt:/# cat /proc/mtd 
+dev:    size   erasesize  name
+mtd0: 00040000 00010000 "uboot"
+mtd1: 00010000 00010000 "env"
+mtd2: 00130000 00010000 "kernel"
+mtd3: 00670000 00010000 "rootfs"
+mtd4: 003e0000 00010000 "rootfs_data"
+mtd5: 00010000 00010000 "cfg"
+*/
+/* cfg information, gme_id is stored here in flash, ff ff is default, and after set, it is like 03 E9(1001), etc */
+#ifdef CONFIG_NVRAM
+#define NVRAM  "/dev/nvram"
+#define NVRAM_OFFSET 0
+#else
+#define NVRAM  "/dev/mtdblock5"
+#define NVRAM_OFFSET 0
+#endif
+
+#define MAX_MNG_GDE_CNT			100
 
 /*********************************************************************
  * TYPEDEFS
  */
-typedef enum
-{
-	PKT_GMS_ID,
-	PKT_GMS_LEN,
-	PKT_GMS_DATA
-}pktgms_t;
-
-typedef enum rferr
-{
-	RF_SUCCESS,	//0
-	PKT_DENY,
-	PKT_ERR,
-	SUB_TYPE_ERR,
-	CHKSUM_ERR,
-	BAD_ADDR,
-	DATA_ERR
-}rferr_t;
-
 typedef signed   char   int8;     //!< Signed 8 bit integer
 typedef unsigned char   uint8;    //!< Unsigned 8 bit integer
 
@@ -283,10 +104,27 @@ typedef unsigned long   uint32;   //!< Unsigned 32 bit integer
 
 typedef unsigned char   bool;     //!< Boolean data type
 
+typedef enum
+{
+	NORMAL_MODE,
+	DEBUG_MODE,
+	SETUP_MODE
+}sworkstate_t;
+
+
+typedef struct fw_img_hdr
+{
+	uint16 crcraw;
+	uint16 crcshdw;
+	uint16 oadvern;
+	uint16 oadfwdlen;
+	
+}fw_img_hdr_t;
+
 /*********************************************************************
  * GLOBAL VARIABLES
  */
-int gme_fd, fd2;
+
 
 /*********************************************************************
  * EXTERNAL VARIABLES
@@ -299,20 +137,44 @@ int gme_fd, fd2;
 /*********************************************************************
  * LOCAL VARIABLES
  */
-// Read status
+// Device serial fd
+static int gme_sfd, fd2;
+
+// RF ID and version
+static uint16 RFdevID = GME_DEV_ID;
+static uint16 RFdestID = GDE_DEV_ID;
+static uint16 version = VERSION_NUMBER;
+
+//char *host_addr = "120.26.103.149";
+static char *host_addr = "10.30.242.154";
+static int host_port = 9999;
+
+// RF read GM system packet status
 static pktgms_t pktgmsst=PKT_GMS_ID;
-
-// Static temp buffer
+// Temporary save packet buffer
 static uint8 gmsrdpkt[GMS_PKT_MAX_LEN]={0};
-
 // Current read len and total len
 static uint8 currdlen=0;
 static uint8 totrdlen=0;
 
-// RF ID and version
-uint16 RFdevID = GME_DEV_ID;
-uint16 RFdestID = GDE_DEV_ID;
-uint16 version = VERSION_NUMBER;
+// GDE ID wait to reset benchmark
+static uint16 rstgdeid = 0;
+
+// Prepare upgrade flag
+static bool prepupgdflg = FALSE;
+// Upgrade bin file string
+static char *binfstr = NULL;
+// Upgrade file pointer
+static FILE *binfp;
+// Manage GDE state
+static uint8 mnggdest[MAX_MNG_GDE_CNT];
+
+// Upgrade firmware version
+static uint16 fwvern = 0;
+static uint32 fwlen = 0;
+static uint16 fwcrc = 0;
+static uint16 fwtotblk = 0;
+static uint8 alrmhh,alrmmm,alrmss;
 
 /*********************************************************************
  * LOCAL FUNCTIONS
@@ -320,37 +182,24 @@ uint16 version = VERSION_NUMBER;
 static unsigned char calcGMchksum(unsigned char* chkbuf, unsigned short len);
 static uint8 fillGDEresp(uint8 * respbuf, uint8 * data, uint8 len);
 static void gmspktform(uint8 * rawbuf, uint8 rawlen);
+static rfpkterr_t GDEPktElmProc(uint8 subtype, uint8* pldbuf, uint8 pldlen);
 
-static rferr_t rfdataparse(uint8 *rfdata,uint8 len);
+static void controlGDE(uint8* pldbuf, uint8 pldlen);
+
+static rfpkterr_t rfdataparse(uint8 *rfdata,uint8 len);
 static uint8 filllocaltime(uint8 *timebuf);
-static uint8 fillGDEresp(uint8 *respbuf, uint8 *data, uint8 len);
-static rferr_t  formGMEpkt(uint8 subtype, uint8 *data, uint8 len);
+static rfpkterr_t  formGMEpkt(uint8 subtype, uint8 *data, uint8 len);
 
-static rferr_t rfdatasend(uint8 * buf, uint8 len);
+static rfpkterr_t rfdatasend(uint8 * buf, uint8 len);
 static void httpsend(uint8 * buf, uint8 len);
+
+static void display_verion(void);
+static void timeerror(void);
+static void usage(void);
 
 /*********************************************************************
  * PUBLIC FUNCTIONS
  */
-
-static unsigned char calcGMchksum(unsigned char* chkbuf, unsigned short len)
-{
-	unsigned char sum;
-	unsigned short i;
-	sum = 0;
-
-	for(i=0;i<len;i++)
-	{
-		if (i == GMS_CHK_SUM_POS)
-			continue;
-		
-		sum ^= chkbuf[i];
-	}
-	
-	return sum;
-}
-
-
 
 
 /* 
@@ -409,14 +258,6 @@ C8 0F 03 52 46 crc 03 E9 00 01 01 00 08 06 05 0E 30 1C 0C 0C
 
 */
 
-void cfg_init();
-
-int wrt2file(int fd, char *filebuf)
-{
-	
-	return 0;
-}
-
 int read_gme_id()
 {
 	return RFdevID;
@@ -470,14 +311,6 @@ int serial_set_opt(int fd,int nSpeed, int nBits, char nEvent, int nStop)
 
 	switch( nSpeed )
 	{
-	case 2400:
-		cfsetispeed(&newtio, B2400);
-		cfsetospeed(&newtio, B2400);
-		break;
-	case 4800:
-		cfsetispeed(&newtio, B4800);
-		cfsetospeed(&newtio, B4800);
-		break;
 	case 9600:
 		cfsetispeed(&newtio, B9600);
 		cfsetospeed(&newtio, B9600);
@@ -485,10 +318,6 @@ int serial_set_opt(int fd,int nSpeed, int nBits, char nEvent, int nStop)
 	case 115200:
 		cfsetispeed(&newtio, B115200);
 		cfsetospeed(&newtio, B115200);
-		break;
-	case 460800:
-		cfsetispeed(&newtio, B460800);
-		cfsetospeed(&newtio, B460800);
 		break;
 	default:
 		cfsetispeed(&newtio, B9600);
@@ -576,58 +405,233 @@ static void gmspktform(uint8 *rawbuf, uint8 rawlen)
 }
 
 
-static rferr_t rfdataparse(uint8 *rfdata,uint8 len)
+static rfpkterr_t rfdataparse(uint8 *rfdata,uint8 len)
 {
-	if (rfdata[GMS_ID_POS]!=GDE_SRC_ID && rfdata[GMS_ID_POS]!=GTE_SRC_ID)
-		return PKT_DENY;
+	uint8 pldlen = len-GMS_PKT_HDR_SIZE;
+
+	if (rfdata[GMS_ID_POS]!=GDE_SRC_ID) //&& rfdata[GMS_ID_POS]!=GTE_SRC_ID)
+		return RF_NOT_GMS;
 	
 	if (rfdata[GMS_TOT_LEN_POS] != len)
-		return PKT_ERR;
+		return RF_PKTLEN_ERR;
 
 	if (memcmp(rfdata+GMS_RESERVE_POS, GMS_RESERVE_STR, GMS_RESERVE_SIZE) != 0)
-		return PKT_DENY;
+		return RF_NOT_GMS;
 	
 	if (GET_RF_DEST_ADDR(rfdata) != RFdevID && GET_RF_DEST_ADDR(rfdata) != GME_ADV_ID)
-		return BAD_ADDR;
+		return RF_ADDR_DENY;
 		
 	if (calcGMchksum(rfdata,len) != rfdata[GMS_CHK_SUM_POS])
-		return CHKSUM_ERR;
+		return RF_CHKSUM_ERR;
 
 	RFdestID = GET_RF_SRC_ADDR(rfdata);
-
 	printf("\r\nFROM ID:%d\r\n",RFdestID);
 
 	if (rfdata[GMS_ID_POS] == GDE_SRC_ID)
 	{
 		switch(rfdata[GMS_SUB_TYPE_POS])
 		{
-			case GDE_SUBTYPE_HRTBEAT_REQ:
-				httpsend(rfdata, len);
-				break;
-			case GDE_SUBTYPE_CARINFO_REQ:
-			{
-				// GDE carinfo
-				uint8 val = TRUE;
-				formGMEpkt(GME_SUBTYPE_CARINFO_ACK, &val, sizeof(val));
-				httpsend(rfdata, len);
-				break;
-			}
-			case GDE_SUBTYPE_TMSYN_REQ:
-				// set GDE time
-				formGMEpkt(GME_SUBTYPE_TMSYN_ACK, NULL, 0);
-				break;
-			case GDE_SUBTYPE_M_UPGD_ACK:
-				// upgrade process
-				break;
-			case GDE_SUBTYPE_T_UPGD_ACK:
-			case GDE_SUBTYPE_T_SET_ACK:
+			case GDE_SUBTYPE_HRTBEAT_REQ:	// GDE heart beat recieved success
+				if (pldlen == GDE_SUBTYPE_HRTBEAT_REQ_PL_LEN)
+				{
+					httpsend(rfdata, len);
+					break;
+				}
+			case GDE_SUBTYPE_CARINFO_REQ:	// GDE carinfo recieved success
+				if (pldlen == GDE_SUBTYPE_CARINFO_REQ_PL_LEN)
+				{
+					httpsend(rfdata, len);
+					break;
+				}
+			case GDE_SUBTYPE_TMSYN_REQ:	// Prepare time synchronizing
+				if (pldlen == GDE_SUBTYPE_TMSYN_REQ_PL_LEN)
+					break;
+			case GDE_SUBTYPE_ORDER_RESP:	// Finish order
+				if (pldlen != GDE_SUBTYPE_ORDER_RESP_PL_LEN)
+					break;
+			case GDE_SUBTYPE_UPGD_ACK:	// Upgrade finish state
+				if (pldlen == GDE_SUBTYPE_TMSYN_REQ_PL_LEN)
+					break;
+
+				return RF_PLD_ERR;
 			default:
-				return SUB_TYPE_ERR;
+				return RF_SUBTYPE_UNK;
 		}
 	}
-
+	GDEPktElmProc(rfdata[GMS_SUB_TYPE_POS],rfdata+GMS_PKT_HDR_SIZE, pldlen);
 
 	return RF_SUCCESS;
+}
+
+static rfpkterr_t GDEPktElmProc(uint8 subtype, uint8* pldbuf, uint8 pldlen)
+{
+	msgerrcd_t val = MSG_SUCCESS;
+	uint8 elmpos = 0;
+
+	while(elmpos<pldlen)
+	{
+		switch(pldbuf[elmpos])
+		{
+			case EID_GDE_LOC_TM:
+				if (pldbuf[elmpos+EVAL_LEN_POS] == EVLEN_GDE_LOC_TM)
+				{
+					elmpos += ELM_HDR_SIZE+EVLEN_GDE_LOC_TM;
+					break;
+				}
+			case EID_GDE_HRTBT:
+				if (pldbuf[elmpos+EVAL_LEN_POS] == EVLEN_GDE_HRTBT)
+				{
+					elmpos += ELM_HDR_SIZE+EVLEN_GDE_HRTBT;
+					switch (subtype)
+					{
+						case GDE_SUBTYPE_HRTBEAT_REQ:
+							controlGDE(pldbuf,pldlen);
+							break;
+						case GDE_SUBTYPE_CARINFO_REQ:
+							val = MSG_SUCCESS;
+							formGMEpkt(GME_SUBTYPE_CARINFO_RESP, (uint8 *)&val, GME_SUBTYPE_CARINFO_RESP_PL_LEN);
+							break;
+						default:
+							;// do not break
+					}
+				}
+			case EID_GDE_BENCH_INFO:
+				if (pldbuf[elmpos+EVAL_LEN_POS] == EVLEN_GDE_BENCH_INFO)
+				{
+					elmpos += ELM_HDR_SIZE+EVLEN_GDE_BENCH_INFO;
+					break;
+				}
+			case EID_GMS_INFO_ACK:
+				if (pldbuf[elmpos+EVAL_LEN_POS] == EVLEN_GMS_INFO_ACK)
+				{
+					val = pldbuf[ELM_HDR_SIZE];
+					procGDEack(subtype, val);
+					elmpos += ELM_HDR_SIZE+EVLEN_GMS_INFO_ACK;
+					break;
+				}
+			case EID_GDE_PARAMS:
+				if (pldbuf[elmpos+EVAL_LEN_POS] == EVLEN_GDE_PARAMS)
+				{
+					elmpos += ELM_HDR_SIZE+EVLEN_GDE_PARAMS;
+					break;
+				}
+			case EID_GMS_RF_FREQ:
+				if (pldbuf[elmpos+EVAL_LEN_POS] == EVLEN_GMS_RF_FREQ)	// should change frequency
+				{
+					val = pldbuf[ELM_HDR_SIZE];
+					printf("Upgrade frequency:%d\r\n",val);
+					elmpos += ELM_HDR_SIZE+EVLEN_GMS_RF_FREQ;
+					break;
+				}
+			case EID_GDE_TMSYN:
+				if (pldbuf[elmpos+EVAL_LEN_POS] == EVLEN_GDE_TMSYN)
+				{
+					formGMEpkt(GME_SUBTYPE_TMSYN_RESP, NULL, GDE_SUBTYPE_TMSYN_REQ_PL_LEN);
+					elmpos += ELM_HDR_SIZE+EVLEN_GDE_TMSYN;
+					break;
+				}
+			case EID_GME_NT_TM:
+				if (pldbuf[elmpos+EVAL_LEN_POS] == EVLEN_GME_NT_TM)
+				{
+					elmpos += ELM_HDR_SIZE+EVLEN_GME_NT_TM;
+					break;
+				}
+			case EID_GMS_FW_INFO:
+				if (pldbuf[elmpos+EVAL_LEN_POS] == EVLEN_GMS_FW_INFO)
+				{
+					elmpos += ELM_HDR_SIZE+EVLEN_GMS_FW_INFO;
+					break;
+				}
+
+			case EID_GTE_READ:
+				if (pldbuf[elmpos+EVAL_LEN_POS] == EVLEN_GTE_READ)
+				{
+					elmpos += ELM_HDR_SIZE+EVLEN_GTE_READ;
+					break;
+				}
+			case EID_GMS_UPGD:
+				if (pldbuf[elmpos+EVAL_LEN_POS] == EVLEN_GMS_UPGD)
+				{
+					elmpos += ELM_HDR_SIZE+EVLEN_GMS_UPGD;
+					break;
+				}
+
+				return RF_PLD_ERR;
+			default:
+				return RF_EID_UNK;
+		}
+	}
+	return RF_SUCCESS;		
+}
+
+static void controlGDE(uint8* pldbuf, uint8 pldlen)
+{
+	if (prepupgdflg == TRUE)
+	{
+		if (mnggdest[(RFdestID-1)%MAX_MNG_GDE_CNT] == FALSE)
+			formGMEpkt(GME_SUBTYPE_ORDER_UPGD_REQ, NULL, GME_SUBTYPE_ORDER_UPGD_REQ_PL_LEN);
+	}
+
+	if (rstgdeid == RFdestID)
+	{
+		formGMEpkt(GME_SUBTYPE_RST_BENCH_PKT, NULL, GME_SUBTYPE_RST_BENCH_PKT_PL_LEN);
+		rstgdeid = 0;
+	}	
+}
+
+static procGDEack(uint8 subtype, msgerrcd_t ecd)
+{
+	switch(ecd)
+	{
+		case MSG_SUCCESS:
+			if (subtype == GDE_SUBTYPE_ORDER_RESP)
+				mnggdest[(RFdestID-1)%MAX_MNG_GDE_CNT] = TRUE;
+			else if (subtype == GDE_SUBTYPE_UPGD_ACK)
+				mnggdest[(RFdestID-1)%MAX_MNG_GDE_CNT] = FALSE;
+			break;
+		case IMG_TYPE_ERR:
+		case IMG_SIZE_ERR:
+		case IMG_CRC_FAIL:
+			prepupgdflg = FALSE;
+			break;
+		default:
+			break;
+	}
+}
+
+static uint8 fillupgdfreq(uint8* freqbuf)
+{
+	freqbuf[0] = EID_GMS_RF_FREQ;
+	freqbuf[EVAL_LEN_POS] = EVLEN_GMS_RF_FREQ;
+	freqbuf[ELM_HDR_SIZE] = 0;
+
+	return (ELM_HDR_SIZE+EVLEN_GMS_RF_FREQ);
+}
+
+static uint8 fillupgfwinfo(uint8 *fwinfobuf)
+{
+	fwinfobuf[0] = EID_GMS_FW_INFO;
+	fwinfobuf[EVAL_LEN_POS] = EVLEN_GMS_FW_INFO;
+
+	fwinfobuf[ELM_HDR_SIZE+NEW_FW_VERN_NUM_H_POS] = HI_UINT16(fwvern);
+	fwinfobuf[ELM_HDR_SIZE+NEW_FW_VERN_NUM_L_POS] = LO_UINT16(fwvern);
+
+	fwinfobuf[ELM_HDR_SIZE+NEW_FW_TOT_LEN_HH_POS] = HI_UINT16((fwlen&0xFF00)>>16);
+	fwinfobuf[ELM_HDR_SIZE+NEW_FW_TOT_LEN_HL_POS] = LO_UINT16((fwlen&0xFF00)>>16);
+	fwinfobuf[ELM_HDR_SIZE+NEW_FW_TOT_LEN_LH_POS] = HI_UINT16(fwlen&0x00FF);
+	fwinfobuf[ELM_HDR_SIZE+NEW_FW_TOT_LEN_LL_POS] = LO_UINT16(fwlen&0x00FF);
+	
+	fwinfobuf[ELM_HDR_SIZE+NEW_FW_CRC_H_POS] = HI_UINT16(fwcrc);
+	fwinfobuf[ELM_HDR_SIZE+NEW_FW_CRC_L_POS] = LO_UINT16(fwcrc);
+	
+	fwinfobuf[ELM_HDR_SIZE+NEW_FW_TOT_BLK_H_POS] = HI_UINT16(fwtotblk);
+	fwinfobuf[ELM_HDR_SIZE+NEW_FW_TOT_BLK_L_POS] = LO_UINT16(fwtotblk);
+
+	fwinfobuf[ELM_HDR_SIZE+NEW_FW_UPGD_HOUR_POS] = (alrmhh>=24&&alrmmm!=0&&alrmss!=0 ? alrmhh-24: alrmhh);
+	fwinfobuf[ELM_HDR_SIZE+NEW_FW_UPGD_MINTS_POS] = alrmmm;
+	fwinfobuf[ELM_HDR_SIZE+NEW_FW_UPGD_SECND_POS] = alrmss;
+
+	return (ELM_HDR_SIZE+EVLEN_GMS_FW_INFO);
 }
 
 
@@ -643,7 +647,7 @@ static uint8 filllocaltime(uint8 *timebuf)
 	printf("++++++++++%d:%d:%d\r\n",p->tm_hour, p->tm_min, p->tm_sec);
 
 	timebuf[0] = EID_GME_NT_TM;
-	timebuf[EID_SIZE] = GME_NT_TM_LEN;
+	timebuf[EVAL_LEN_POS] = EVLEN_GME_NT_TM;
 
 	timebuf[ELM_HDR_SIZE+UTCL_HOUR_POS]=(unsigned char)p->tm_hour;
 	timebuf[ELM_HDR_SIZE+UTCL_MINTS_POS]=(unsigned char)p->tm_min;
@@ -652,7 +656,7 @@ static uint8 filllocaltime(uint8 *timebuf)
 	timebuf[ELM_HDR_SIZE+UTCL_MONTH_POS]=(unsigned char)(p->tm_mon+1);
 	timebuf[ELM_HDR_SIZE+UTCL_YEAR_POS]=(unsigned char)(p->tm_year + 1900 -2000); //year, should plus 2000
 
-	return (ELM_HDR_SIZE+GME_NT_TM_LEN);
+	return (ELM_HDR_SIZE+EVLEN_GME_NT_TM);
 }
 
 
@@ -661,14 +665,36 @@ static uint8 fillGDEresp(uint8 *respbuf, uint8 *data, uint8 len)
 	(void) len;
 
 	respbuf[0] = EID_GMS_INFO_ACK;
-	respbuf[EID_SIZE] = GMS_INFO_ACK_LEN;
-	respbuf[ELM_HDR_SIZE+GDE_RESP_POS]= *data;
+	respbuf[EVAL_LEN_POS] = EVLEN_GMS_INFO_ACK;
+	respbuf[ELM_HDR_SIZE+GMS_INFO_ACK_MSG_POS]= *data;
 
-	return (ELM_HDR_SIZE+GMS_INFO_ACK_LEN);
+	return (ELM_HDR_SIZE+GMS_INFO_ACK_MSG_SIZE);
 }
 
 
-static rferr_t  formGMEpkt(uint8 subtype, uint8 *data, uint8 len)
+	
+static uint8 fillupgblk(uint8 *pldbuf, uint8 *data, uint8 len)
+{
+	if (len != EVLEN_GMS_UPGD)
+		return 0;
+
+	pldbuf[0] = EID_GMS_UPGD;
+	pldbuf[EVAL_LEN_POS] = EVLEN_GMS_UPGD;
+	memcpy(pldbuf+ELM_HDR_SIZE,data,len);
+
+	return (ELM_HDR_SIZE+EVLEN_GMS_UPGD);
+}
+
+static uint8 fillrstbench(uint8 *pldbuf)
+{
+	pldbuf[0] = EID_GDE_BENCH_INFO;
+	pldbuf[EVAL_LEN_POS] = EVLEN_GDE_BENCH_INFO;
+	memset(pldbuf, 0, EVLEN_GDE_BENCH_INFO);
+
+	return (ELM_HDR_SIZE+EVLEN_GDE_BENCH_INFO);
+}
+
+static rfpkterr_t  formGMEpkt(uint8 subtype, uint8 *data, uint8 len)
 {
 	uint8 rfbuf[GMS_PKT_MAX_LEN]={0};
 	uint8 curpldpos = GMS_PKT_PAYLOAD_POS;
@@ -690,22 +716,30 @@ static rferr_t  formGMEpkt(uint8 subtype, uint8 *data, uint8 len)
 
 	switch(subtype)
 	{
-		case GME_SUBTYPE_HRTBEAT_ACK:
+		case GME_SUBTYPE_ORDER_UPGD_REQ:
+			// Send upgrade firmware information
+			curpldpos += fillupgdfreq(rfbuf+curpldpos);
+			curpldpos += filllocaltime(rfbuf+curpldpos);
+			curpldpos += fillupgfwinfo(rfbuf+curpldpos);
 			break;
-		case GME_SUBTYPE_CARINFO_ACK:
-			if (len != GMS_INFO_ACK_LEN)
-				return DATA_ERR;
-			// heart beat packet format
-			curpldpos += fillGDEresp(rfbuf+GMS_PKT_PAYLOAD_POS, data, len);
+		case GME_SUBTYPE_CARINFO_RESP:
+			// Car information response
+			curpldpos += fillGDEresp(rfbuf+curpldpos, data, len);
 			break;
-		case GME_SUBTYPE_TMSYN_ACK:
-			// car info request
-			curpldpos += filllocaltime(rfbuf+GMS_PKT_PAYLOAD_POS);
+		case GME_SUBTYPE_TMSYN_RESP:
+			// Time synchronization response
+			curpldpos += filllocaltime(rfbuf+curpldpos);
 			break;
 		case GME_SUBTYPE_UPGD_PKT:
+			// Fill upgrade packet
+			curpldpos += fillupgblk(rfbuf+curpldpos, data, len);
+			break;
+		case GME_SUBTYPE_RST_BENCH_PKT:
+			// Fill reset benchmark packet
+			curpldpos += fillrstbench(rfbuf+curpldpos);
 			break;
 		default:
-			return SUB_TYPE_ERR;
+			return RF_SUBTYPE_UNK;
 	}
 	
 	rfbuf[GMS_TOT_LEN_POS]=curpldpos;
@@ -716,12 +750,141 @@ static rferr_t  formGMEpkt(uint8 subtype, uint8 *data, uint8 len)
 
 }
 
-static rferr_t rfdatasend(uint8 *buf, uint8 len)
+static rfpkterr_t rfdatasend(uint8 *buf, uint8 len)
 {
-	write(gme_fd, buf, len);
+	write(gme_sfd, buf, len);
 
 	return RF_SUCCESS;
 }
+
+static void upgrade_gde_fw(void)
+{
+	uint16 fwblk,i;
+	uint8 upgdbuf[EVLEN_GMS_UPGD];
+
+	printf("Prepare state:");
+	for (i=0; i<MAX_MNG_GDE_CNT; i++)
+	{
+		if (mnggdest[i]!=0)
+			printf(" %d",i+1);
+	}
+	printf("\r\n");
+
+	sleep(10);
+	binfp=fopen(binfstr,"rb");
+	for (fwblk=0; fwblk<fwtotblk; fwblk++)
+	{
+		upgdbuf[NEW_FW_CUR_BLK_H_POS] = HI_UINT16(fwblk);
+		upgdbuf[NEW_FW_CUR_BLK_L_POS] = LO_UINT16(fwblk);
+		fread(upgdbuf+RF_OAD_BLOCK_BEG_POS, 1, RF_OAD_BLOCK_SIZE, binfp);
+		RFdestID = GDE_ADV_ID;
+		formGMEpkt(GME_SUBTYPE_UPGD_PKT, upgdbuf, EVLEN_GMS_UPGD);
+		usleep(100*1000);
+		RFdestID = GDE_ADV_ID;
+		formGMEpkt(GME_SUBTYPE_UPGD_PKT, upgdbuf, EVLEN_GMS_UPGD);
+		usleep(100*1000);
+	}
+	fclose(binfp);
+}
+
+static uint32 get_file_sz(FILE * fp)
+{
+	uint32 f_len = 0;
+	fseek(fp, 0, SEEK_END);
+	f_len = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
+
+	return f_len;
+}
+
+static void prep_upgrade(char* binstr)
+{
+	uint8 len;
+	fw_img_hdr_t tmpbuf;
+
+	binfstr = binstr;
+	if ((binfp=fopen(binfstr,"rb")) == NULL)
+	{
+		perror("upgrade bin file open failed");
+		exit(1);
+	}
+	binfp = get_file_sz(binfp);
+
+	len = fread(tmpbuf, 1, sizeof(fw_img_hdr_t), binfp);
+	fwvern = le_tohs(tmpbuf.oadvern);
+	fwlen = (uint32)(le_tohs(tmpbuf.oadfwdlen))*4;
+	fwcrc = le_tohs(tmpbuf.crcraw);
+	fwtotblk = fwlen/64;
+
+	if (fwvern!=0 && fwcrc!= 0 && fwlen!=0 && fwtotblk!=0 && fwlen%64==0)
+	{
+		prepupgdflg = TRUE;
+		memset(mnggdest,0,sizeof(mnggdest));
+	}
+	fclose(binfp);
+}
+
+static void set_upgrade_alarm(char* hmstmstr)
+{
+	uint8 pos,coloncnt=0,totlen;
+	char* pminsnd[2];
+	time_t timep;
+	struct tm *pcurtm;
+	uint32 alrmsnd;
+
+	totlen = strlen(hmstmstr);
+
+	// Start check from the second index
+	for (pos=1; pos<totlen;pos++)
+	{
+		if (hmstmstr[pos] == ':')
+		{
+			if (++coloncnt > 2)
+				timeerror();
+			hmstmstr[pos] = '\0';
+			pminsnd[coloncnt-1] = hmstmstr+pos+1;
+		}
+	}
+	if (coloncnt != 2)
+		timeerror();
+	alrmhh = atoi(hmstmstr);
+	alrmmm = atoi(pminsnd[0]);
+	alrmss = atoi(pminsnd[1]);
+
+	if (alrmhh>24 || (alrmhh==24 && alrmmm!=0 && alrmss!=0) || alrmhh <0)
+		timeerror();
+	if (alrmmm > 59 || alrmmm <0 || alrmss<0 || alrmss>59)
+		timeerror();
+
+	if (alrmhh==0 && alrmmm==0 && alrmss==0)
+	{
+		//upgrade_gde_fw();
+		//return;
+		// should regard as 24:00:00
+	}
+	
+	time(&timep);
+	pcurtm = localtime(&timep); //get local time
+
+	if (alrmhh < pcurtm->tm_hour)
+		alrmhh += 24;
+	else if (alrmhh==pcurtm->tm_hour && alrmmm<pcurtm->tm_min )
+		alrmhh += 24;
+	else if (alrmhh==pcurtm->tm_hour && alrmmm==pcurtm->tm_min && alrmss<pcurtm->tm_sec)
+		alrmhh += 24;
+
+	
+	printf("\r\n%d:%d:%d-->%d:%d:%d\r\n",pcurtm->tm_hour,pcurtm->tm_min,pcurtm->tm_sec,alrmhh,alrmmm,alrmss);
+
+	alrmsnd = (uint32)(alrmhh-pcurtm->tm_hour)*60*60+(int32)(alrmmm-pcurtm->tm_min)*60+alrmss-pcurtm->tm_sec;
+
+	printf("Wait %d seconds to alarm.\r\n",alrmsnd);
+
+	signal(SIGALRM, upgrade_gde_fw);
+	alarm(alrmsnd);
+	
+}
+
 
 
 static void httpsend(uint8 *buf, uint8 len)
@@ -733,10 +896,7 @@ static void httpsend(uint8 *buf, uint8 len)
 	char recvbuffer[1024]={0};
 	char request[1024]={0}; 
 	char sendtext[512];
-	int port;
-	//char *host_addr = "120.26.103.149";
-	char *host_addr = "10.30.242.154";
-
+	
 	// Ascii data len should be 2*MAX_LEN of bin data
 	char data[GMS_PKT_MAX_LEN*2];
 	int sendstate;
@@ -752,8 +912,6 @@ static void httpsend(uint8 *buf, uint8 len)
 			0xE9,0x01,0x00,0x01,0x06,0x05,0x0E,0x30,0x1C,0x0C,0x0C,\
 			0x02,0x09,0x20,0x21,0x00,0x11,0x00,0x22,0x00,0x33,0x00};
 
-	printf("+++++enter 3G send.\r\n");
-
 	for(i=0;i<len;i++)
 		sprintf(data+i*2,"%02x",buf[i]);
 	
@@ -761,16 +919,15 @@ static void httpsend(uint8 *buf, uint8 len)
 	//printf("%s\n",host_addr); 
 
 	host=gethostbyname(host_addr);
-	port = 9999;
 	sockfd=socket(AF_INET,SOCK_STREAM,0);
 	bzero(&server_addr,sizeof(server_addr));
 	server_addr.sin_family = AF_INET;
-	server_addr.sin_port = htons(port);
+	server_addr.sin_port = htons(host_port);
 	server_addr.sin_addr = *((struct in_addr *)host->h_addr);
 	con_flag = connect(sockfd,(struct sockaddr *)(&server_addr),sizeof(struct sockaddr));
 
 	sprintf(request, "GET /gmehttpget?data=%s HTTP/1.1\r\nHost: %s:%d\r\nConnection: Close\r\n\r\n",\
-			data, host_addr, port);
+			data, host_addr, host_port);
 
 	printf("%s", request);
 	sendstate = -1;
@@ -795,8 +952,22 @@ static void httpsend(uint8 *buf, uint8 len)
 	//return 0; 
 }
 
+static unsigned char calcGMchksum(unsigned char* chkbuf, unsigned short len)
+{
+	unsigned char sum;
+	unsigned short i;
+	sum = 0;
 
-int asciitobin(char *ascbuf, int len, char *bbuf)
+	for(i=0;i<len;i++)
+	{
+		if (i == GMS_CHK_SUM_POS)
+			continue;
+		sum ^= chkbuf[i];
+	}
+	return sum;
+}
+
+static int asciitobin(char *ascbuf, int len, char *bbuf)
 {
 	int i;
 	
@@ -820,30 +991,45 @@ int asciitobin(char *ascbuf, int len, char *bbuf)
 	return len/2;
 }
 
-void usage()
+static void display_verion()
+{
+	printf("\r\nGME working application V%02d.%02d",HI_UINT16(version),LO_UINT16(version));
+	exit(0);
+}
+
+static void timeerror(void)
+{
+	printf("Order upgrade time error, example HH:MM:SS (00:00:00~24:00:00).\r\n");
+	printf("00:00:00 means upgrade now\r\n");
+	exit(1);
+}
+
+static void usage()
 {
 	printf("Usage:\r\n");
 	printf("\t(app name) (serial tty file) (serial baud) [option params]\r\n");
 	printf("\tserial tty file, e.g. /dev/ttyUSB0\r\n");
 	printf("\tserial baud, e.g. 9600\r\n");
-	printf("\toption params: -a -s\r\n");
+	printf("\toption params: -d -a -b -s -r -p -u -t -v\r\n");
+	printf("\t\t-d: serial debug print mode\r\n");
 	printf("\t\t-a: set GME ID\r\n");
-	printf("\t\t-s: set CC1120 RF params\r\n");
+	printf("\t\t-b: reset GDE benchmark\r\n");
+	printf("\t\t-s: set serial transparent module params\r\n");
+	printf("\t\t-r: remote server IP address\r\n");
+	printf("\t\t-p: remote server port\r\n");
+	printf("\t\t-u: upgrade file\r\n");
+	printf("\t\t-t: upgrade time, suggest at least 10min later\r\n");
+	printf("\t\t-v: show application version\r\n");
 	exit(1);
 }
+
 int main(int argc, char ** argv)
 {
 	char *c,*p;
 	int nset1,len,ret,Param;
-	unsigned char buf[GME_BUFFER_LEN];
-	unsigned char crc_buf[GME_BUFFER_LEN];
-	char setflg=0;
-
-#if ( defined RECV_DEBUG)
-	printf("RECV DEBUG\r\n");
-#else
-	printf("NORMAL\r\n");
-#endif
+	unsigned char buf[GMS_PKT_MAX_LEN];
+	unsigned char crc_buf[GMS_PKT_MAX_LEN];
+	sworkstate_t wkst=NORMAL_MODE;
 
 	if (argc < 3 )
 	{
@@ -868,14 +1054,34 @@ int main(int argc, char ** argv)
 			
 			switch(*(++c))
 			{
+				case 'd':
+					wkst = DEBUG_MODE;
+					--Param;
+					break;
 				case 's':
-					setflg = 1;
+					wkst = SETUP_MODE;
+					--Param;
 					break;
 				case 'a':
 					RFdevID = atoi(p);
 					break;
+				case 'b':
+					rstgdeid = atoi(p);
+					break;
+				case 'r':
+					host_addr = p;
+					break;
+				case 'p':
+					host_port = atoi(p);
+					break;
+				case 'u':
+					prep_upgrade(p);
+					break;
+				case 't':
+					set_upgrade_alarm(p);
+					break;
 				case 'v':
-					//display_verion();
+					display_verion();
 					break;
 				default:
 					usage();
@@ -887,15 +1093,21 @@ int main(int argc, char ** argv)
 		}
 	}
 
+	if (prepupgdflg==TRUE && alrmhh==0 && alrmmm==0 && alrmss==0)
+	{
+		printf("Need input upgrade time. see usage:\r\n");
+		usage();
+	}
+
 	// 3G module use ttyUSB3-ttyUSB6, RF work module use ttyUSB0, RF upgrade module use ttyUSB1
-	gme_fd = open(argv[1], O_RDWR|O_NOCTTY|O_NONBLOCK);
-	if(gme_fd == -1)
+	gme_sfd = open(argv[1], O_RDWR|O_NOCTTY|O_NONBLOCK);
+	if(gme_sfd == -1)
 	{
 		printf("Open serial wrong!\n");
 		exit(1);
 	}
 	
-	nset1 = serial_set_opt(gme_fd,atoi(argv[2]),8,'N',1);
+	nset1 = serial_set_opt(gme_sfd, atoi(argv[2]), 8, 'N', 1);
 	if(nset1 == -1)
 	{
 		printf("Serial set wrong!\n");
@@ -915,52 +1127,95 @@ int main(int argc, char ** argv)
 
 	while (1)
 	{
-		memset(buf, 0, GME_BUFFER_LEN);	
-		if (setflg == 0)
+		memset(buf, 0, GMS_PKT_MAX_LEN);	
+		if (wkst == NORMAL_MODE)
 		{
-			len = read(gme_fd, buf, GME_BUFFER_LEN);
+			len = read(gme_sfd, buf, GMS_PKT_MAX_LEN);
 			if (len > 0)
 			{
-#if ( defined RECV_DEBUG)
+				gmspktform(buf,len);
+			}
+			usleep(200*1000);
+		}
+		else if (wkst == DEBUG_MODE)
+		{
+			len = read(gme_sfd, buf, GMS_PKT_MAX_LEN);
+			if (len > 0)
+			{
 				static int totlen = 0;
 				totlen += len;
 				printf("\r\nRecv: %d, total: %d\r\n",len,totlen);
 				db(buf,len);
-#else
-				gmspktform(buf,len);
-#endif	// RECV_DEBUG
 			}
-			usleep(200*1000);
 		}
-		else
+		else if (wkst == SETUP_MODE)
 		{
-			printf("set cc1120 module:\r\n");
+			printf("Serial command set module:\r\n");
 			scanf("%s",buf);
 			len = strlen(buf);
 			if ( len > 0 )
 			{
 				if (strcmp(buf,"exit") == 0)
 				{
-					setflg = 0;
+					wkst = NORMAL_MODE;
 					printf("back to read mode:\r\n");
+					continue;
 				}
 				else
 				{
 					len = asciitobin(buf,len,crc_buf);
+					printf("\r\nSend bin command: ");
 					db(crc_buf,len);
-					write(gme_fd,crc_buf,len);	
+					write(gme_sfd,crc_buf,len);	
 				}
 			}
 			sleep(1);
-			if (len > 0 && setflg == 1)
+			if (len > 0)
 			{
-				len = read(gme_fd,buf,sizeof(buf));
+				len = read(gme_sfd,buf,sizeof(buf));
+				printf("\r\nRecieve command response: ");
 				db(buf,len);
 			}
 		}
 	}
 	
-	close(gme_fd);
+	close(gme_sfd);
 	
 	return 0;
 }
+
+
+/*********************************************************************
+ * @fn		CPUBigEndian
+ *
+ * @brief	check CPU endian
+ *
+ * @param	none
+ *
+ * @return	TRUE - big endian
+ */
+static uint8 CPUBigEndian(void)
+{
+	union{
+		uint32 i;
+		uint8 s[4];
+	}c;
+
+	c.i = 0x12345678;
+	return (0x12 == c.s[0]);
+}
+
+/*********************************************************************
+ * @fn		le_tohs
+ *
+ * @brief	Little endian short int data change to host.
+ *
+ * @param	none
+ *
+ * @return	Host endian value
+ */
+static uint16 le_tohs(uint16 n)
+{
+	return CPUBigEndian() ? BigLittleSwapShort(n) : n;
+}
+

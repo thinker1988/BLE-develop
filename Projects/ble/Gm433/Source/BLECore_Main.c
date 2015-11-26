@@ -55,28 +55,31 @@
 #include "osal_snv.h"
 #include "OnBoard.h"
 
-#include "BLECore.h"
+#if ( defined GM_IMAGE_A ) || ( defined GM_IMAGE_B )
 #include "CoreUpgrade.h"
 
-	// OAD image header 
+// OAD image header 
 #pragma location="IMAGE_HEADER"
-	const __code oad_img_hdr_t _BLECORE_imgHdr = {
-		0xFFFF, 								// CRC-shadow must be 0xFFFF for everything else
-		VERSION_NUMBER, // 15-bit Version #, left-shifted 1; OR with Image-B/Not-A bit.
-		BLECORE_IMG_PG_SIZE * RF_OAD_FLASH_PAGE_MULT,
-		RF_OAD_IMAGE_USER_ID,		// User-Id
-		{ 0xFF, 0xFF, 0xFF, 0xFF }	// Reserved
-	};
+const __code oad_img_hdr_t _BLECORE_imgHdr =
+{
+	0xFFFF, 		// CRC-shadow must be 0xFFFF for everything else
+	VERSION_NUMBER, // 15-bit Version #, left-shifted 1; OR with Image-B/Not-A bit.
+	BLECORE_IMG_PG_SIZE * RF_OAD_FLASH_PAGE_MULT,
+	RF_OAD_IMAGE_USER_ID,		// User-Id
+	{ 0xFF, 0xFF, 0xFF, 0xFF }	// Reserved
+};
 #pragma required=_BLECORE_imgHdr
 	
 #pragma location="AES_HEADER"
-	const __code oad_aes_hdr_t _BLECORE_aesHdr = {
-	 { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF },
-	 { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B },	// Dummy Nonce
-	 { 0xFF, 0xFF, 0xFF, 0xFF }	// Spare
-	};
+const __code oad_aes_hdr_t _BLECORE_aesHdr =
+{
+	{ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF },
+	{ 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B },	// Dummy Nonce
+	{ 0xFF, 0xFF, 0xFF, 0xFF }	// Spare
+};
 #pragma required=_BLECORE_aesHdr
 
+#endif	// GM_IMAGE_A || GM_IMAGE_B
 
 /**************************************************************************************************
  * FUNCTIONS

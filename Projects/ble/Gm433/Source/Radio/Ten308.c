@@ -136,7 +136,7 @@ void RF_working(uint8 task_id, rfstate_t newrfstate)
 	return;
 }
 
-rferr_t RFDataSend(uint8 *buf, uint8 len)
+rfpkterr_t RFDataSend(uint8 *buf, uint8 len)
 {
 	//Copy send data to buffer and wait 250ms for TEN308 RF wake up
 	osal_memcpy(rfsndbuf,buf,len);

@@ -2,7 +2,6 @@
  * INCLUDES
  */
 #include "OSAL.h"
-#include "osal_snv.h"
 #include "OSAL_Timers.h"
 
 #include "hal_i2c.h"
@@ -14,6 +13,10 @@
 #include "Pktfmt.h"
 #include "RFProc.h"
 
+#if ( defined GM_IMAGE_A ) || ( defined GM_IMAGE_B )
+#include "CoreUpgrade.h"
+#endif	// GM_IMAGE_A || GM_IMAGE_B
+
 /*********************************************************************
  * MACROS
  */
@@ -23,13 +26,6 @@
 /*********************************************************************
  * CONSTANTS
  */
-// NV id (>0x80 available)
-#define GM_STATE_NV_ID			0xA0
-
-#define GM_PAST_XVAL_ID			0xA1
-#define GM_PAST_YVAL_ID			0xA2
-#define GM_PAST_ZVAL_ID			0xA3
-
 // Length to count average benchmark
 #define BENCH_AVG_LEN			10
 
@@ -70,11 +66,19 @@
 // Heart beat in minutes, default 10 min
 uint8 hrtbt_inmin = 10;
 
-// GM car detect threshold
+// GM car detect threshold & default use level 2, i.e. 1000
 uint32 sqrthrhldarr[] = {800,1000,1200};
-
-// default use level 2, i.e. 1000
 uint8 detectlevel = 2;
+
+// GDE benchmark fix flag
+bool benchfixflg = FALSE;
+
+// Read GM data tick counts, increase every GM data read.
+uint16 readcnt = 0;
+
+#if ( defined GM_IMAGE_A ) || ( defined GM_IMAGE_B )
+uint16 ordrcnt = 0;
+#endif	// GM_IMAGE_A || GM_IMAGE_B
 
 /*********************************************************************
  * EXTERNAL VARIABLES
@@ -97,15 +101,12 @@ static i2cClock_t gm_i2cclk = i2cClock_123KHZ;
 static gmsensor_t gmsnst = GMSnTest;
 
 // GM data send type
-static sendtype_t sndtyp = SEND_NOTHG;
+static uint8 sndtyp = 0;
 
 // Current GM state
-static gmstatus_t gmst = GMFirstBoot;
+static detectstatus_t cardetect = BENCH_CALIBRATING;
 // Pevious GM state, only used in first boot
-//static gmstatus_t prevgmst;
-
-// Synchronize time flag (<=MAX_TM_SYNC_TIMES)
-static bool tmsyncflag = FALSE;
+//static detectstatus_t prevcardetect;
 
 // Resend times (<=MAX_RESEND_TIMES)
 static uint8 rsndautostop;
@@ -113,13 +114,10 @@ static uint8 rsndautostop;
 // TM sync resend times
 static uint8 syncautostop;
 
-// Read GM data counts, increase every GM data read.
-static uint16 readcnt = 0;
-
 // Time synchronization counts, increase every heart beat times
 static uint16 tmsynccnt = 0;
 
-// Empty detect counts, adjust benchmark
+// Empty detect counts, use this to adjust benchmark
 static uint16 empcnt = 0;
 
 // Unknow status detect counts
@@ -127,17 +125,17 @@ static uint16 unkwncnt = 0;
 
 // Temporary benchmark set and counts
 static int16 tmpXbench[BENCH_AVG_LEN],tmpYbench[BENCH_AVG_LEN],tmpZbench[BENCH_AVG_LEN];
-static uint8 tmpbenchcnt;
+static uint8 tmpbenchcnt = 0;
 
 
 // Car detect Benchmark
 static int16 Xdtctval,Ydtctval,Zdtctval;
 // Temporary detect benchmark
 static int16 tmpXdtctval[BENCH_WEIGHT_LEN],tmpYdtctval[BENCH_WEIGHT_LEN],tmpZdtctval[BENCH_WEIGHT_LEN];
-static uint8 tmpdtctcnt;
+static uint8 tmpdtctcnt = 0;
 
 // GDE temperature
-static int8 gdetmpr;
+static int8 gdetmpr = 0;
 
 // GDE battery power remain percentage
 static uint8 btprcnt = 100;
@@ -145,15 +143,17 @@ static uint8 btprcnt = 100;
 /*********************************************************************
  * LOCAL FUNCTIONS
  */
-static void InitGMState(void);
-
 static bool GM_dev_init(void);
 static void GM_DRDY_INT_Cfg(void);
+
+static void InitGMState(void);
 static void GM_dev_stop(void);
 
 static void GM_dev_preread(void);
+
 static void GM_dev_read(uint8 task_id);
 static void GM_dev_proc(int16 tmpX,int16 tmpY,int16 tmpZ);
+static void GM_read_tick_update(void);
 static void GM_send_data(uint8 task_id, int16 tmpX, int16 tmpY, int16 tmpZ);
 
 static void SendXYZVal(uint8 task_id, int16 tmpX, int16 tmpY, int16 tmpZ);
@@ -169,13 +169,13 @@ static bool GM_read_reg(uint8 addr,uint8 * pBuf,uint8 nBytes);
 static bool GM_write_reg(uint8 addr, uint8 *pBuf, uint8 nBytes);
 
 
-static gmstatus_t CheckCarIn(int16 tmpX, int16 tmpY, int16 tmpZ);
-static gmstatus_t CheckCarOut(int16 tmpX, int16 tmpY, int16 tmpZ);
+static detectstatus_t CheckCarIn(int16 tmpX, int16 tmpY, int16 tmpZ);
+static detectstatus_t CheckCarOut(int16 tmpX, int16 tmpY, int16 tmpZ);
 
 
-static void ModifyBenchmk(gmstatus_t newstts);
+static void ModifyBenchmk(detectstatus_t newstts);
 
-static bool InitBenchmk(gmstatus_t gmstts,int16 xVal,int16 yVal, int16 zVal);
+static bool InitBenchmk(detectstatus_t cardetectts,int16 xVal,int16 yVal, int16 zVal);
 
 static void NormRgltEmpBenchmk(int16 xVal,int16 yVal, int16 zVal);
 
@@ -184,11 +184,6 @@ static void WghtRgltOcpBenchmk(int16 xVal, int16 yVal, int16 zVal);
 
 static int16 CalcWeight(int16 * buf, uint8 len, uint8 bound);
 static int16 CalcAvrg(int16 *buf, uint8 n);
-
-
-#if 0
-static void storeGMstate(void);
-#endif
 
 
 /*********************************************************************
@@ -215,7 +210,7 @@ void GM_working(uint8 task_id, gmsensor_t ngmsnst)
 			if (GM_dev_init() == TRUE)
 			{
 				InitGMState();
-				InitDevID();
+				InitCommDevID();
 				// Prepare read once
 				gmsnst = GMSnReq;
 			}
@@ -230,7 +225,7 @@ void GM_working(uint8 task_id, gmsensor_t ngmsnst)
 			PowerHold(task_id);
 			GM_dev_preread();
 			gmsnst = GMSnRead;
-			//osal_start_timerEx(task_id, GM_DATA_PROC_EVT, GM_READ_ONCE_PERIOD);
+			//osal_start_timerEx(task_id, GM_DATA_PROC_EVT, GM_SNSR_MEASURE_PERIOD);
 			while(! GM_DRDY_INT_PIN);
 			osal_set_event(task_id, GM_DATA_PROC_EVT);
 			break;
@@ -251,15 +246,33 @@ void GM_working(uint8 task_id, gmsensor_t ngmsnst)
 	}
 }
 
-void SetGMState(gmstatus_t nwst)
+void SetGMState(detectstatus_t nwst)
 {
-	gmst=nwst;
+	cardetect=nwst;
 }
 
-gmstatus_t GetGMState(void)
+detectstatus_t GetGMState(void)
 {
-	return gmst;
+	return cardetect;
 }
+
+
+
+void ResetBenchmark(uint8 *bnchmk, uint8 len)
+{
+	int16 tmpX,tmpY,tmpZ;
+	
+	if (len != EVLEN_GDE_BENCH_INFO)
+		return;
+
+	tmpX = BUILD_UINT16(bnchmk[GDE_X_L_BCHMRK_POS], bnchmk[GDE_X_H_BCHMRK_POS]);
+	tmpY = BUILD_UINT16(bnchmk[GDE_Y_L_BCHMRK_POS], bnchmk[GDE_Y_H_BCHMRK_POS]);
+	tmpZ = BUILD_UINT16(bnchmk[GDE_Z_L_BCHMRK_POS], bnchmk[GDE_Z_H_BCHMRK_POS]);
+
+	if (tmpX==0 && tmpY==0 && tmpZ==0)
+		InitGMState();
+}
+
 
 void SendSyncTMReq(void)
 {
@@ -277,7 +290,7 @@ void SendSyncTMReq(void)
 
 
 /*********************************************************************
- * @fn		SendGDEData
+ * @fn		FormHrtbtData
  *
  * @brief	Send GM read data, includes battery percentage,temperature(real time),
  *			X/Y/Z axis value and status.
@@ -288,10 +301,8 @@ void SendSyncTMReq(void)
  *
  * @return	none
  */
-void SendGDEData(int16 tmpX, int16 tmpY, int16 tmpZ)
+void FormHrtbtData(uint8* hrtbtdata, int16 tmpX, int16 tmpY, int16 tmpZ)
 {
-	uint8 hrtbtdata[GMS_PKT_PLD_MAX_LEN];
-	
 	hrtbtdata[HRT_BT_BATT_POS]=btprcnt;
 	hrtbtdata[HRT_BT_TMPR_POS]=gdetmpr;
 	
@@ -304,30 +315,17 @@ void SendGDEData(int16 tmpX, int16 tmpY, int16 tmpZ)
 	hrtbtdata[HRT_BT_ZVAL_H_POS]=HI_UINT16(tmpZ);
 	hrtbtdata[HRT_BT_ZVAL_L_POS]=LO_UINT16(tmpZ);
 	
-	hrtbtdata[HRT_BT_STAT_POS]=gmst;
+	hrtbtdata[HRT_BT_STAT_POS]=cardetect;
 
-	//if ( gmst!=GMNoCar && gmst!=GMGetCar)
+	//if ( cardetect!=NO_CAR_DETECTED && cardetect!=CAR_DETECTED_OK)
 	//	return;
-
-	if (sndtyp == SEND_HRTBY)
-	{
-		RFDataForm(GDE_SUBTYPE_HRTBEAT_REQ,hrtbtdata,GDE_HRTBT_LEN);
-		ClearDataResend();
-	}
-	else if (sndtyp == SEND_CHNG)
-	{
-		RFDataForm(GDE_SUBTYPE_CARINFO_REQ,hrtbtdata,GDE_HRTBT_LEN);
-		if (rsndautostop++ > MAX_RESEND_TIMES)
-			ClearDataResend();
-	}
 }
 
 void ClearSyncTMReq(void)
 {
 	tmsynccnt = 0;
 	syncautostop = 0;
-	tmsyncflag = FALSE;
-	sndtyp =SEND_NOTHG;
+	CLR_SEND_BIT(sndtyp, SND_BIT_TM_SYNC);
 }
 
 /*********************************************************************
@@ -342,7 +340,7 @@ void ClearSyncTMReq(void)
 void ClearDataResend(void)
 {
 	rsndautostop = 0;
-	sndtyp = SEND_NOTHG;
+	CLR_SEND_BIT(sndtyp, SND_BIT_DAT_CHNG);
 }
 
 /*********************************************************************
@@ -358,8 +356,8 @@ void ReadGMParam(uint8 *rdbuf)
 {
 	rdbuf[ST_GM_HB_FREQ_POS] = hrtbt_inmin;
 	rdbuf[ST_GM_DTCT_SENS_POS] = detectlevel;
-	rdbuf[ST_GM_BENCH_ALG_POS] = 0;
-	rdbuf[ST_GM_STATUS_POS] = gmst;
+	rdbuf[ST_GM_BENCH_ALG_POS] = benchfixflg;
+	rdbuf[ST_GM_STATUS_POS] = cardetect;
 }
 
 /*********************************************************************
@@ -381,7 +379,7 @@ bool SetGMParam(uint8 hrtbtmin, uint8 dtval, uint8 alg, uint8 status)
 	hrtbt_inmin = (hrtbtmin==0? hrtbt_inmin: hrtbtmin);
 	detectlevel = (dtval==0||dtval>sizeof(sqrthrhldarr)? detectlevel: dtval);
 	
-	ModifyBenchmk((gmstatus_t)status);
+	ModifyBenchmk((detectstatus_t)status);
 
 	return TRUE;
 }
@@ -451,50 +449,54 @@ static void GM_DRDY_INT_Cfg(void)
 #endif
 }
 
-void InitGMState(void)
+/*********************************************************************
+ * @fn		InitGMState
+ *
+ * @brief	Init GM system state, including read count and cardetect state, etc..
+ *
+ * @param	none
+ *
+ * @return	none
+ */
+
+static void InitGMState(void)
 {
-	// Clear resend times
-	rsndautostop = 0;
-	syncautostop = 0;
-	// Clear read times and time sync times
+	// Clear resend times and time synchronization
+	ClearDataResend();
+	ClearSyncTMReq();
+
+#if ( defined GM_IMAGE_A ) || ( defined GM_IMAGE_B )
+	// Clear read times if not preparing upgrade
+	if (GetPrepUpgdState() == FALSE)
+		readcnt = 0;
+#else
 	readcnt = 0;
-	tmsynccnt = 0;
+#endif	// GM_IMAGE_A || GM_IMAGE_B
+
 	// Clear empty and unknown status times
 	empcnt = 0;
 	unkwncnt = 0;
+	
 	// Clear benchmark times
 	tmpbenchcnt = 0;
-	
-	gmst = GMFirstBoot;
-	sndtyp =SEND_NOTHG;
+	cardetect = BENCH_CALIBRATING;
 
-/*
-	int16 tmpx,tmpy,tmpz;
-	bool initflag = FALSE;
-	
-	if(osal_snv_read(GM_STATE_NV_ID, sizeof(prevgmst),&prevgmst)!=NV_OPER_FAILED)
+#if ( defined GM_IMAGE_A ) || ( defined GM_IMAGE_B )
+	static bool finfistbootflg = FALSE;
+	int16 prevXbench,prevYbench,prevZbench;
+
+	if (finfistbootflg == FALSE)
 	{
-		if (prevgmst!=GMNoCar && prevgmst!=GMGetCar && prevgmst!=GMUnknow)
-			prevgmst = GMFirstBoot;
-		else
+		finfistbootflg = TRUE;
+		if (ReadGMSetting(&prevXbench,&prevYbench,&prevZbench) == TRUE)
 		{
-			if (osal_snv_read(GM_PAST_XVAL_ID, sizeof(tmpx),&tmpx)!=NV_OPER_FAILED)
-				if (osal_snv_read(GM_PAST_YVAL_ID, sizeof(tmpy),&tmpy)!=NV_OPER_FAILED)
-					if (osal_snv_read(GM_PAST_ZVAL_ID, sizeof(tmpz),&tmpz)!=NV_OPER_FAILED)
-						initflag = InitBenchmk(prevgmst,tmpx,tmpy,tmpz);
-			if (initflag == FALSE)
-				prevgmst = GMFirstBoot;
+			InitBenchmk(cardetect,prevXbench,prevYbench,prevZbench);
+			cardetect = CAR_DETECTED_OK;
 		}
 	}
-	else
-	{
-		// First start up
-		//Com433WriteStr(COM433_DEBUG_PORT,"\r\n!!!NV read failed!!!");
-		prevgmst = GMFirstBoot;
-	}
-	if (gmst != GMGetCar && gmst != GMNoCar)
-		gmst = prevgmst;*/
+#endif	// GM_IMAGE_A || GM_IMAGE_B
 }
+
 
 /*********************************************************************
  * @fn		GM_dev_stop
@@ -552,13 +554,13 @@ static void GM_dev_read(uint8 task_id)
 		else
 		{
 #if ( !defined GM_TEST_COMM )
-			osal_start_timerEx(task_id,GM_DATA_PROC_EVT,GM_READ_EVT_PERIOD-GM_READ_ONCE_PERIOD);
+			osal_start_timerEx(task_id,GM_DATA_PROC_EVT,GM_READ_EVT_PERIOD-GM_SNSR_MEASURE_PERIOD);
 			GM_dev_proc(xval,yval,zval);
 #else
-			//osal_start_timerEx(task_id,GM_DATA_PROC_EVT,2000-GM_READ_ONCE_PERIOD);
-			sndtyp = SEND_SYNC;
+			//osal_start_timerEx(task_id,GM_DATA_PROC_EVT,2000-GM_SNSR_MEASURE_PERIOD);
+			set_time_sync();
 #endif	// !GM_TEST_COMM
-
+			GM_read_tick_update();
 			GM_send_data(task_id,xval,yval,zval);
 
 #if ( !defined ALLOW_DEBUG_OUTPUT )
@@ -586,32 +588,32 @@ static void GM_dev_read(uint8 task_id)
  */
 static void GM_dev_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 {
-	gmstatus_t tmpgmst;
+	detectstatus_t tmpcardetect;
 
-	switch(gmst)
+	switch(cardetect)
 	{
-		case GMNoCar:
+		case NO_CAR_DETECTED:
 		{
-			tmpgmst = CheckCarIn(tmpX,tmpY,tmpZ);
-			if (tmpgmst == GMGetCar)
+			tmpcardetect = CheckCarIn(tmpX,tmpY,tmpZ);
+			if (tmpcardetect == CAR_DETECTED_OK)
 			{
 				set_data_change();
 				// Reinit detect benchmark every time
-				InitBenchmk(GMGetCar,tmpX, tmpY, tmpZ);
+				InitBenchmk(CAR_DETECTED_OK,tmpX, tmpY, tmpZ);
 
 			}
 			break;
 		}
-		case GMGetCar:
+		case CAR_DETECTED_OK:
 		{
-			tmpgmst = CheckCarOut(tmpX,tmpY,tmpZ);
-			if ( tmpgmst == GMNoCar)
+			tmpcardetect = CheckCarOut(tmpX,tmpY,tmpZ);
+			if ( tmpcardetect == NO_CAR_DETECTED)
 			{
-				gmst = tmpgmst;
+				cardetect = tmpcardetect;
 				set_data_change();
 				//NormRgltEmpBenchmk(tmpX,tmpY,tmpZ);
 			}
-			else if ( tmpgmst == GMError )
+			else if ( tmpcardetect == ABNORMAL_DETECTION )
 			{
 				// Send error data
 				set_heart_beat();
@@ -621,19 +623,50 @@ static void GM_dev_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 				PrintGMvalue(COM433_DEBUG_PORT, "\r\nDR:",tmpX,tmpY,tmpZ);
 			break;
 		}
-		case GMFirstBoot:
+		case BENCH_CALIBRATING:
 		{
-			InitBenchmk(gmst,tmpX,tmpY,tmpZ);
+			InitBenchmk(cardetect,tmpX,tmpY,tmpZ);
 			GetDevPowerPrcnt();
 			set_heart_beat();
-			tmsyncflag = TRUE;
+			set_time_sync();
 			break;
 		}
-		case GMError:
+		case ABNORMAL_DETECTION:
 		default:
 			break;
 	}
 
+}
+
+static void GM_read_tick_update(void)
+{
+	uint16 hrtbt_tick_cnt;
+
+	hrtbt_tick_cnt = ((MILSEC_IN_MIN/GM_READ_EVT_PERIOD)*hrtbt_inmin);
+	// Calculate heart beat timing
+	if (++readcnt >= hrtbt_tick_cnt)
+	{
+		readcnt = 0;
+		tmsynccnt++;
+		set_heart_beat();
+	}
+
+	// Perform time synchronization every 24h
+	if (tmsynccnt >= (HOUR_IN_DAY*MIN_IN_HOUR)/hrtbt_inmin)
+	{
+		tmsynccnt = 0;
+		set_time_sync();
+		GetDevPowerPrcnt();
+	}
+
+#if ( defined GM_IMAGE_A ) || ( defined GM_IMAGE_B )
+	if (GetPrepUpgdState()== TRUE)
+	{
+		if (tmsynccnt >= ordrcnt/hrtbt_tick_cnt)
+			if (readcnt >= ordrcnt%hrtbt_tick_cnt)
+				SetSysState(SYS_UPGRADE);
+	}
+#endif	// GM_IMAGE_A || GM_IMAGE_B
 }
 
 /*********************************************************************
@@ -650,43 +683,40 @@ static void GM_dev_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
  */
 static void GM_send_data(uint8 task_id, int16 tmpX, int16 tmpY, int16 tmpZ)
 {
-	// Adjust benchmark ervery heart beat timing
-	if (++readcnt >= (MILSEC_IN_MIN/GM_READ_EVT_PERIOD)*hrtbt_inmin)
+	uint8 i,hrtbtdata[EVLEN_GDE_HRTBT];
+
+	if (NO_MSG_SEND(sndtyp) || GetSysState()==SYS_SETUP || GetSysState()==SYS_UPGRADE)
 	{
-		readcnt = 0;
-		tmsynccnt++;
-		set_heart_beat();
+		return;
 	}
 
-	// Perform time synchronization every 24h
-	if (tmsynccnt >= (HOUR_IN_DAY*MIN_IN_HOUR)/hrtbt_inmin)
+	SetSysState(SYS_WORKING);
+	for (i=0;i<sizeof(sndtyp)*8;i++)
 	{
-		tmsynccnt = 0;
-		tmsyncflag = TRUE;
-		GetDevPowerPrcnt();
+		if ((sndtyp>>i) & 0x01 != 0)
+			break;
 	}
 
-	set_time_sync();
-
-	if (sndtyp != SEND_NOTHG)
+	switch(i)
 	{
-		SetSysState(SYS_WORKING);
-		switch (sndtyp)
-		{
-			case SEND_HRTBY:
-				gdetmpr = GM_dev_get_tmpr();
-				if (gdetmpr == GM_INVALID_TEMPR)
-					SetGMSnState(GMSnErr);
-				// Do not break
-			case SEND_CHNG:
-				SendGDEData(tmpX,tmpY,tmpZ);
-				break;
-			case SEND_SYNC:
-				SendSyncTMReq();
-				break;
-			default:
-				break;
-		}
+		case SND_BIT_DAT_CHNG:
+			FormHrtbtData(hrtbtdata,tmpX,tmpY,tmpZ);
+			RFDataForm(GDE_SUBTYPE_CARINFO_REQ,hrtbtdata,EVLEN_GDE_HRTBT);
+			if (rsndautostop++ > MAX_RESEND_TIMES)
+				ClearDataResend();
+			break;
+		case SND_BIT_HRT_BT:
+			// Get temperature
+			gdetmpr = GM_dev_get_tmpr();
+			FormHrtbtData(hrtbtdata,tmpX,tmpY,tmpZ);
+			RFDataForm(GDE_SUBTYPE_HRTBEAT_REQ,hrtbtdata,EVLEN_GDE_HRTBT);
+			CLR_SEND_BIT(sndtyp, SND_BIT_HRT_BT);
+			break;
+		case SND_BIT_TM_SYNC:
+			SendSyncTMReq();
+			break;
+		default:
+			break;
 	}
 
 	return;
@@ -705,7 +735,7 @@ static void GM_send_data(uint8 task_id, int16 tmpX, int16 tmpY, int16 tmpZ)
  */
 static void SendXYZVal(uint8 task_id, int16 tmpX, int16 tmpY, int16 tmpZ)
 {
-	uint8 buf[GMS_PKT_MAX_LEN], len;
+	uint8 buf[GMS_PKT_MAX_LEN] = {0}, len;
 
 	IntConvertString(buf, tmpX);
 	len = osal_strlen((char *)buf);
@@ -735,8 +765,11 @@ static int8 GM_dev_get_tmpr(void)
 	int8 tmpr;
 	
 	if (GM_read_reg(GM_TEMPR_MSB_REG, tmprval, sizeof(tmprval)) == FALSE)
+	{
+		SetGMSnState(GMSnErr);
 		return GM_INVALID_TEMPR;
-	
+	}
+
 	fulltmprval = (int16)BUILD_UINT16(tmprval[1], tmprval[0]);
 	tmpr = (int8)(fulltmprval/128) + GM_BASE_TEMPR;
 
@@ -773,10 +806,7 @@ static void GetDevPowerPrcnt()
  */
 static void set_time_sync(void)
 {
-	// Send time synchronization when nothing wait sent, lowest priority
-	if (sndtyp == SEND_NOTHG)
-		if (tmsyncflag == TRUE)
-			sndtyp = SEND_SYNC;
+	SET_SEND_BIT(sndtyp, SND_BIT_TM_SYNC);
 }
 
 
@@ -791,9 +821,7 @@ static void set_time_sync(void)
  */
 static void set_heart_beat(void)
 {
-	// send heart beat when nothing wait sent
-	if (sndtyp == SEND_NOTHG)
-		sndtyp = SEND_HRTBY;
+	SET_SEND_BIT(sndtyp, SND_BIT_HRT_BT);
 }
 
 /*********************************************************************
@@ -807,7 +835,7 @@ static void set_heart_beat(void)
  */
 static void set_data_change(void)
 {
-	sndtyp = SEND_CHNG;
+	SET_SEND_BIT(sndtyp, SND_BIT_DAT_CHNG);
 }
 
 /*********************************************************************
@@ -877,21 +905,21 @@ static bool GM_read_reg(uint8 addr, uint8 *pBuf, uint8 nBytes)
  *
  * @return	none
  */
-static gmstatus_t CheckCarIn(int16 tmpX, int16 tmpY, int16 tmpZ)
+static detectstatus_t CheckCarIn(int16 tmpX, int16 tmpY, int16 tmpZ)
 {
 	uint32 xdev,ydev,zdev,devsqrsum;
 
 	// Prepare set benchmark
 	if (tmpbenchcnt == 0)
-		return GMNoCar;
+		return NO_CAR_DETECTED;
 
 	xdev = CALC_ABS(tmpX-Xbenchmk);
 	ydev = CALC_ABS(tmpY-Ybenchmk);
 	zdev = CALC_ABS(tmpZ-Zbenchmk);
 
 	// X/Y/Z almost no change
-	if (xdev+ydev+zdev < NO_CHANGE_THRSHLD)
-		return GMNoCar;
+	//if (xdev+ydev+zdev < NO_CHANGE_THRSHLD)
+	//	return NO_CAR_DETECTED;
 
 	devsqrsum = xdev*xdev+ydev*ydev+zdev*zdev;
 
@@ -902,13 +930,13 @@ static gmstatus_t CheckCarIn(int16 tmpX, int16 tmpY, int16 tmpZ)
 		{
 			unkwncnt = 0;
 
-			return GMGetCar;
+			return CAR_DETECTED_OK;
 		}
 		else
 		{
 			PrintGMvalue(COM433_DEBUG_PORT, "\r\nABN:",tmpX,tmpY,tmpZ);
 
-			return GMNoCar;
+			return NO_CAR_DETECTED;
 		}
 	}
 	else
@@ -919,7 +947,7 @@ static gmstatus_t CheckCarIn(int16 tmpX, int16 tmpY, int16 tmpZ)
 	// Dev^2 belongs to normal car in range
 	if (devsqrsum >= sqrthrhldarr[detectlevel-1] && devsqrsum < GM_ERROR_VALUE)
 	{
-		return GMGetCar;
+		return CAR_DETECTED_OK;
 	}
 	// Almost no change
 	else if (devsqrsum < sqrthrhldarr[detectlevel-1]/4)
@@ -928,8 +956,8 @@ static gmstatus_t CheckCarIn(int16 tmpX, int16 tmpY, int16 tmpZ)
 		// Continuously adjust benchmark at first 10 times and fill the array
 		if ( tmpbenchcnt < BENCH_AVG_LEN)
 			NormRgltEmpBenchmk(tmpX,tmpY,tmpZ);
-		// Ajust benchmark envery 5min
-		else if (empcnt >= ADJ_BENCHMK_TIMES)
+		// Ajust benchmark envery 30min
+		else if (empcnt >= ADJ_BENCHMK_TIMES && benchfixflg == FALSE)
 			NormRgltEmpBenchmk(tmpX,tmpY,tmpZ);
 		else
 			PrintGMvalue(COM433_DEBUG_PORT, "\r\nR:",tmpX,tmpY,tmpZ);
@@ -947,7 +975,7 @@ static gmstatus_t CheckCarIn(int16 tmpX, int16 tmpY, int16 tmpZ)
 		PrintGMvalue(COM433_DEBUG_PORT, "\r\nEMP ERR:",tmpX,tmpY,tmpZ);
 	}
 
-	return GMNoCar;
+	return NO_CAR_DETECTED;
 }
 
 /*********************************************************************
@@ -961,7 +989,7 @@ static gmstatus_t CheckCarIn(int16 tmpX, int16 tmpY, int16 tmpZ)
  *
  * @return	none
  */
-static gmstatus_t CheckCarOut(int16 tmpX, int16 tmpY, int16 tmpZ)
+static detectstatus_t CheckCarOut(int16 tmpX, int16 tmpY, int16 tmpZ)
 {
 	uint32 xdev,ydev,zdev,devsqrsum;
 
@@ -976,13 +1004,13 @@ static gmstatus_t CheckCarOut(int16 tmpX, int16 tmpY, int16 tmpZ)
 
 		// Change state when lower than 1/4 threshold, use hysteresis method
 		if (devsqrsum < sqrthrhldarr[detectlevel-1]/4)
-			return GMNoCar;
+			return NO_CAR_DETECTED;
 		else if (devsqrsum >= GM_ERROR_VALUE)
-			return GMError;
+			return ABNORMAL_DETECTION;
 		else
-			return GMGetCar;
+			return CAR_DETECTED_OK;
 	}
-	// in case gmstatus modified by GTE, no benchmark
+	// in case cardetectatus modified by GTE, no benchmark
 	else
 	{
 		xdev = CALC_ABS(tmpX-Xdtctval);
@@ -993,9 +1021,9 @@ static gmstatus_t CheckCarOut(int16 tmpX, int16 tmpY, int16 tmpZ)
 
 		// Use 1/2 threshold
 		if ( devsqrsum >= sqrthrhldarr[detectlevel-1]/2 )
-			return GMNoCar;
+			return NO_CAR_DETECTED;
 		else
-			return GMGetCar;
+			return CAR_DETECTED_OK;
 	}
 }
 
@@ -1009,18 +1037,18 @@ static gmstatus_t CheckCarOut(int16 tmpX, int16 tmpY, int16 tmpZ)
  *
  * @return	none
  */
-static void ModifyBenchmk(gmstatus_t newstts)
+static void ModifyBenchmk(detectstatus_t newstts)
 {
-	if (gmst == newstts)
+	if (cardetect == newstts)
 		return;
 
-	if (newstts > GMGetCar)
+	if (newstts > CAR_DETECTED_OK)
 		return;
 
 	set_data_change();
 	
 	// No Car--> Get Car
-	if (newstts == GMGetCar)
+	if (newstts == CAR_DETECTED_OK)
 	{
 		InitBenchmk(newstts,Xbenchmk,Ybenchmk,Zbenchmk);
 		tmpbenchcnt = 0;	// previous benchmark invalid, when perform CheckCarOut
@@ -1043,27 +1071,27 @@ static void ModifyBenchmk(gmstatus_t newstts)
  *
  * @brief	Initiate GM benchmark based on different GM & lot status.
  *
- * @param	gmstts - current GM & lot status.
+ * @param	cardetectts - current GM & lot status.
  * @param	xVal - current X axis value.
  * @param	yVal - current Y axis value.
  * @param	zVal - current Z axis value.
  *
  * @return	TRUE - init OK
  */
-static bool InitBenchmk(gmstatus_t gmstts,int16 xVal,int16 yVal, int16 zVal)
+static bool InitBenchmk(detectstatus_t cardetectts,int16 xVal,int16 yVal, int16 zVal)
 {
-	switch (gmstts)
+	switch (cardetectts)
 	{
-		case GMFirstBoot:	// Assume no car
-		case GMNoCar:
-			// clear previous benchmark
+		case BENCH_CALIBRATING:
+			// clear previous benchmark, Assume no car
 			tmpbenchcnt = 0;
+		case NO_CAR_DETECTED:
 			NormRgltEmpBenchmk(xVal,yVal,zVal);
-			gmst = GMNoCar;
+			cardetect = NO_CAR_DETECTED;
 			break;
-		case GMGetCar:
+		case CAR_DETECTED_OK:
 			WghtRgltOcpBenchmk(xVal,yVal,zVal);
-			gmst = GMGetCar;
+			cardetect = CAR_DETECTED_OK;
 			break;
 		default:
 			return FALSE;
@@ -1246,13 +1274,4 @@ static uint8 CalcBatteryPercent(void)
 
 	return percent;
 }
-
-
-/*
-static void storeGMstate(void)
-{
-	 if(osal_snv_write(GM_STATE_NV_ID, sizeof(gmst),&gmst)==NV_OPER_FAILED)
-	 	Com433WriteStr(COM433_DEBUG_PORT,"\r\n!!!NV Failed!!!");
-}
-*/
 

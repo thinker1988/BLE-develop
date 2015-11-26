@@ -34,8 +34,9 @@
 #include "peripheral.h"
 #endif	// USE_BLE_STACK && ALLOW_BLE_ADV
 
-
-
+#if ( defined GM_IMAGE_A ) || ( defined GM_IMAGE_B )
+#include "CoreUpgrade.h"
+#endif	// GM_IMAGE_A || GM_IMAGE_B
 
 /*********************************************************************
  * MACROS
@@ -92,7 +93,6 @@ uint8 BLECore_TaskId;
  * EXTERNAL VARIABLES
  */
 
-
 /*********************************************************************
  * EXTERNAL FUNCTIONS
  */
@@ -106,16 +106,22 @@ static uint32 next=1;
 // Device state refer to desiged state machine
 static sysstate_t Devstate = SYS_BOOTUP;
 
-// 
+// Working status interrupt state
 static wsintstate_t wsint = WS_INT_DISABLE;
 
 static bool sleepflag = FALSE;
 
-// Already in work mode flag, use this flag to avoid RF setting during waiting IDLE_PWR_HOLD_PERIOD
+// Already in power hold flag, use this flag to avoid reentry
+static bool pwrhldflg = FALSE;
+
+// Already in work mode flag, use this flag to avoid RF setting during IDLE_PWR_HOLD_PERIOD
 static bool workflg = FALSE;
 
-// Already in setup mode flag, use this flag to stay in setup mode during NO_OPERATION_WAIT_PERIOD
+// Already in setup mode flag, use this flag to stay in setup mode during GTE_NO_OPR_WAIT_PERIOD
 static bool setupflg = FALSE;
+
+// Already in upgrade mode flag, use this flag to stay in upgrade mode during UPGD_RF_WAIT_PERIOD
+static bool upgdflg = FALSE;
 
 #if ( defined USE_BLE_STACK && defined ALLOW_BLE_ADV )
 // Advertisement data (max size = 31 bytes, though this is best kept short to conserve power while advertisting)
@@ -220,6 +226,10 @@ void BLECore_Init( uint8 task_id )
 	VOID GAPRole_StartDevice( &BLECore_PeriphCBs );
 #endif	// USE_BLE_STACK & ALLOW_BLE_ADV
 
+#if ( defined GM_IMAGE_A ) || ( defined GM_IMAGE_B )
+	ReadSysSetting();
+#endif	// GM_IMAGE_A || GM_IMAGE_B
+
 	// Start working
 	osal_set_event( task_id, BLE_SYS_WORKING_EVT );
 
@@ -305,7 +315,7 @@ void sys_working(uint8 task_id, sysstate_t newDevstate)
 			PowerHold(task_id);
 			RF_working(task_id, RF_PRESET);
 #if ( !defined GME_WORKING )
-			//GM_working(task_id, GMSnTest);
+			GM_working(task_id, GMSnTest);
 #endif	// !GME_WORKING
 			break;
 		case SYS_WORKING:
@@ -340,7 +350,7 @@ void sys_working(uint8 task_id, sysstate_t newDevstate)
 			if (setupflg == TRUE)
 			{
 				setupflg = FALSE;
-				InitDevID();
+				InitCommDevID();
 				SetSysState(SYS_WORKING);
 				SetRFstate(RF_PRESET);
 				osal_set_event(task_id, BLE_SYS_WORKING_EVT);
@@ -351,9 +361,36 @@ void sys_working(uint8 task_id, sysstate_t newDevstate)
 				StopAllTimer(task_id);
 				// Send presetup data
 				RF_working(task_id, RF_PRESET);
-				osal_start_timerEx(task_id, BLE_SYS_WORKING_EVT, NO_OPERATION_WAIT_PERIOD);
+				osal_start_timerEx(task_id, BLE_SYS_WORKING_EVT, GTE_NO_OPR_WAIT_PERIOD);
 			}
+			break;
 		case SYS_UPGRADE:
+#if ( defined GM_IMAGE_A ) || ( defined GM_IMAGE_B )
+			if (upgdflg == TRUE)
+			{
+				upgdflg = FALSE;
+				if (UpgdFinState() == TRUE)
+					HAL_SYSTEM_RESET();
+				else
+				{
+					InitCommDevID();
+					SetSysState(SYS_WORKING);
+					SetRFstate(RF_PRESET);
+					osal_set_event(task_id, BLE_SYS_WORKING_EVT);
+				}
+			}
+			else
+			{
+				upgdflg = TRUE;
+				SetPrepUpgdState(FALSE);
+				StopAllTimer(task_id);
+				RF_working(task_id, RF_PRESET);
+				osal_start_timerEx(task_id, BLE_SYS_WORKING_EVT, UPGD_RF_WAIT_PERIOD);
+			}
+#else
+			VOID upgdflg;
+#endif	// GM_IMAGE_A || GM_IMAGE_B
+			break;
 		default:
 			break;
 	}
@@ -437,6 +474,9 @@ wsintstate_t GetIntState( void )
  */
 void PowerSave(uint8 task_id)
 {
+	if (pwrhldflg == FALSE)
+		return;
+	pwrhldflg = FALSE;
 #if ( defined POWER_SAVING )
 	(void)osal_pwrmgr_task_state(task_id, PWRMGR_CONSERVE);
 	osal_pwrmgr_device( PWRMGR_BATTERY );
@@ -455,6 +495,9 @@ void PowerSave(uint8 task_id)
  */
 void PowerHold(uint8 task_id)
 {
+	if (pwrhldflg == TRUE)
+		return;
+	pwrhldflg = TRUE;
 #if ( defined POWER_SAVING )
 	osal_pwrmgr_device( PWRMGR_ALWAYS_ON);
 	(void)osal_pwrmgr_task_state(task_id, PWRMGR_HOLD);

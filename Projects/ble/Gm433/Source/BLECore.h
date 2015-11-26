@@ -38,13 +38,16 @@ extern "C"
 #define SELF_TEST_PERIOD			1000UL
 
 // Geomagnetic sensor read period
-#define GM_READ_EVT_PERIOD 			5000UL		//1000-> 1s
+#define GM_READ_EVT_PERIOD 			5000UL	//1000-> 1s
 
 // Idle hold period after RF send
 #define IDLE_PWR_HOLD_PERIOD		1000UL
 
 // No operation wait period
-#define NO_OPERATION_WAIT_PERIOD	6000UL
+#define GTE_NO_OPR_WAIT_PERIOD		8000UL
+
+// Upgrade wait period
+#define UPGD_RF_WAIT_PERIOD			MILSEC_IN_MIN	// 1min
 
 // Hgswitch wait shake
 #define SWITCH_WAIT_SHAKE_PERIOD	500UL
@@ -52,7 +55,7 @@ extern "C"
 // Seconds in a minute & miliseconds in a second
 #define SEC_IN_MIN					60UL
 #define MILSEC_IN_SEC				1000UL
-#define MILSEC_IN_MIN				(SEC_IN_MIN*MILSEC_IN_SEC)
+#define MILSEC_IN_MIN				(SEC_IN_MIN*MILSEC_IN_SEC)	// 60000ms
 
 // Minutes in a hour and hours in a day
 #define MIN_IN_HOUR					60UL

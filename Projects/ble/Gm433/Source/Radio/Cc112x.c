@@ -131,7 +131,7 @@ void RF_working(uint8 task_id, rfstate_t newrfstate)
 	return;
 }
 
-rferr_t RFDataSend(uint8 *buf, uint8 len)
+rfpkterr_t RFDataSend(uint8 *buf, uint8 len)
 {
 	if ( GetRFstate()==RF_PRESET || GetRFstate()==RF_BEG_SET )
 		return RF_SUCCESS;
