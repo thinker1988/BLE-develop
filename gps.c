@@ -183,7 +183,7 @@ static void gmspktform(uint8 * rawbuf, uint8 rawlen);
 static rfpkterr_t rfdataparse(uint8 *rfdata,uint8 len);
 
 static rfpkterr_t GDEPktElmProc(uint8 subtype, uint8* pldbuf, uint8 pldlen);
-static void controlGDE(uint8* pldbuf, uint8 pldlen);
+static void controlGDE(void);
 static void procGDEack(uint8 subtype, msgerrcd_t ecd);
 
 
@@ -197,7 +197,11 @@ static uint8 fillrstbench(uint8 * pldbuf);
 
 static rfpkterr_t rfdatasend(uint8 * buf, uint8 len);
 
-static void upgrade_gde_fw(void);
+static void PrintGDETime(uint8* gdetm);
+static void PrintHrtbtData(uint8* hrtbtval);
+static void PrintBnchmk(uint8* bnchmk);
+
+static void upgrade_gde_fw(int iSignNo);
 static uint32 get_file_sz(FILE * fp);
 static void prep_upgrade(char * binstr);
 static void set_upgrade_alarm(char * hmstmstr);
@@ -444,7 +448,9 @@ static rfpkterr_t rfdataparse(uint8 *rfdata,uint8 len)
 		return RF_CHKSUM_ERR;
 
 	RFdestID = GET_RF_SRC_ADDR(rfdata);
-	printf("\r\nFROM ID:%d\r\n",RFdestID);
+
+	printf("\r\nFROM ID:%d, Vern: V%02x.%02x, Subtype: %d\r\n",RFdestID,rfdata[GMS_VERSION_H_POS],\
+			rfdata[GMS_VERSION_L_POS],rfdata[GMS_SUB_TYPE_POS]);
 
 	if (rfdata[GMS_ID_POS] == GDE_SRC_ID)
 	{
@@ -453,27 +459,39 @@ static rfpkterr_t rfdataparse(uint8 *rfdata,uint8 len)
 			case GDE_SUBTYPE_HRTBEAT_REQ:	// GDE heart beat recieved success
 				if (pldlen == GDE_SUBTYPE_HRTBEAT_REQ_PL_LEN)
 				{
-					httpsend(rfdata, len);
+					//httpsend(rfdata, len);
+					printf("Heart beat.\r\n");
 					break;
 				}
 			case GDE_SUBTYPE_CARINFO_REQ:	// GDE carinfo recieved success
 				if (pldlen == GDE_SUBTYPE_CARINFO_REQ_PL_LEN)
 				{
-					httpsend(rfdata, len);
+					//httpsend(rfdata, len);
+					printf("Car detected.\r\n");
 					break;
 				}
 			case GDE_SUBTYPE_TMSYN_REQ:	// Prepare time synchronizing
 				if (pldlen == GDE_SUBTYPE_TMSYN_REQ_PL_LEN)
+				{
+					printf("Time sync.\r\n");
 					break;
+				}
 			case GDE_SUBTYPE_ORDER_RESP:	// Finish order
-				if (pldlen != GDE_SUBTYPE_ORDER_RESP_PL_LEN)
+				if (pldlen == GDE_SUBTYPE_ORDER_RESP_PL_LEN)
+				{
+					printf("Finish order.\r\n");
 					break;
+				}
 			case GDE_SUBTYPE_UPGD_ACK:	// Upgrade finish state
 				if (pldlen == GDE_SUBTYPE_TMSYN_REQ_PL_LEN)
+				{
+					printf("Upgrade finish.\r\n");
 					break;
-
+				}
+				printf("Unknow payload\r\n");
 				return RF_PLD_ERR;
 			default:
+				printf("Unknow subtype\r\n");
 				return RF_SUBTYPE_UNK;
 		}
 	}
@@ -494,17 +512,18 @@ static rfpkterr_t GDEPktElmProc(uint8 subtype, uint8* pldbuf, uint8 pldlen)
 			case EID_GDE_LOC_TM:
 				if (pldbuf[elmpos+EVAL_LEN_POS] == EVLEN_GDE_LOC_TM)
 				{
+					PrintGDETime(pldbuf+elmpos+ELM_HDR_SIZE);
 					elmpos += ELM_HDR_SIZE+EVLEN_GDE_LOC_TM;
 					break;
 				}
 			case EID_GDE_HRTBT:
 				if (pldbuf[elmpos+EVAL_LEN_POS] == EVLEN_GDE_HRTBT)
 				{
-					elmpos += ELM_HDR_SIZE+EVLEN_GDE_HRTBT;
+					PrintHrtbtData(pldbuf+elmpos+ELM_HDR_SIZE);
 					switch (subtype)
 					{
 						case GDE_SUBTYPE_HRTBEAT_REQ:
-							controlGDE(pldbuf,pldlen);
+							controlGDE();
 							break;
 						case GDE_SUBTYPE_CARINFO_REQ:
 							val = MSG_SUCCESS;
@@ -513,10 +532,12 @@ static rfpkterr_t GDEPktElmProc(uint8 subtype, uint8* pldbuf, uint8 pldlen)
 						default:
 							;// do not break
 					}
+					elmpos += ELM_HDR_SIZE+EVLEN_GDE_HRTBT;
 				}
 			case EID_GDE_BENCH_INFO:
 				if (pldbuf[elmpos+EVAL_LEN_POS] == EVLEN_GDE_BENCH_INFO)
 				{
+					PrintBnchmk(pldbuf+elmpos+ELM_HDR_SIZE);
 					elmpos += ELM_HDR_SIZE+EVLEN_GDE_BENCH_INFO;
 					break;
 				}
@@ -583,18 +604,22 @@ static rfpkterr_t GDEPktElmProc(uint8 subtype, uint8* pldbuf, uint8 pldlen)
 	return RF_SUCCESS;		
 }
 
-static void controlGDE(uint8* pldbuf, uint8 pldlen)
+static void controlGDE(void)
 {
 	if (prepupgdflg == TRUE)
 	{
 		if (mnggdest[(RFdestID-1)%MAX_MNG_GDE_CNT] == FALSE)
+		{
 			formGMEpkt(GME_SUBTYPE_ORDER_UPGD_REQ, NULL, GME_SUBTYPE_ORDER_UPGD_REQ_PL_LEN);
+			printf("Send %d order upgrade...\r\n", RFdestID);
+		}
 	}
 
 	if (rstgdeid == RFdestID)
 	{
 		formGMEpkt(GME_SUBTYPE_RST_BENCH_PKT, NULL, GME_SUBTYPE_RST_BENCH_PKT_PL_LEN);
 		rstgdeid = 0;
+		printf("Reset benchmark...\r\n");
 	}	
 }
 
@@ -604,13 +629,20 @@ static void procGDEack(uint8 subtype, msgerrcd_t ecd)
 	{
 		case MSG_SUCCESS:
 			if (subtype == GDE_SUBTYPE_ORDER_RESP)
+			{
+				printf("Order %d OK.\r\n", RFdestID);
 				mnggdest[(RFdestID-1)%MAX_MNG_GDE_CNT] = TRUE;
+			}
 			else if (subtype == GDE_SUBTYPE_UPGD_ACK)
+			{
+				printf("%d upgrade OK.\r\n", RFdestID);
 				mnggdest[(RFdestID-1)%MAX_MNG_GDE_CNT] = FALSE;
+			}
 			break;
 		case IMG_TYPE_ERR:
 		case IMG_SIZE_ERR:
 		case IMG_CRC_FAIL:
+			printf("%d upgrade failed, reason %d.\r\n", RFdestID, ecd);
 			prepupgdflg = FALSE;
 			break;
 		default:
@@ -635,10 +667,10 @@ static uint8 fillupgfwinfo(uint8 *fwinfobuf)
 	fwinfobuf[ELM_HDR_SIZE+NEW_FW_VERN_NUM_H_POS] = HI_UINT16(fwvern);
 	fwinfobuf[ELM_HDR_SIZE+NEW_FW_VERN_NUM_L_POS] = LO_UINT16(fwvern);
 
-	fwinfobuf[ELM_HDR_SIZE+NEW_FW_TOT_LEN_HH_POS] = HI_UINT16((fwlen&0xFF00)>>16);
-	fwinfobuf[ELM_HDR_SIZE+NEW_FW_TOT_LEN_HL_POS] = LO_UINT16((fwlen&0xFF00)>>16);
-	fwinfobuf[ELM_HDR_SIZE+NEW_FW_TOT_LEN_LH_POS] = HI_UINT16(fwlen&0x00FF);
-	fwinfobuf[ELM_HDR_SIZE+NEW_FW_TOT_LEN_LL_POS] = LO_UINT16(fwlen&0x00FF);
+	fwinfobuf[ELM_HDR_SIZE+NEW_FW_TOT_LEN_HH_POS] = HI_UINT16(fwlen>>16);
+	fwinfobuf[ELM_HDR_SIZE+NEW_FW_TOT_LEN_HL_POS] = LO_UINT16(fwlen>>16);
+	fwinfobuf[ELM_HDR_SIZE+NEW_FW_TOT_LEN_LH_POS] = HI_UINT16(fwlen&0xFFFF);
+	fwinfobuf[ELM_HDR_SIZE+NEW_FW_TOT_LEN_LL_POS] = LO_UINT16(fwlen&0xFFFF);
 	
 	fwinfobuf[ELM_HDR_SIZE+NEW_FW_CRC_H_POS] = HI_UINT16(fwcrc);
 	fwinfobuf[ELM_HDR_SIZE+NEW_FW_CRC_L_POS] = LO_UINT16(fwcrc);
@@ -690,8 +722,6 @@ static uint8 fillGDEresp(uint8 *respbuf, uint8 *data, uint8 len)
 	return (ELM_HDR_SIZE+GMS_INFO_ACK_MSG_SIZE);
 }
 
-
-	
 static uint8 fillupgblk(uint8 *pldbuf, uint8 *data, uint8 len)
 {
 	if (len != EVLEN_GMS_UPGD)
@@ -708,7 +738,7 @@ static uint8 fillrstbench(uint8 *pldbuf)
 {
 	pldbuf[0] = EID_GDE_BENCH_INFO;
 	pldbuf[EVAL_LEN_POS] = EVLEN_GDE_BENCH_INFO;
-	memset(pldbuf, 0, EVLEN_GDE_BENCH_INFO);
+	memset(pldbuf+ELM_HDR_SIZE, 0, EVLEN_GDE_BENCH_INFO);
 
 	return (ELM_HDR_SIZE+EVLEN_GDE_BENCH_INFO);
 }
@@ -724,14 +754,14 @@ static rfpkterr_t  formGMEpkt(uint8 subtype, uint8 *data, uint8 len)
 
 	memcpy(rfbuf+GMS_RESERVE_POS, GMS_RESERVE_STR, GMS_RESERVE_SIZE);
 
-	rfbuf[GMS_SRC_ADDR_POS] = HI_UINT16(RFdevID);
-	rfbuf[GMS_SRC_ADDR_POS+1] = LO_UINT16(RFdevID);
+	rfbuf[GMS_SRC_ADDR_H_POS] = HI_UINT16(RFdevID);
+	rfbuf[GMS_SRC_ADDR_L_POS] = LO_UINT16(RFdevID);
 
-	rfbuf[GMS_DEST_ADDR_POS] = HI_UINT16(RFdestID);	// need mutex?
-	rfbuf[GMS_DEST_ADDR_POS+1] = LO_UINT16(RFdestID);
+	rfbuf[GMS_DEST_ADDR_H_POS] = HI_UINT16(RFdestID);	// need mutex?
+	rfbuf[GMS_DEST_ADDR_L_POS] = LO_UINT16(RFdestID);
 
-	rfbuf[GMS_VERSION_POS] = HI_UINT16(version);	// how to fill fist update
-	rfbuf[GMS_VERSION_POS+1] = LO_UINT16(version);
+	rfbuf[GMS_VERSION_H_POS] = HI_UINT16(version);	// how to fill fist update
+	rfbuf[GMS_VERSION_L_POS] = LO_UINT16(version);
 
 	switch(subtype)
 	{
@@ -776,7 +806,29 @@ static rfpkterr_t rfdatasend(uint8 *buf, uint8 len)
 	return RF_SUCCESS;
 }
 
-static void upgrade_gde_fw(void)
+static void PrintGDETime(uint8* gdetm)
+{
+	printf("\tRecv time %d-%02d-%02d %02d:%02d:%02d\r\n",2000+gdetm[UTCL_YEAR_POS],gdetm[UTCL_MONTH_POS],\
+			gdetm[UTCL_DAY_POS],gdetm[UTCL_HOUR_POS],gdetm[UTCL_MINTS_POS],gdetm[UTCL_SECND_POS]);
+}
+
+static void PrintHrtbtData(uint8* hrtbtval)
+{
+	printf("\tBat: %3d  Tmpr: %3d  X: %5d  Y: %5d  Z: %5d  Status: %c\r\n",\
+			hrtbtval[HRT_BT_BATT_POS],(int8)hrtbtval[HRT_BT_TMPR_POS],\
+			(int16)BUILD_UINT16(hrtbtval[HRT_BT_XVAL_L_POS], hrtbtval[HRT_BT_XVAL_H_POS]),\
+			(int16)BUILD_UINT16(hrtbtval[HRT_BT_YVAL_L_POS], hrtbtval[HRT_BT_YVAL_H_POS]),\
+			(int16)BUILD_UINT16(hrtbtval[HRT_BT_ZVAL_L_POS], hrtbtval[HRT_BT_ZVAL_H_POS]),
+			(hrtbtval[HRT_BT_STAT_POS])? 'Y': 'N');
+}
+static void PrintBnchmk(uint8* bnchmk)
+{
+	printf("\tXB: %5d  YB: %5d  ZB %5d\r\n",(int16)BUILD_UINT16(bnchmk[GDE_X_L_BCHMRK_POS],bnchmk[GDE_X_H_BCHMRK_POS]),\
+			(int16)BUILD_UINT16(bnchmk[GDE_Y_L_BCHMRK_POS],bnchmk[GDE_Y_H_BCHMRK_POS]),\
+			(int16)BUILD_UINT16(bnchmk[GDE_Z_L_BCHMRK_POS],bnchmk[GDE_Z_H_BCHMRK_POS]));
+}
+
+static void upgrade_gde_fw(int iSignNo)
 {
 	uint16 fwblk,i;
 	uint8 upgdbuf[EVLEN_GMS_UPGD];
@@ -799,12 +851,12 @@ static void upgrade_gde_fw(void)
 		printf("Write NO.%d block...\r\n",fwblk+1);
 		RFdestID = GDE_ADV_ID;
 		formGMEpkt(GME_SUBTYPE_UPGD_PKT, upgdbuf, EVLEN_GMS_UPGD);
-		usleep(100*1000);
+		usleep(150*1000);
 		RFdestID = GDE_ADV_ID;
 		formGMEpkt(GME_SUBTYPE_UPGD_PKT, upgdbuf, EVLEN_GMS_UPGD);
-		usleep(100*1000);
+		usleep(150*1000);
 	}
-	printf("Upgrade finish!\r\n");
+	printf("Firmware send finish!\r\n");
 	fclose(binfp);
 }
 
@@ -826,7 +878,7 @@ static void prep_upgrade(char* binstr)
 	binfstr = binstr;
 	if ((binfp=fopen(binfstr,"rb")) == NULL)
 	{
-		perror("upgrade bin file open failed");
+		perror("Open bin file failed");
 		exit(1);
 	}
 	len = get_file_sz(binfp);
@@ -841,7 +893,8 @@ static void prep_upgrade(char* binstr)
 
 	if (fwvern!=0 && fwcrc!= 0 && fwlen!=0 && fwtotblk!=0 && fwlen%64==0 && len!=fwlen)
 	{
-		printf("Prepare order GDE upgrade.\r\n");
+		printf("Firmware version: V%02x.%02x, length: %dBytes, CRC: 0x%04x, blocks: %d.\r\n",\
+				HI_UINT16(fwvern),LO_UINT16(fwvern), fwlen, fwcrc, fwtotblk);
 		prepupgdflg = TRUE;
 		memset(mnggdest,0,sizeof(mnggdest));
 	}

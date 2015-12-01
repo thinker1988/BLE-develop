@@ -12,18 +12,20 @@ extern "C"
 #endif
 
 #define GET_RF_SRC_ADDR(rfbuf)	\
-	(BUILD_UINT16(rfbuf[GMS_SRC_ADDR_POS+1],rfbuf[GMS_SRC_ADDR_POS]))
+	(BUILD_UINT16(rfbuf[GMS_SRC_ADDR_L_POS],rfbuf[GMS_SRC_ADDR_H_POS]))
 
 #define GET_RF_DEST_ADDR(rfbuf)	\
-	(BUILD_UINT16(rfbuf[GMS_DEST_ADDR_POS+1],rfbuf[GMS_DEST_ADDR_POS]))
+	(BUILD_UINT16(rfbuf[GMS_DEST_ADDR_L_POS],rfbuf[GMS_DEST_ADDR_H_POS]))
 
+#define GET_PKT_VERN_NUM(rfbuf)	\
+	(BUILD_UINT16(rfbuf[GMS_VERSION_L_POS],rfbuf[GMS_VERSION_H_POS]))
 
 /********************************************************************************
 | ID | Tot len | Sub type | reserved | chk sum | src ID | dest ID | version |     payload    |
 | 1  |    1      |        1      |     2       |      1      |     2   |     2      |      2     |    128-12     |
 */
 /****************RF ID*******************/
-#define GMS_ID_POS		0
+#define GMS_ID_POS		0		// 0
 #define GMS_ID_SIZE		1
 
 #define GME_SRC_ID		0xC8
@@ -31,13 +33,13 @@ extern "C"
 #define GTE_SRC_ID		0x66
 
 /**************total length*******************/
-#define GMS_TOT_LEN_POS		(GMS_ID_POS+GMS_ID_SIZE)	//0+1
+#define GMS_TOT_LEN_POS		(GMS_ID_POS+GMS_ID_SIZE)	// 1
 #define GMS_TOT_LEN_SIZE	1
 
-#define GMS_PKT_MAX_LEN	128
+#define GMS_PKT_MAX_LEN		128
 
 /**************sub type*******************/
-#define GMS_SUB_TYPE_POS	(GMS_TOT_LEN_POS+GMS_TOT_LEN_SIZE)
+#define GMS_SUB_TYPE_POS	(GMS_TOT_LEN_POS+GMS_TOT_LEN_SIZE)	// 2
 #define GMS_SUB_TYPE_SIZE	1
 
 // Direction: GME==>GDE
@@ -46,6 +48,7 @@ extern "C"
 #define GME_SUBTYPE_TMSYN_RESP		3	// ELE 8
 #define GME_SUBTYPE_UPGD_PKT		4	// ELE 11
 #define GME_SUBTYPE_RST_BENCH_PKT	5	// ELE 3
+#define GME_SUBTYPE_CHNG_ID_PKT		6	// ELE 12
 
 // Direction: GDE==>GME
 #define GDE_SUBTYPE_HRTBEAT_REQ		21	// ELE 1+2
@@ -72,21 +75,27 @@ extern "C"
 
 
 /**************reserved*******************/
-#define GMS_RESERVE_POS		(GMS_SUB_TYPE_POS+GMS_SUB_TYPE_SIZE)
-#define GMS_RESERVE_SIZE	2
-#define GMS_RESERVE_STR		"RF"
+#define GMS_RESERVE_POS			(GMS_SUB_TYPE_POS+GMS_SUB_TYPE_SIZE)	// 4
+#define GMS_RESERVE_SIZE		2
+#define GMS_RESERVE_STR			"RF"
 
 /************XOR checksum****************/
-#define GMS_CHK_SUM_POS		(GMS_RESERVE_POS+GMS_RESERVE_SIZE)
-#define GMS_CHK_SUM_SIZE	1
+#define GMS_CHK_SUM_POS			(GMS_RESERVE_POS+GMS_RESERVE_SIZE)	// 5
+#define GMS_CHK_SUM_SIZE		1
 
 /**************source address*****************/
-#define GMS_SRC_ADDR_POS	(GMS_CHK_SUM_POS+GMS_CHK_SUM_SIZE)	//5+1
-#define GMS_SRC_ADDR_SIZE	2
+#define GMS_SRC_ADDR_H_POS		(GMS_CHK_SUM_POS+GMS_CHK_SUM_SIZE)	// 6
+#define GMS_SRC_ADDR_H_SIZE		1
+#define GMS_SRC_ADDR_L_POS		(GMS_SRC_ADDR_H_POS+GMS_SRC_ADDR_H_SIZE)	// 7
+#define GMS_SRC_ADDR_L_SIZE		1
+
 
 /**************destination address*****************/
-#define GMS_DEST_ADDR_POS	(GMS_SRC_ADDR_POS+GMS_SRC_ADDR_SIZE)	//6+2
-#define GMS_DEST_ADDR_SIZE	2
+#define GMS_DEST_ADDR_H_POS		(GMS_SRC_ADDR_L_POS+GMS_SRC_ADDR_L_SIZE)	// 8
+#define GMS_DEST_ADDR_H_SIZE	1
+#define GMS_DEST_ADDR_L_POS		(GMS_DEST_ADDR_H_POS+GMS_DEST_ADDR_H_SIZE)	// 9
+#define GMS_DEST_ADDR_L_SIZE	1
+
 
 // Special address in GMS
 #define GDE_ADV_ID		7999
@@ -95,13 +104,16 @@ extern "C"
 
 
 /**************version number****************/
-#define GMS_VERSION_POS		(GMS_DEST_ADDR_POS+GMS_DEST_ADDR_SIZE)	//8+2
-#define GMS_VERSION_SIZE	2
+#define GMS_VERSION_H_POS		(GMS_DEST_ADDR_L_POS+GMS_DEST_ADDR_L_SIZE)	// 10
+#define GMS_VERSION_H_SIZE		1
+#define GMS_VERSION_L_POS		(GMS_VERSION_H_POS+GMS_VERSION_H_SIZE)	// 11
+#define GMS_VERSION_L_SIZE		1
+
 
 /**************packet header*****************/
-#define GMS_PKT_HDR_SIZE	(GMS_VERSION_POS+GMS_VERSION_SIZE)	//12
-#define GMS_PKT_PLD_MAX_LEN	(GMS_PKT_MAX_LEN-GMS_PKT_HDR_SIZE)	//128-12
-#define GMS_PKT_PAYLOAD_POS	GMS_PKT_HDR_SIZE	//12
+#define GMS_PKT_HDR_SIZE		(GMS_VERSION_L_POS+GMS_VERSION_L_SIZE)	// 12
+#define GMS_PKT_PLD_MAX_LEN		(GMS_PKT_MAX_LEN-GMS_PKT_HDR_SIZE)	// 128-12
+#define GMS_PKT_PAYLOAD_POS		GMS_PKT_HDR_SIZE	// 12
 
 /**********payload length of subtypes***********/
 #define GME_SUBTYPE_ORDER_UPGD_REQ_PL_LEN	(ELM_HDR_SIZE*3+EVLEN_GMS_RF_FREQ+EVLEN_GME_NT_TM+EVLEN_GMS_FW_INFO)// ELE 6+8+9
@@ -109,9 +121,10 @@ extern "C"
 #define GME_SUBTYPE_TMSYN_RESP_PL_LEN		(ELM_HDR_SIZE+EVLEN_GME_NT_TM)	// ELE 8
 #define GME_SUBTYPE_UPGD_PKT_PL_LEN			(ELM_HDR_SIZE+EVLEN_GMS_UPGD)	// ELE 11
 #define GME_SUBTYPE_RST_BENCH_PKT_PL_LEN	(ELM_HDR_SIZE+EVLEN_GDE_BENCH_INFO)	// ELE 3
+#define GME_SUBTYPE_CHNG_ID_PKT_PL_LEN		(ELM_HDR_SIZE+EVLEN_GDE_BENCH_INFO)	// ELE 3
 
 #define GDE_SUBTYPE_HRTBEAT_REQ_PL_LEN		(ELM_HDR_SIZE*2+EVLEN_GDE_LOC_TM+EVLEN_GDE_HRTBT)	// ELE 1+2
-#define GDE_SUBTYPE_CARINFO_REQ_PL_LEN		(ELM_HDR_SIZE*3+EVLEN_GDE_LOC_TM+EVLEN_GDE_HRTBT)	// ELE 1+2+3
+#define GDE_SUBTYPE_CARINFO_REQ_PL_LEN		(ELM_HDR_SIZE*3+EVLEN_GDE_LOC_TM+EVLEN_GDE_HRTBT+EVLEN_GDE_BENCH_INFO)	// ELE 1+2+3
 #define GDE_SUBTYPE_TMSYN_REQ_PL_LEN		(ELM_HDR_SIZE+EVLEN_GDE_TMSYN)	// ELE 7
 #define GDE_SUBTYPE_ORDER_RESP_PL_LEN		(ELM_HDR_SIZE*2+EVLEN_GMS_RF_FREQ+EVLEN_GMS_INFO_ACK)	// ELE 6+4
 #define GDE_SUBTYPE_UPGD_ACK_PL_LEN			(ELM_HDR_SIZE+EVLEN_GMS_INFO_ACK)	// ELE 4
@@ -150,7 +163,7 @@ extern "C"
 #define EID_GMS_FW_INFO		9
 #define EID_GTE_READ		10
 #define EID_GMS_UPGD		11
-
+#define EID_CHNG_ID			12
 
 /**************element length of different ID*****************/
 // EID = 1
@@ -162,7 +175,7 @@ extern "C"
 // EID = 4
 #define EVLEN_GMS_INFO_ACK	(GMS_INFO_ACK_MSG_POS+GMS_INFO_ACK_MSG_SIZE)	// 1
 // EID = 5
-#define EVLEN_GDE_PARAMS	(ST_GME_ADDR_L_POS+ST_GME_ADDR_L_SIZE)	// 13
+#define EVLEN_GDE_PARAMS	(ST_GM_STATUS_POS+ST_GM_STATUS_SIZE)	// 9
 // EID = 6
 #define EVLEN_GMS_RF_FREQ	(GMS_RF_FREQ_MSG_POS+GMS_RF_FREQ_MSG_SIZE)	// 1
 // EID = 7
@@ -175,6 +188,8 @@ extern "C"
 #define EVLEN_GTE_READ		(GTE_RD_REQ_MSG_POS+GTE_RD_REQ_MSG_SIZE)	// 1
 // EID = 11
 #define EVLEN_GMS_UPGD		(RF_OAD_BLOCK_BEG_POS+RF_OAD_BLOCK_SIZE)	// 66
+// EID = 12
+#define EVLEN_CHNG_ID		(CHNG_VERN_NUM_L_POS+CHNG_VERN_NUM_L_SIZE)	// 6
 
 
 /**************element value content length*****************/
@@ -280,15 +295,6 @@ extern "C"
 #define ST_GM_STATUS_POS		(ST_GM_BENCH_ALG_POS+ST_GM_BENCH_ALG_SIZE)	// 8
 #define ST_GM_STATUS_SIZE		1
 
-#define ST_GDE_ADDR_H_POS		(ST_GM_STATUS_POS+ST_GM_STATUS_SIZE) 	// 9
-#define ST_GDE_ADDR_H_SIZE		1
-#define ST_GDE_ADDR_L_POS		(ST_GDE_ADDR_H_POS+ST_GDE_ADDR_H_SIZE)	// 10
-#define ST_GDE_ADDR_L_SIZE		1
-
-#define ST_GME_ADDR_H_POS		(ST_GDE_ADDR_L_POS+ST_GDE_ADDR_L_SIZE)	// 11
-#define ST_GME_ADDR_H_SIZE		1
-#define ST_GME_ADDR_L_POS		(ST_GME_ADDR_H_POS+ST_GME_ADDR_H_SIZE)	// 12
-#define ST_GME_ADDR_L_SIZE		1
 
 
 // GDE answer set command element position define
@@ -356,18 +362,34 @@ extern "C"
 #define RF_OAD_BLOCK_BEG_POS	(NEW_FW_CUR_BLK_L_POS+NEW_FW_CUR_BLK_L_SIZE)	// 2
 #define RF_OAD_BLOCK_SIZE		64
 
+// GME reset GDE version define
+// Element ID = 12, Len = EVLEN_CHNG_ID
+#define CHNG_GDE_ADDR_H_POS		0 	// 0
+#define CHNG_GDE_ADDR_H_SIZE	1
+#define CHNG_GDE_ADDR_L_POS		(CHNG_GDE_ADDR_H_POS+CHNG_GDE_ADDR_H_SIZE)	// 1
+#define CHNG_GDE_ADDR_L_SIZE	1
+
+#define CHNG_GME_ADDR_H_POS		(CHNG_GDE_ADDR_L_POS+CHNG_GDE_ADDR_L_SIZE)	// 2
+#define CHNG_GME_ADDR_H_SIZE	1
+#define CHNG_GME_ADDR_L_POS		(CHNG_GME_ADDR_H_POS+CHNG_GME_ADDR_H_SIZE)	// 3
+#define CHNG_GME_ADDR_L_SIZE		1
+
+#define CHNG_VERN_NUM_H_POS		(CHNG_GME_ADDR_L_POS+CHNG_GME_ADDR_L_SIZE)	// 4
+#define CHNG_VERN_NUM_H_SIZE	1
+#define CHNG_VERN_NUM_L_POS		(CHNG_VERN_NUM_H_POS+CHNG_VERN_NUM_H_SIZE)	// 5
+#define CHNG_VERN_NUM_L_SIZE	1
 
 
 typedef enum rfpkterr
 {
-	RF_SUCCESS,	// 0
-	RF_NOT_GMS,	// Not GMS packet ID or reserved value
-	RF_PKTLEN_ERR,	// Packet length error or not fully recieved
-	RF_SUBTYPE_UNK,	// Unknow subtype
-	RF_CHKSUM_ERR,	// Checksum error
-	RF_ADDR_DENY,	// Not expected address(i.e. device ID or adv ID)
-	RF_EID_UNK,	// Unknow element ID
-	RF_PLD_ERR	// Payload length or value error
+	RF_SUCCESS,	// 0 - Success
+	RF_NOT_GMS,	// 1 - Not GMS packet ID or reserved value
+	RF_PKTLEN_ERR,	// 2 - Packet length error or not fully recieved
+	RF_SUBTYPE_UNK,	// 3 - Unknow subtype
+	RF_CHKSUM_ERR,	// 4 - Checksum error
+	RF_ADDR_DENY,	// 5 - Not expected address(i.e. device ID or adv ID)
+	RF_EID_UNK,	// 6 - Unknow element ID
+	RF_PLD_ERR	// 7 - Payload length or value error
 }rfpkterr_t;
 
 typedef enum msgerrcd

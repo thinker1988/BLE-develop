@@ -72,7 +72,7 @@
 ::   contact Texas Instruments Incorporated at www.TI.com.
 :: **********************************************************************************************/
 
-@echo on
+@echo off
 %~d1
 chdir %1\..\..\common\cc2540
 start cc254x_ubl_pp.js %2 %3 %4 %5 %6

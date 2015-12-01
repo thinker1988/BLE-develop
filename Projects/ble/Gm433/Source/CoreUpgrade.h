@@ -13,14 +13,14 @@ extern "C"
 #if ( defined GM_IMAGE_A )
 
 #define RF_OAD_IMAGE_USER_ID	{ 'I', 'M', 'G', 'A' }
-#if (VERSION_NUMBER & 0x01 != 0 )
+#if ((VERSION_NUMBER & 0x01) != 0 )
 	#error "Image make error, odd version number please use image B project."
 #endif	// VESION_NUMBER is odd
 
 #elif ( defined GM_IMAGE_B )	// GM_IMAGE_B
 
 #define RF_OAD_IMAGE_USER_ID	{ 'I', 'M', 'G', 'B' }
-#if (VERSION_NUMBER & 0x01 == 0 )
+#if ((VERSION_NUMBER & 0x01) == 0 )
 	#error "Image make error, even version number please use image A project."
 #endif	// VESION_NUMBER is even
 
@@ -103,7 +103,7 @@ extern uint8 StoreSetting(uint8 NvId);
 extern void ReadSysSetting(void);
 extern bool ReadGMSetting(int16* tmpxbm, int16* tmpybm, int16* tmpzbm);
 extern void PrepareUpgrade(uint8 subtype, uint8* upgpkt, uint8 len);
-extern bool UpgdFinState(void);
+extern void ReportUpgdState(void);
 
 extern void SetPrepUpgdState(bool state);
 extern bool GetPrepUpgdState(void);

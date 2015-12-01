@@ -56,18 +56,15 @@
 #define SBL_FORCE_BOOT						0xF8
 #define SBL_FORCE_RUN						(SBL_FORCE_BOOT ^ 0xFF)
 
-
-// FLASH 256k = 128 pages, includes 125~126 NV 2 pages and 127 1 non erasable page, total available pages is 125 (0~124)
-#define TOTAL_AVAIL_PAGE					125-13-16
-
 #define BIM_IMG_A_PAGE						2
 #define BIM_IMG_A_AREA						32
 
 #define BIM_IMG_B_PAGE						8
-#define BIM_IMG_B_AREA						32//(TOTAL_AVAIL_PAGE-BIM_IMG_A_PAGE-BIM_IMG_A_AREA)
+#define BIM_IMG_B_AREA						32
 
 #define BIM_CRC_OSET						0x00
 #define BIM_HDR_OSET						0x00
+#define BIM_VERN_OSET						0x04
 
 #define IMG_B_BEG_FLASH_ADDR				(uint16)(BIM_IMG_B_PAGE*HAL_FLASH_PAGE_SIZE/HAL_FLASH_WORD_SIZE)
 
@@ -85,7 +82,7 @@ enum
 
 uint8 sbl_Poll(void);
 
-void UARTWriteBuf(uint8 *pBuffer, uint16 length);
+void BLWriteBuf(uint8 *pBuffer, uint16 length);
 
 
 //void load_img(uint8 img_choice);

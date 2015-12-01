@@ -189,7 +189,8 @@ void GMSPktForm(uint8 *rawbuf, uint8 rawlen)
 #endif	// GME_WORKING
 
 #if ( defined ALLOW_DEBUG_OUTPUT )
-					Com433WriteInt(COM433_DEBUG_PORT, "\r\nRF",tmp,10);
+					if (tmp != RF_SUCCESS)
+						Com433WriteInt(COM433_DEBUG_PORT, "\r\nRF",tmp,10);
 #else	// !ALLOW_DEBUG_OUTPUT
 					VOID tmp;
 #endif	// ALLOW_DEBUG_OUTPUT
@@ -324,14 +325,14 @@ rfpkterr_t RFDataForm(uint8 subtype, uint8 *data, uint8 datalen)
 
 	osal_memcpy(rfbuf+GMS_RESERVE_POS, GMS_RESERVE_STR, GMS_RESERVE_SIZE);
 
-	rfbuf[GMS_SRC_ADDR_POS] = HI_UINT16(RFdevID);
-	rfbuf[GMS_SRC_ADDR_POS+1] = LO_UINT16(RFdevID);
+	rfbuf[GMS_SRC_ADDR_H_POS] = HI_UINT16(RFdevID);
+	rfbuf[GMS_SRC_ADDR_L_POS] = LO_UINT16(RFdevID);
 
-	rfbuf[GMS_DEST_ADDR_POS] = HI_UINT16(RFdestID);	// need mutex?
-	rfbuf[GMS_DEST_ADDR_POS+1] = LO_UINT16(RFdestID);
+	rfbuf[GMS_DEST_ADDR_H_POS] = HI_UINT16(RFdestID);	// need mutex?
+	rfbuf[GMS_DEST_ADDR_L_POS] = LO_UINT16(RFdestID);
 
-	rfbuf[GMS_VERSION_POS] = HI_UINT16(version);	// how to fill fist update
-	rfbuf[GMS_VERSION_POS+1] = LO_UINT16(version);
+	rfbuf[GMS_VERSION_H_POS] = HI_UINT16(version);	// how to fill fist update
+	rfbuf[GMS_VERSION_L_POS] = LO_UINT16(version);
 
 	switch(subtype)
 	{
@@ -460,6 +461,7 @@ static rfpkterr_t ParseElmInfo(uint8 subtype,uint8 *pldbuf,  uint8 pldlen)
 					// Synchronizing time
 					SyncTMResp(pldbuf+elmpos+ELM_HDR_SIZE,EVLEN_GME_NT_TM);
 					elmpos += ELM_HDR_SIZE+EVLEN_GME_NT_TM;
+					Com433WriteStr(COM433_DEBUG_PORT, "\r\nTime sync ok");
 					break;
 				}
 			case EID_GMS_FW_INFO:
@@ -764,11 +766,11 @@ static void ReadGDEParam(uint8* readreq, uint8 len)
  */
 static void ReadIDParam(uint8 *rdbuf)
 {
-	rdbuf[ST_GDE_ADDR_H_POS] = HI_UINT16(RFGDEID);
-	rdbuf[ST_GDE_ADDR_L_POS] = LO_UINT16(RFGDEID);
+	rdbuf[CHNG_GDE_ADDR_H_POS] = HI_UINT16(RFGDEID);
+	rdbuf[CHNG_GDE_ADDR_L_POS] = LO_UINT16(RFGDEID);
 
-	rdbuf[ST_GME_ADDR_H_POS] = HI_UINT16(RFGMEID);
-	rdbuf[ST_GME_ADDR_L_POS] = LO_UINT16(RFGMEID);
+	rdbuf[CHNG_GME_ADDR_H_POS] = HI_UINT16(RFGMEID);
+	rdbuf[CHNG_GME_ADDR_L_POS] = LO_UINT16(RFGMEID);
 }
 
 /*********************************************************************
@@ -792,8 +794,8 @@ static bool SetGDEParam(uint8 *setdata, uint8 len)
 			setdata[ST_RF_AIR_BAUD_POS],setdata[ST_RF_PWR_LVL_POS]);
 	flag &= SetGMParam(setdata[ST_GM_HB_FREQ_POS],setdata[ST_GM_DTCT_SENS_POS],setdata[ST_GM_BENCH_ALG_POS],\
 			setdata[ST_GM_STATUS_POS]);
-	flag &= SetIDParam(BUILD_UINT16(setdata[ST_GDE_ADDR_L_POS],setdata[ST_GDE_ADDR_H_POS]),\
-			BUILD_UINT16(setdata[ST_GME_ADDR_L_POS],setdata[ST_GME_ADDR_H_POS]));
+	flag &= SetIDParam(BUILD_UINT16(setdata[CHNG_GDE_ADDR_L_POS],setdata[CHNG_GDE_ADDR_H_POS]),\
+			BUILD_UINT16(setdata[CHNG_GME_ADDR_L_POS],setdata[CHNG_GME_ADDR_H_POS]));
 
 	RFDataForm(GDE_SUBTYPE_T_SET_RESP, &flag, sizeof(flag));
 	//RF_working(BLECore_TaskId, GetRFstate());

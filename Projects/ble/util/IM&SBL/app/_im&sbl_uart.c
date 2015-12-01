@@ -189,8 +189,8 @@ static void uart_Init(void)
 
 	// set UxBAUD UxGCR, means HAL_UART_BR_115200
 	// baud_rate = (256+UxBAUD)*2^UxGCR/2^28*32M	~~115200
-	UxBAUD = 216;
-	UxGCR = 11;
+	//UxBAUD = 216;	UxGCR = 11;		115200
+	UxBAUD = 59;UxGCR=8;
 
 	UxUCR = UCR_STOP;
 	UxCSR = (CSR_MODE | CSR_RE);
@@ -268,13 +268,13 @@ static void sbl_Run(void)
  */
 static uint8 sbl_input_Wait(void)
 {
-	uint8 ch=0;
+	//uint8 ch=0;
 	uint32 delay=0;
 
-//	1000000=40s 200000=5s
+	// 1000000=40s  200000=5s  100000=2.5s
 	for (delay = 0; delay < 0x100000; delay++)
 	{
-		if (UxCSR & CSR_RX_BYTE)
+/*		if (UxCSR & CSR_RX_BYTE)
 		{
 			ch = UxDBUF;
 
@@ -286,25 +286,25 @@ static uint8 sbl_input_Wait(void)
 			{
 				return FALSE;
 			}
-		}
+		}*/
 	}
 
 	return FALSE;
 }
 
-void UARTWriteBuf(uint8 *pBuffer, uint16 length)
+void BLWriteBuf(uint8 *pBuffer, uint16 length)
 {
 	pTxBuf = pBuffer;
 	txLen = length;
-	txIdx = 1;
+	txIdx = 0;
 	UxCSR &= ~CSR_TX_BYTE;
 	UxDBUF = *pBuffer;
 
-	while (txLen != 0)
+	do
 	{
 		if (UxCSR & CSR_TX_BYTE)
 		{
-			if (txIdx++ == txLen)
+			if (++txIdx >= txLen)
 			{
 				txLen = 0;
 			}
@@ -315,6 +315,7 @@ void UARTWriteBuf(uint8 *pBuffer, uint16 length)
 			}
 		}
 	}
+	while (txLen != 0);
 }
 
 

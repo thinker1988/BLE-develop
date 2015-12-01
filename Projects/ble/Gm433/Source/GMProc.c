@@ -162,8 +162,10 @@ static void set_time_sync(void);
 static void set_heart_beat(void);
 static void set_data_change(void);
 
-static void GetDevPowerPrcnt(void);
+
 static int8 GM_dev_get_tmpr(void);
+static void GetDevPowerPrcnt(void);
+static uint8 CalcBatteryPercent(void);
 
 static bool GM_read_reg(uint8 addr,uint8 * pBuf,uint8 nBytes);
 static bool GM_write_reg(uint8 addr, uint8 *pBuf, uint8 nBytes);
@@ -796,6 +798,37 @@ static void GetDevPowerPrcnt()
 }
 
 /*********************************************************************
+ * @fn		CalcBatteryPercent
+ *
+ * @brief	get battery percent
+ *
+ * @param	none
+ *
+ * @return	battery percent
+ */
+static uint8 CalcBatteryPercent(void)
+{
+	uint16 adc;
+	uint8 percent;
+
+	// Configure ADC and perform a read
+	HalAdcSetReference( HAL_ADC_REF_125V );
+	
+	adc = HalAdcRead( HAL_ADC_CHN_AIN0,HAL_ADC_RESOLUTION_12);
+
+	if (adc >= BATT_ADC_VAL_MAX)
+		percent = 100;
+	else if (adc <=	BATT_ADC_VAL_MIN)
+		percent = 0;
+	else
+		// make sure the calculation will not overflow
+		percent = (uint8) (((adc-BATT_ADC_VAL_MIN) * 100) / (BATT_ADC_VAL_MAX-BATT_ADC_VAL_MIN));
+
+	return percent;
+}
+
+
+/*********************************************************************
  * @fn		set_time_sync
  *
  * @brief	Send time synchronization request.
@@ -1245,33 +1278,4 @@ static int16 CalcWeight(int16 *buf, uint8 len, uint8 bound)
 }
 
 
-/*********************************************************************
- * @fn		CalcBatteryPercent
- *
- * @brief	get battery percent
- *
- * @param	none
- *
- * @return	battery percent
- */
-static uint8 CalcBatteryPercent(void)
-{
-	uint16 adc;
-	uint8 percent;
-
-	// Configure ADC and perform a read
-	HalAdcSetReference( HAL_ADC_REF_125V );
-	
-	adc = HalAdcRead( HAL_ADC_CHN_AIN0,HAL_ADC_RESOLUTION_12);
-
-	if (adc >= BATT_ADC_VAL_MAX)
-		percent = 100;
-	else if (adc <=	BATT_ADC_VAL_MIN)
-		percent = 0;
-	else
-		// make sure the calculation will not overflow
-		percent = (uint8) (((adc-BATT_ADC_VAL_MIN) * 100) / (BATT_ADC_VAL_MAX-BATT_ADC_VAL_MIN));
-
-	return percent;
-}
 

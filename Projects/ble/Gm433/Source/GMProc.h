@@ -177,6 +177,7 @@ extern void ClearDataResend(void);
 extern void ReadGMParam(uint8 * rdbuf);
 extern bool SetGMParam(uint8 hrtbtmin, uint8 dtval, uint8 alg, uint8 status);
 
+
 #ifdef  __cplusplus
 }
 #endif

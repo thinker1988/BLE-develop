@@ -12,10 +12,12 @@
 #include "osal_snv.h"
 #include "OSAL_Clock.h"
 
+#include "Com433.h"
 #include "BLECore.h"
 #include "GMProc.h"
 #include "Pktfmt.h"
 #include "CoreUpgrade.h"
+#include "RFProc.h"
 
 /*********************************************************************
  * CONSTANTS
@@ -53,6 +55,8 @@ extern int16 Xbenchmk,Ybenchmk,Zbenchmk;
  */
 static bool prepupgrd = FALSE;
 static bool upgdfin = FALSE;
+static msgerrcd_t upgdret=MSG_SUCCESS;
+static uint8 upgdsrcgte=FALSE;
 
 static uint16 oadodrvrn, oadodrfwcrc, oadodrtotblk, oadcurblknum = 0;
 static uint32 oadodrfwlen;
@@ -151,34 +155,50 @@ void PrepareUpgrade(uint8 subtype, uint8* upgpkt, uint8 len)
 		return;
 
 #if ( defined GM_IMAGE_A ) || ( defined GM_IMAGE_B )
-	msgerrcd_t retcd = MSG_SUCCESS;
-
 	oadodrvrn = BUILD_UINT16(upgpkt[NEW_FW_VERN_NUM_L_POS],upgpkt[NEW_FW_VERN_NUM_H_POS]);
 	oadodrfwlen = BUILD_UINT32(upgpkt[NEW_FW_TOT_LEN_LL_POS], upgpkt[NEW_FW_TOT_LEN_LH_POS],\
 			upgpkt[NEW_FW_TOT_LEN_HL_POS], upgpkt[NEW_FW_TOT_LEN_HH_POS]);
 	oadodrfwcrc = BUILD_UINT16(upgpkt[NEW_FW_CRC_L_POS],upgpkt[NEW_FW_CRC_H_POS]);
 	oadodrtotblk = BUILD_UINT16(upgpkt[NEW_FW_TOT_BLK_L_POS],upgpkt[NEW_FW_TOT_BLK_H_POS]);
 
-	do
+	if (RF_OAD_IMG_ID(oadodrvrn) == RF_OAD_IMG_ID(version) )
 	{
-		if (RF_OAD_IMG_ID(oadodrvrn) == RF_OAD_IMG_ID(version) )
-		{
-			retcd = IMG_TYPE_ERR;
-			break;
-		}
-		if (oadodrfwlen != ((uint32)oadodrtotblk*RF_OAD_BLOCK_SIZE))
-		{
-			retcd = IMG_SIZE_ERR;
-			break;
-		}
+		upgdret = IMG_TYPE_ERR;
+
+#if ( defined ALLOW_DEBUG_OUTPUT )
+		Com433WriteStr(COM433_DEBUG_PORT, "\r\nError image type.");
+#endif	// ALLOW_DEBUG_OUTPUT
+	}
+	else if (oadodrfwlen != ((uint32)oadodrtotblk*RF_OAD_BLOCK_SIZE))
+	{
+		upgdret = IMG_SIZE_ERR;
+
+#if ( defined ALLOW_DEBUG_OUTPUT )
+		Com433WriteInt(COM433_DEBUG_PORT, "\r\nError firmware len:", oadodrtotblk, 10);
+#endif	// ALLOW_DEBUG_OUTPUT	
+	}
+	else
+	{
+		upgdret = MSG_SUCCESS;
+		prepupgrd = TRUE;
 		set_fw_upgd_tick_alarm(upgpkt[NEW_FW_UPGD_HOUR_POS],upgpkt[NEW_FW_UPGD_MINTS_POS],\
 				upgpkt[NEW_FW_UPGD_SECND_POS]);
-	}while(0);
+
+#if ( defined ALLOW_DEBUG_OUTPUT )
+		Com433WriteInt(COM433_DEBUG_PORT, "\r\nOrder left read count:",ordrcnt,10);
+#endif	// ALLOW_DEBUG_OUTPUT
+	}
 
 	if (subtype == GME_SUBTYPE_ORDER_UPGD_REQ)
-		RFDataForm(GDE_SUBTYPE_ORDER_RESP, (uint8 *)&retcd, sizeof(uint8));
+	{
+		upgdsrcgte = FALSE;
+		RFDataForm(GDE_SUBTYPE_ORDER_RESP, (uint8 *)&upgdret, sizeof(uint8));
+	}
 	else if (subtype == GTE_SUBTYPE_ORDER_UPGD_REQ)
-		RFDataForm(GDE_SUBTYPE_T_ORDER_RESP, (uint8 *)&retcd, sizeof(uint8));
+	{
+		upgdsrcgte = TRUE;
+		RFDataForm(GDE_SUBTYPE_T_ORDER_RESP, (uint8 *)&upgdret, sizeof(uint8));
+	}
 #endif
 }
 
@@ -186,8 +206,6 @@ static void set_fw_upgd_tick_alarm(uint8 alrmhh, uint8 alrmmm, uint8 alrmss)
 {
 	UTCTimeStruct curtmst;
 	uint32 totscnd;
-
-	SetPrepUpgdState(TRUE);
 
 	// Prepare upgrade right now if 00:00:00
 	if (alrmhh==0 && alrmmm==0 && alrmss==0)
@@ -224,11 +242,19 @@ bool GetPrepUpgdState(void)
 	return prepupgrd;
 }
 
-bool UpgdFinState(void)
+void ReportUpgdState(void)
 {
-	return upgdfin;
-}
+	if ( upgdsrcgte == FALSE )
+		RFDataForm(GDE_SUBTYPE_UPGD_ACK, (uint8*)&upgdret, sizeof(uint8));
+	else
+		RFDataForm(GDE_SUBTYPE_T_UPGD_ACK, (uint8*)&upgdret, sizeof(uint8));
 
+	if (upgdfin == TRUE)
+	{	
+		while (GetRTxRdyFlg() == FALSE);
+		HAL_SYSTEM_RESET();
+	}
+}
 
 /*********************************************************************
  * @fn		RFOadImgBlockWrite
@@ -242,7 +268,6 @@ bool UpgdFinState(void)
  */
 void RFOadImgBlockWrite(uint8 subtype, uint8 *pValue, uint8 len )
 {
-	msgerrcd_t ret=MSG_SUCCESS;
 	uint16 blkNum = BUILD_UINT16( pValue[NEW_FW_CUR_BLK_L_POS], pValue[NEW_FW_CUR_BLK_H_POS] );
 
 	// make sure this is the image we're expecting
@@ -255,26 +280,21 @@ void RFOadImgBlockWrite(uint8 subtype, uint8 *pValue, uint8 len )
 		osal_memcpy((uint8 *)&ImgHdr, pValue+RF_OAD_BLOCK_BEG_POS+RF_OAD_IMG_HDR_OSET,sizeof(oad_img_hdr_t));
 
 		if ( oadodrvrn != ImgHdr.ver )
-		{
-			ret = IMG_TYPE_ERR;
-		}
+			upgdret = IMG_TYPE_ERR;
+
 		if ( oadcurblknum != blkNum  || oadodrfwcrc != fwcrc || oadodrtotblk != \
 				ImgHdr.len/(RF_OAD_BLOCK_SIZE/HAL_FLASH_WORD_SIZE))
-		{
-			ret = IMG_SIZE_ERR;
-		}
-		if (ret != MSG_SUCCESS)
-		{
-			if ( subtype == GME_SUBTYPE_UPGD_PKT )
-				RFDataForm(GDE_SUBTYPE_UPGD_ACK, (uint8*)&ret, sizeof(uint8));
-			else if (subtype == GTE_SUBTYPE_UPGD_PKT)
-				RFDataForm(GDE_SUBTYPE_T_UPGD_ACK, (uint8*)&ret, sizeof(uint8));
-			osal_start_timerEx(BLECore_TaskId, BLE_SYS_WORKING_EVT, IDLE_PWR_HOLD_PERIOD);
-		}
+			upgdret = IMG_SIZE_ERR;
+
+		if (upgdret != MSG_SUCCESS)
+			osal_start_timerEx(BLECore_TaskId, BLE_SYS_WORKING_EVT, \
+					IDLE_PWR_HOLD_PERIOD+c_rand()*SEC_IN_MIN/MAX_RANDOM_SECONDS);
 	}
 
 	if (oadcurblknum == blkNum)
 	{
+		Com433WriteInt(COM433_DEBUG_PORT, "\r\nN:",blkNum,10);
+
 		uint16 addr = oadcurblknum * (RF_OAD_BLOCK_SIZE / HAL_FLASH_WORD_SIZE) + \
 								(RF_OAD_IMG_DST_PAGE * RF_OAD_FLASH_PAGE_MULT);
 		oadcurblknum++;
@@ -295,31 +315,23 @@ void RFOadImgBlockWrite(uint8 subtype, uint8 *pValue, uint8 len )
 		HalFlashWrite(addr, pValue+RF_OAD_BLOCK_BEG_POS, (RF_OAD_BLOCK_SIZE/ HAL_FLASH_WORD_SIZE));
 	}
 
-	if (oadcurblknum == oadodrtotblk)	// If the OAD Image is complete.
+	if (oadcurblknum == oadodrtotblk && upgdfin == FALSE)	// If the OAD Image is complete.
 	{
 		if (RFOadCheckDL())
 		{
 			upgdfin = TRUE;
-			ret = MSG_SUCCESS;
-#if ( defined GM_IMAGE_B )
-			// The BIM always checks for a valid Image-B before Image-A,
-			// so Image-A never has to invalidate itself.
-			uint16 crc[2] = { 0x0000, 0xFFFF };
-			uint16 addr = RF_OAD_IMG_ORG_PAGE * RF_OAD_FLASH_PAGE_MULT + RF_OAD_IMG_CRC_OSET / HAL_FLASH_WORD_SIZE;
-			HalFlashWrite(addr, (uint8 *)crc, 1);
-#endif
+			upgdret = MSG_SUCCESS;
+			Com433WriteStr(COM433_DEBUG_PORT,"\r\nUpgrade OK\r\n");
 		}
 		else
 		{
-			ret = IMG_CRC_FAIL;
+			upgdret = IMG_CRC_FAIL;
+			Com433WriteStr(COM433_DEBUG_PORT,"\r\nUpgrade CRC failed\r\n");
 		}
-		
-		if ( subtype == GME_SUBTYPE_UPGD_PKT )
-			RFDataForm(GDE_SUBTYPE_UPGD_ACK, (uint8*)&ret, sizeof(uint8));
-		else if (subtype == GTE_SUBTYPE_UPGD_PKT)
-			RFDataForm(GDE_SUBTYPE_T_UPGD_ACK, (uint8*)&ret, sizeof(uint8));
 
-		osal_start_timerEx(BLECore_TaskId, BLE_SYS_WORKING_EVT, IDLE_PWR_HOLD_PERIOD);
+		// Response ugrade state in random time of next 1min.
+		osal_start_timerEx(BLECore_TaskId, BLE_SYS_WORKING_EVT, \
+				IDLE_PWR_HOLD_PERIOD+c_rand()*SEC_IN_MIN/MAX_RANDOM_SECONDS);
 	}
 
 	return;
@@ -408,6 +420,7 @@ static uint16 RFOadCrcCalc(void)
 static uint8 RFOadCheckDL(void)
 {
 	uint16 crc[2];
+	uint16 addr = RF_OAD_IMG_DST_PAGE * RF_OAD_FLASH_PAGE_MULT + RF_OAD_IMG_CRC_OSET / HAL_FLASH_WORD_SIZE;
 
 	HalFlashRead(RF_OAD_IMG_DST_PAGE, RF_OAD_IMG_CRC_OSET, (uint8 *)crc, sizeof(crc));
 
@@ -416,16 +429,13 @@ static uint8 RFOadCheckDL(void)
 		return FALSE;
 	}
 
+	// Enable it in crc area
 	if (crc[1] == 0xFFFF)
 	{
 		crc[1] = RFOadCrcCalc();
-
-#if defined FEATURE_RF_OAD_BIM	// If download image is made to run in-place, enable it here.
-		uint16 addr = RF_OAD_IMG_DST_PAGE * RF_OAD_FLASH_PAGE_MULT + RF_OAD_IMG_CRC_OSET / HAL_FLASH_WORD_SIZE;
 		crc[0] = 0xFFFF;
 		HalFlashWrite(addr, (uint8 *)crc, 1);
 		HalFlashRead(RF_OAD_IMG_DST_PAGE, RF_OAD_IMG_CRC_OSET, (uint8 *)crc, sizeof(crc));
-#endif
 	}
 
 	return (crc[0] == crc[1]);

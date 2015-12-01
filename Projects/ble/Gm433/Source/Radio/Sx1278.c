@@ -175,12 +175,13 @@ void RF_working(uint8 task_id, rfstate_t newrfstate)
 					uint8 gmdata[RF_BUFFER_SIZE+1];
 					uint16 len;
 
-					SX1276GetRxPacket(gmdata+1, &len);
-					gmdata[0] = ' ';
-					gmdata[len] = '\0';
-					Com433WriteInt(COM433_DEBUG_PORT, "\r\nR:",len,10);
-					Com433WriteStr(COM433_DEBUG_PORT, gmdata);
-					GMSPktForm(gmdata,len);
+					//SX1276GetRxPacket(gmdata+1, &len);
+					//gmdata[0] = ' ';
+					//gmdata[len] = '\0';
+					//Com433WriteStr(COM433_DEBUG_PORT, gmdata);
+					SX1276GetRxPacket(gmdata, &len);
+					Com433WriteInt(COM433_DEBUG_PORT, "\r\nR:",len-1,10);
+					GMSPktForm(gmdata,len-1);
 				}
 			}
 			break;

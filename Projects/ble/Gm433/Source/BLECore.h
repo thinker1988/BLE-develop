@@ -135,7 +135,7 @@ extern wsintstate_t GetIntState(void);
 extern void PowerSave(uint8 task_id);
 extern void PowerHold(uint8 task_id);
 
-extern uint8 CalcBatteryPercent(void);
+extern uint32 c_rand(void);
 
 
 /*********************************************************************

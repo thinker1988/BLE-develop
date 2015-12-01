@@ -171,7 +171,6 @@ static void SetSysStateByFlag(uint8 task_id, bool slpflg);
 
 
 static void c_srand(uint32 seed);
-static uint32 c_rand(void);
 
 static void ReadBLEMac(uint8 * mac_addr);
 
@@ -369,18 +368,16 @@ void sys_working(uint8 task_id, sysstate_t newDevstate)
 			if (upgdflg == TRUE)
 			{
 				upgdflg = FALSE;
-				if (UpgdFinState() == TRUE)
-					HAL_SYSTEM_RESET();
-				else
-				{
-					InitCommDevID();
-					SetSysState(SYS_WORKING);
-					SetRFstate(RF_PRESET);
-					osal_set_event(task_id, BLE_SYS_WORKING_EVT);
-				}
+				ReportUpgdState();
+
+				InitCommDevID();
+				SetSysState(SYS_WORKING);
+				SetRFstate(RF_PRESET);
+				osal_set_event(task_id, BLE_SYS_WORKING_EVT);
 			}
 			else
 			{
+				Com433WriteStr(COM433_DEBUG_PORT,"\r\nStart upgrade\r\n");
 				upgdflg = TRUE;
 				SetPrepUpgdState(FALSE);
 				StopAllTimer(task_id);
@@ -505,6 +502,20 @@ void PowerHold(uint8 task_id)
 	VOID task_id;
 }
 
+/*********************************************************************
+ * @fn		c_rand
+ *
+ * @brief	c_rand and c_srand to calc random number
+ *
+ * @param	none
+ *
+ * @return	1~32767
+ */
+uint32 c_rand(void)
+{
+	next=next*1103515245+12345;  
+	return (uint32)(next/65536)%32768;  
+}
 
 
 /*********************************************************************
@@ -626,21 +637,6 @@ static void SetSysStateByFlag(uint8 task_id, bool slpflg)
 static void c_srand(uint32 seed)
 {
 	next=seed;
-}
-
-/*********************************************************************
- * @fn		c_rand
- *
- * @brief	c_rand and c_srand to calc random number
- *
- * @param	none
- *
- * @return	1~32767
- */
-static uint32 c_rand(void)
-{
-	next=next*1103515245+12345;  
-	return (uint32)(next/65536)%32768;  
 }
 
 

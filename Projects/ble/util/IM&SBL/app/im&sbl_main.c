@@ -208,6 +208,7 @@ static uint16 crcCalc(uint8 page)
  */
 static void ImgCrcCheck(uint8 page, uint16 *crc)
 {
+	BLWriteBuf("\r\nC\r\n",5);
 	if (crc[0] == crcCalc(page))
 	{
 		uint16 addr = page * (HAL_FLASH_PAGE_SIZE / HAL_FLASH_WORD_SIZE) +
@@ -240,7 +241,10 @@ static void ImgCrcCheck(uint8 page, uint16 *crc)
 void main(void)
 {
 	uint8 imgchs=IMG_WAIT;
-	uint16 crc[2];
+	uint16 crcA[2];
+	uint16 crcB[2];
+	uint16 vernA=0,vernB=0;
+	uint8 imgvld = 0;
 	
 	// init dma and board
 	HAL_BOARD_INIT();
@@ -250,36 +254,45 @@ void main(void)
 	HAL_DMA_SET_ADDR_DESC0(&dmaCh0);
 	uart_Init();
 
-	
-	// Prefer to run Image-B over Image-A so that Image-A does not have to invalidate itself.
-	HalFlashRead(BIM_IMG_B_PAGE, BIM_CRC_OSET, (uint8 *)crc, 4);
-	if ((crc[0] != 0xFFFF) && (crc[0] != 0x0000))
+	// Check image A and B area is valid
+	HalFlashRead(BIM_IMG_A_PAGE, BIM_CRC_OSET, (uint8 *)crcA, 4);
+	if ((crcA[0] != 0xFFFF) && (crcA[0] != 0x0000))
 	{
-		if (crc[0] == crc[1])
+		HalFlashRead(BIM_IMG_A_PAGE, BIM_VERN_OSET, (uint8 *)&vernA, 2);
+		if (crcA[0] == crcA[1])
 		{
-			//
-			UARTWriteBuf("\r\nB\r\n",5);
-			imgchs = IMG_B;
+			imgchs = IMG_A;
+			imgvld++;
 		}
+		else
+			ImgCrcCheck(BIM_IMG_A_PAGE, crcA);
 	}
 
-	if (imgchs != IMG_B)
+	HalFlashRead(BIM_IMG_B_PAGE, BIM_CRC_OSET, (uint8 *)crcB, 4);
+	if ((crcB[0] != 0xFFFF) && (crcB[0] != 0x0000))
 	{
-		HalFlashRead(BIM_IMG_A_PAGE, BIM_CRC_OSET, (uint8 *)crc, 4);
-		if ((crc[0] != 0xFFFF) && (crc[0] != 0x0000))
+		HalFlashRead(BIM_IMG_B_PAGE, BIM_VERN_OSET, (uint8 *)&vernB, 2);
+		if (crcB[0] == crcB[1])
 		{
-			if (crc[0] == crc[1])
-			{
-				UARTWriteBuf("\r\nA\r\n",5);
-				imgchs = IMG_A;
-			}
-			else if (crc[1] == 0xFFFF)	// If first run of an image that was physically downloaded, need check crc
-			{
-				UARTWriteBuf("\r\nC\r\n",5);
-				ImgCrcCheck(BIM_IMG_A_PAGE, crc);
-			}
-			else
-				halDeepSleepExec();
+			imgchs = IMG_B;
+			imgvld++;
+		}
+		else
+			ImgCrcCheck(BIM_IMG_B_PAGE, crcB);
+	}
+
+	// Prefer to run higher version firmware, if two image valid
+	if (imgvld == 2)
+	{
+		if (vernA >= vernB )
+		{
+			imgchs = IMG_A;
+			BLWriteBuf("\r\nA\r\n",5);
+		}
+		else
+		{
+			imgchs = IMG_B;
+			BLWriteBuf("\r\nB\r\n",5);
 		}
 	}
 	
@@ -289,18 +302,11 @@ void main(void)
 		sbl_Run();		// always flash image B
 	else
 	{
+		// Simulate a reset for the Application code by an absolute jump to the expected INTVEC addr.
 		if (imgchs == IMG_A)
-		{
-			UARTWriteBuf("\r\nO\r\n",5);
-			// Simulate a reset for the Application code by an absolute jump to the expected INTVEC addr.
 			asm("LJMP 0x1030");
-		}
 		else if (imgchs == IMG_B)
-		{
 			asm("LJMP 0x4030");
-		}
-		
-		//HAL_SYSTEM_RESET();	// Should not get here.
 	}
 
 	halDeepSleepExec();

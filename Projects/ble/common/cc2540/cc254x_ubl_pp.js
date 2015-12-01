@@ -117,6 +117,17 @@ var ForWriting = 2;
 
     fout.Close();
     fubl.Close();
+    
+    // Then create .bin file
+    fin = appFile.replace(".hex",".sim");
+    fout = appFile.replace(".hex",".bin");
+    fso.CopyFile(fin, "tmp.sim", true);
+    var WshShell = new ActiveXObject("WScript.Shell");
+    // Invoke and wait for the binary file conversion tool to finish.
+    WshShell.Run("cc254x_sim2bin.exe tmp.sim tmp.bin", 8, true);
+    fso.CopyFile("tmp.bin", fout, true);
+    fso.DeleteFile("tmp.bin");
+    fso.DeleteFile("tmp.sim");
     break;
   }
 }
