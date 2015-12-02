@@ -105,10 +105,11 @@ static uint8 CalcGMChksum(uint8* chkbuf, uint16 len);
 
 static void SyncTMResp(uint8 *data, uint8 len);
 
-static void ReadGDEParam(uint8* readreq, uint8 len);
-static void ReadIDParam(uint8 * rdbuf);
+static void FillGDEParam(uint8* readreq, uint8 len);
+static void GetDevIDParam(uint8 * rdbuf);
 
 static bool SetGDEParam(uint8 * setdata, uint8 len);
+static void ChangeDevIDParam(uint8 *chngdata, uint8 len);
 
 /*static void SaveLastTMInfo(UTCTimeStruct tm);*/
 
@@ -131,12 +132,20 @@ void InitCommDevID(void)
 	RFdestID = RFGMEID;
 }
 
-bool SetIDParam(uint16 GDEaddr, uint16 GMEaddr)
+void SetDevID(uint16 GDEaddr, uint16 GMEaddr, uint16 vern)
 {
 	RFGDEID = ((GDEaddr>=GDE_ADV_ID || GDEaddr==0)? RFGDEID: GDEaddr);
 	RFGMEID = ((GMEaddr<= GDE_ADV_ID || GMEaddr>=GME_ADV_ID)? RFGMEID: GMEaddr);
 
-	return TRUE;
+	if (GDEaddr==0 && GMEaddr==0 && vern == 0)
+		HAL_SYSTEM_RESET();
+
+#if ( defined GM_IMAGE_A ) || ( defined GM_IMAGE_B )
+	if (vern == ERASE_VERN_VAL)
+		EraseFirmwareInfo();
+#endif	// GM_IMAGE_A || GM_IMAGE_B
+
+	return;
 }
 
 
@@ -254,6 +263,9 @@ rfpkterr_t RFDataParse(uint8 *rfdata,uint8 len)
 			case GME_SUBTYPE_RST_BENCH_PKT:
 				if (pldlen==GME_SUBTYPE_RST_BENCH_PKT_PL_LEN)
 					break;
+			case GME_SUBTYPE_CHNG_ID_PKT:
+				if (pldlen==GME_SUBTYPE_CHNG_ID_PKT_PL_LEN)
+					break;
 
 				return RF_PLD_ERR;
 			default:
@@ -277,18 +289,15 @@ rfpkterr_t RFDataParse(uint8 *rfdata,uint8 len)
 			case GTE_SUBTYPE_PARAM_SET_REQ:
 				if (pldlen==GTE_SUBTYPE_PARAM_SET_REQ_PL_LEN && GetSysState()== SYS_SETUP)
 					break;
+			// Prepare upgrade
 			case GTE_SUBTYPE_ORDER_UPGD_REQ:
 				if (pldlen==GTE_SUBTYPE_ORDER_UPGD_REQ_PL_LEN && GetSysState()== SYS_SETUP)
 					break;
-				// Prepare upgrade
+			// Upgrade process	
 			case GTE_SUBTYPE_UPGD_PKT:
 				if (pldlen==GTE_SUBTYPE_UPGD_PKT_PL_LEN && GetSysState()== SYS_UPGRADE)
 					break;
-				// Upgrade process
-			case GTE_SUBTYPE_RST_BENCH_PKT:
-				if (pldlen==GTE_SUBTYPE_RST_BENCH_PKT_PL_LEN && GetSysState()== SYS_SETUP)
-					break;
-				
+
 				return RF_PLD_ERR;
 			default:
 				return RF_SUBTYPE_UNK;
@@ -366,6 +375,7 @@ rfpkterr_t RFDataForm(uint8 subtype, uint8 *data, uint8 datalen)
 			// Read parameters response
 			curpldpos += FillElmInfo(rfbuf+curpldpos, EID_GDE_PARAMS, datalen, data);
 			curpldpos += FillElmInfo(rfbuf+curpldpos, EID_GDE_BENCH_INFO, EVLEN_GDE_BENCH_INFO, NULL);
+			curpldpos += FillElmInfo(rfbuf+curpldpos, EID_CHNG_ID, EVLEN_CHNG_ID, NULL);
 			break;
 		case GDE_SUBTYPE_T_SET_RESP:
 			// Set GDE parameters response
@@ -478,8 +488,8 @@ static rfpkterr_t ParseElmInfo(uint8 subtype,uint8 *pldbuf,  uint8 pldlen)
 			case EID_GTE_READ:
 				if (pldbuf[elmpos+EVAL_LEN_POS] == EVLEN_GTE_READ)
 				{
-					// Reset benchmark
-					ReadGDEParam(pldbuf+elmpos+ELM_HDR_SIZE,EVLEN_GTE_READ);
+					// Send read response
+					FillGDEParam(pldbuf+elmpos+ELM_HDR_SIZE,EVLEN_GTE_READ);
 					elmpos += ELM_HDR_SIZE+EVLEN_GTE_READ;
 					break;
 				}
@@ -493,6 +503,13 @@ static rfpkterr_t ParseElmInfo(uint8 subtype,uint8 *pldbuf,  uint8 pldlen)
 					break;
 				}
 #endif	// GM_IMAGE_A || GM_IMAGE_B
+			case EID_CHNG_ID:
+				if (pldbuf[elmpos+EVAL_LEN_POS] == EVLEN_CHNG_ID)
+				{
+					ChangeDevIDParam(pldbuf+elmpos+ELM_HDR_SIZE,EVLEN_CHNG_ID);
+					elmpos += ELM_HDR_SIZE+EVLEN_CHNG_ID;
+					break;
+				}
 
 				return RF_PLD_ERR;
 			default:
@@ -592,6 +609,13 @@ static uint8 FillElmInfo(uint8 *buf, uint8 eid, uint8 evallen, uint8* evalbuf)
 				return 0;
 
 			osal_memcpy(pVal, evalbuf, evallen);
+			break;
+		}
+		case EID_CHNG_ID:
+		{
+			if (evallen != EVLEN_CHNG_ID)
+				return 0;
+			GetDevIDParam(pVal);
 			break;
 		}
 		case EID_GME_NT_TM:
@@ -732,7 +756,7 @@ static void SyncTMResp(uint8 *data, uint8 len)
 
 
 /*********************************************************************
- * @fn		ReadGDEParam
+ * @fn		FillGDEParam
  *
  * @brief	read GDE parameters.
  *
@@ -740,7 +764,7 @@ static void SyncTMResp(uint8 *data, uint8 len)
  *
  * @return	none
  */
-static void ReadGDEParam(uint8* readreq, uint8 len)
+static void FillGDEParam(uint8* readreq, uint8 len)
 {
 	uint8 rddata[EVLEN_GDE_PARAMS];
 
@@ -749,28 +773,9 @@ static void ReadGDEParam(uint8* readreq, uint8 len)
 
 	ReadRFParam(rddata);
 	ReadGMParam(rddata);
-	ReadIDParam(rddata);
 
 	RFDataForm(GDE_SUBTYPE_T_READ_RESP, rddata, sizeof(rddata));
 	//RF_working(BLECore_TaskId, GetRFstate());
-}
-
-/*********************************************************************
- * @fn		ReadIDParam
- *
- * @brief	Read GDE ID parameters.
- *
- * @param	rdbuf -params save buffer
- *
- * @return	none
- */
-static void ReadIDParam(uint8 *rdbuf)
-{
-	rdbuf[CHNG_GDE_ADDR_H_POS] = HI_UINT16(RFGDEID);
-	rdbuf[CHNG_GDE_ADDR_L_POS] = LO_UINT16(RFGDEID);
-
-	rdbuf[CHNG_GME_ADDR_H_POS] = HI_UINT16(RFGMEID);
-	rdbuf[CHNG_GME_ADDR_L_POS] = LO_UINT16(RFGMEID);
 }
 
 /*********************************************************************
@@ -794,11 +799,51 @@ static bool SetGDEParam(uint8 *setdata, uint8 len)
 			setdata[ST_RF_AIR_BAUD_POS],setdata[ST_RF_PWR_LVL_POS]);
 	flag &= SetGMParam(setdata[ST_GM_HB_FREQ_POS],setdata[ST_GM_DTCT_SENS_POS],setdata[ST_GM_BENCH_ALG_POS],\
 			setdata[ST_GM_STATUS_POS]);
-	flag &= SetIDParam(BUILD_UINT16(setdata[CHNG_GDE_ADDR_L_POS],setdata[CHNG_GDE_ADDR_H_POS]),\
-			BUILD_UINT16(setdata[CHNG_GME_ADDR_L_POS],setdata[CHNG_GME_ADDR_H_POS]));
 
 	RFDataForm(GDE_SUBTYPE_T_SET_RESP, &flag, sizeof(flag));
 	//RF_working(BLECore_TaskId, GetRFstate());
 
 	return flag;
+}
+
+/*********************************************************************
+ * @fn		GetDevIDParam
+ *
+ * @brief	Read GDE ID parameters.
+ *
+ * @param	rdbuf -params save buffer
+ *
+ * @return	none
+ */
+static void GetDevIDParam(uint8 *rdbuf)
+{
+	rdbuf[CHNG_GDE_ADDR_H_POS] = HI_UINT16(RFGDEID);
+	rdbuf[CHNG_GDE_ADDR_L_POS] = LO_UINT16(RFGDEID);
+
+	rdbuf[CHNG_GME_ADDR_H_POS] = HI_UINT16(RFGMEID);
+	rdbuf[CHNG_GME_ADDR_L_POS] = LO_UINT16(RFGMEID);
+
+	rdbuf[CHNG_VERN_NUM_H_POS] = HI_UINT16(version);
+	rdbuf[CHNG_VERN_NUM_L_POS] = LO_UINT16(version);
+}
+
+
+/*********************************************************************
+ * @fn		ChangeDevIDParam
+ *
+ * @brief	Change device ID or erase version.
+ *
+ * @param	chngdata - change ID buf
+ * @param	len - change ID buf length
+ *
+ * @return	setup result
+ */
+static void ChangeDevIDParam(uint8 *chngdata, uint8 len)
+{
+	if ( len != EVLEN_CHNG_ID )
+		return;
+
+	SetDevID(BUILD_UINT16(chngdata[CHNG_GDE_ADDR_L_POS],chngdata[CHNG_GDE_ADDR_H_POS]),\
+			BUILD_UINT16(chngdata[CHNG_GME_ADDR_L_POS],chngdata[CHNG_GME_ADDR_H_POS]),\
+			BUILD_UINT16(chngdata[CHNG_VERN_NUM_L_POS],chngdata[CHNG_VERN_NUM_H_POS]));
 }

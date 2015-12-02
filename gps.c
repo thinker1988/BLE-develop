@@ -460,38 +460,39 @@ static rfpkterr_t rfdataparse(uint8 *rfdata,uint8 len)
 				if (pldlen == GDE_SUBTYPE_HRTBEAT_REQ_PL_LEN)
 				{
 					//httpsend(rfdata, len);
-					printf("Heart beat.\r\n");
+					printf("===>Heart beat.\r\n");
 					break;
 				}
 			case GDE_SUBTYPE_CARINFO_REQ:	// GDE carinfo recieved success
 				if (pldlen == GDE_SUBTYPE_CARINFO_REQ_PL_LEN)
 				{
 					//httpsend(rfdata, len);
-					printf("Car detected.\r\n");
+					printf("===>Car detected.\r\n");
 					break;
 				}
 			case GDE_SUBTYPE_TMSYN_REQ:	// Prepare time synchronizing
 				if (pldlen == GDE_SUBTYPE_TMSYN_REQ_PL_LEN)
 				{
-					printf("Time sync.\r\n");
+					printf("===>Time sync.\r\n");
 					break;
 				}
 			case GDE_SUBTYPE_ORDER_RESP:	// Finish order
 				if (pldlen == GDE_SUBTYPE_ORDER_RESP_PL_LEN)
 				{
-					printf("Finish order.\r\n");
+					printf("===>Finish order.\r\n");
 					break;
 				}
 			case GDE_SUBTYPE_UPGD_ACK:	// Upgrade finish state
 				if (pldlen == GDE_SUBTYPE_TMSYN_REQ_PL_LEN)
 				{
-					printf("Upgrade finish.\r\n");
+					printf("===>Upgrade finish.\r\n");
 					break;
 				}
-				printf("Unknow payload\r\n");
+				printf("===>Unknow payload\r\n");
 				return RF_PLD_ERR;
+
 			default:
-				printf("Unknow subtype\r\n");
+				printf("===>Unknow subtype\r\n");
 				return RF_SUBTYPE_UNK;
 		}
 	}

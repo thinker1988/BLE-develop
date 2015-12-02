@@ -77,6 +77,8 @@ extern "C"
 // Word in per FLASH page
 #define RF_OAD_FLASH_PAGE_MULT		((uint16)(HAL_FLASH_PAGE_SIZE / HAL_FLASH_WORD_SIZE))
 
+// Erase version info
+#define ERASE_VERN_VAL				0xFFFF
 
 // OAD Image Header
 typedef struct {
@@ -109,7 +111,7 @@ extern void SetPrepUpgdState(bool state);
 extern bool GetPrepUpgdState(void);
 
 extern void RFOadImgBlockWrite(uint8 subtype, uint8 *pValue, uint8 len );
-
+extern void EraseFirmwareInfo(void);
 
 
 #ifdef __cplusplus

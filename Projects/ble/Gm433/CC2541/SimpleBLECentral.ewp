@@ -4572,7 +4572,7 @@
           <state>GM_IMAGE_A</state>
           <state>OAD_KEEP_NV_PAGES</state>
           <state>USE_SX1278_RF</state>
-          <state>GDE_DEV_ID=22</state>
+          <state>GDE_DEV_ID=7</state>
           <state>GME_DEV_ID=1001</state>
           <state>VERSION_NUMBER=0x0100</state>
           <state>xGME_WORKING</state>
@@ -5650,10 +5650,10 @@
           <state>USE_SX1278_RF</state>
           <state>GDE_DEV_ID=8</state>
           <state>GME_DEV_ID=1001</state>
-          <state>VERSION_NUMBER=0x0103</state>
+          <state>VERSION_NUMBER=0x0101</state>
           <state>xGME_WORKING</state>
           <state>xGM_TEST_COMM</state>
-          <state>xALLOW_DEBUG_OUTPUT</state>
+          <state>ALLOW_DEBUG_OUTPUT</state>
           <state>xUSE_BLE_STACK</state>
           <state>HW_VERN=1</state>
           <state>HAL_UART_PORT=1</state>

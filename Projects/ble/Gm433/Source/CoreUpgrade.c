@@ -1,3 +1,10 @@
+/********************************************************************
+	Filename:	CoreUpgrade.c
+	Revised:		Date: 2015-11-22
+	Revision:	1.0 
+
+*********************************************************************/
+
 /*********************************************************************
  * INCLUDES
  */
@@ -64,6 +71,8 @@ static uint32 oadodrfwlen;
 /*********************************************************************
  * LOCAL FUNCTIONS
  */
+static uint8 GetValidFirmwareCount(void);
+
 static void set_fw_upgd_tick_alarm(uint8 alrmhh, uint8 alrmmm, uint8 alrmss);
 static uint16 RFOadCrcCalc(void);
 
@@ -121,14 +130,14 @@ void ReadSysSetting(void)
 	// No parameter saved yet
 	if (ret != SUCCESS)
 	{
-		SetIDParam(GDE_DEV_ID, GME_DEV_ID);
+		SetDevID(GDE_DEV_ID, GME_DEV_ID, 0);
 		StoreSetting(GMS_NV_GDE_ID_ID);
 		StoreSetting(GMS_NV_GME_ID_ID);
 		//StoreSetting(GMS_NV_VERN_NUM_ID);
 	}
 	else
 	{
-		SetIDParam(prevgdeid, prevgmeid);
+		SetDevID(prevgdeid, prevgmeid, 0);
 	}
 }
 
@@ -200,6 +209,32 @@ void PrepareUpgrade(uint8 subtype, uint8* upgpkt, uint8 len)
 		RFDataForm(GDE_SUBTYPE_T_ORDER_RESP, (uint8 *)&upgdret, sizeof(uint8));
 	}
 #endif
+}
+
+
+void EraseFirmwareInfo(void)
+{
+	uint16 clrcrc[2]={0};
+
+	if (GetValidFirmwareCount() == 2)
+	{
+		HalFlashWrite(RF_OAD_IMG_ORG_PAGE, (uint8 *)clrcrc, 1);
+		HAL_SYSTEM_RESET();
+	}
+
+	return;
+}
+
+static uint8 GetValidFirmwareCount(void)
+{
+	uint16 destcrc[2];
+
+	HalFlashRead(RF_OAD_IMG_DST_PAGE, RF_OAD_IMG_CRC_OSET, (uint8 *)destcrc, HAL_FLASH_WORD_SIZE);
+
+	if (destcrc[0]==destcrc[1] && destcrc[0]!=0x0000 && destcrc[0]!=0xFFFF)
+		return 2;
+	else
+		return 1;
 }
 
 static void set_fw_upgd_tick_alarm(uint8 alrmhh, uint8 alrmmm, uint8 alrmss)
