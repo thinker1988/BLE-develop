@@ -308,7 +308,7 @@ void sys_working(uint8 task_id, sysstate_t newDevstate)
 	switch (newDevstate)
 	{
 		case SYS_BOOTUP:
-			Com433WriteStr(COM433_DEBUG_PORT,"\r\nWORKING");
+			Com433WriteStr(COM433_DEBUG_PORT,"\r\nBOOTUP");
 			SYS_WS_INT_Cfg(task_id, WS_INT_DISABLE);
 			// Do not enter power saving
 			PowerHold(task_id);
@@ -321,6 +321,7 @@ void sys_working(uint8 task_id, sysstate_t newDevstate)
 			if (workflg == FALSE)
 			{
 				workflg = TRUE;
+				Com433WriteStr(COM433_DEBUG_PORT,"\r\nWORKING");
 				PowerHold(task_id);
 				RF_working(task_id, GetRFstate());
 				osal_start_timerEx(task_id, BLE_SYS_WORKING_EVT, IDLE_PWR_HOLD_PERIOD);
@@ -346,46 +347,53 @@ void sys_working(uint8 task_id, sysstate_t newDevstate)
 			PowerSave(task_id);
 			break;
 		case SYS_SETUP:
-			if (setupflg == TRUE)
+			if (setupflg == FALSE)
 			{
-				setupflg = FALSE;
-				InitCommDevID();
-				SetSysState(SYS_WORKING);
-				SetRFstate(RF_PRESET);
-				osal_set_event(task_id, BLE_SYS_WORKING_EVT);
-			}
-			else
-			{
+				SYS_WS_INT_Cfg(task_id, WS_INT_DISABLE);
 				setupflg = TRUE;
+				Com433WriteStr(COM433_DEBUG_PORT,"\r\nSETUP");
+				PowerHold(task_id);
 				StopAllTimer(task_id);
 				// Send presetup data
 				RF_working(task_id, RF_PRESET);
 				osal_start_timerEx(task_id, BLE_SYS_WORKING_EVT, GTE_NO_OPR_WAIT_PERIOD);
 			}
+			else
+			{
+				setupflg = FALSE;
+				InitCommDevID();
+				SetRFstate(RF_PRESET);
+				ChngSysState(SYS_WORKING, IDLE_PWR_HOLD_PERIOD);
+				SetIntState(WS_INT_DETECT);
+				osal_set_event(task_id, HG_SWITCH_EVT);
+			}
 			break;
 		case SYS_UPGRADE:
 #if ( defined GM_IMAGE_A ) || ( defined GM_IMAGE_B )
-			if (upgdflg == TRUE)
+			if (upgdflg == FALSE)
 			{
-				upgdflg = FALSE;
-				ReportUpgdState();
-
-				InitCommDevID();
-				SetSysState(SYS_WORKING);
-				SetRFstate(RF_PRESET);
-				osal_set_event(task_id, BLE_SYS_WORKING_EVT);
-			}
-			else
-			{
-				Com433WriteStr(COM433_DEBUG_PORT,"\r\nStart upgrade\r\n");
+				SYS_WS_INT_Cfg(task_id, WS_INT_DISABLE);
 				upgdflg = TRUE;
+				Com433WriteStr(COM433_DEBUG_PORT,"\r\nUPGRADE");
+				PowerHold(task_id);
 				SetPrepUpgdState(FALSE);
 				StopAllTimer(task_id);
 				RF_working(task_id, RF_PRESET);
 				osal_start_timerEx(task_id, BLE_SYS_WORKING_EVT, UPGD_RF_WAIT_PERIOD);
 			}
+			else
+			{
+				upgdflg = FALSE;
+				ReportUpgdState();
+
+				InitCommDevID();
+				SetRFstate(RF_PRESET);
+				ChngSysState(SYS_WORKING, IDLE_PWR_HOLD_PERIOD);
+				SetIntState(WS_INT_DETECT);
+				osal_set_event(task_id, HG_SWITCH_EVT);
+			}
 #else
-			VOID upgdflg;
+			(void) upgdflg;
 #endif	// GM_IMAGE_A || GM_IMAGE_B
 			break;
 		default:
@@ -408,6 +416,7 @@ void SYS_WS_INT_Cfg(uint8 task_id, wsintstate_t curintst)
 	switch (wsint)
 	{
 		case WS_INT_DISABLE:
+			osal_clear_event(task_id, HG_SWITCH_EVT);	// in case event set
 			SET_P0_INT_DISABLE();
 			DEV_EN_INT_DISABLE();
 			SYS_WS_INT_PIN_Disable();
@@ -448,6 +457,19 @@ void SetSysState( sysstate_t newDevstate)
 sysstate_t GetSysState( void )
 {
 	return Devstate;
+}
+
+void ChngSysState(sysstate_t newDevstate, uint32 waittime)
+{
+	//if (GetSysState() != newDevstate)
+	{
+		SetSysState(newDevstate);
+		osal_stop_timerEx(BLECore_TaskId, BLE_SYS_WORKING_EVT);
+		if (waittime == 0)
+			osal_set_event(BLECore_TaskId, BLE_SYS_WORKING_EVT);
+		else
+			osal_start_timerEx(BLECore_TaskId, BLE_SYS_WORKING_EVT,waittime);
+	}
 }
 
 void SetIntState( wsintstate_t newintstate)
@@ -534,8 +556,10 @@ uint32 c_rand(void)
 static void StopAllTimer(uint8 task_id)
 {
 	//osal_start_timerEx(task_id, BLE_SYS_WORKING_EVT, MIN_IN_HOUR*MILSEC_IN_MIN);
+	osal_stop_timerEx(task_id, BLE_SYS_WORKING_EVT);
 	osal_stop_timerEx(task_id, RF_DATA_PROC_EVT);
 	osal_stop_timerEx(task_id, GM_DATA_PROC_EVT);
+	osal_stop_timerEx(task_id, HG_SWITCH_EVT);
 }
 
 /*********************************************************************

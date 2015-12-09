@@ -84,7 +84,6 @@ typedef unsigned long   uint32_t;
 #define SX1278_REG_SIZE				0x70
 
 
-#if ( ! defined RION_CODE )
 // CC112X have 12 RF frequency
 #define CHECK_FREQ_VALID(freq)		(((freq)>0 )? TRUE: FALSE)
 
@@ -93,7 +92,7 @@ typedef unsigned long   uint32_t;
 #define CHECK_PWR_VALID(plvl)		(((plvl)>0 )? TRUE: FALSE)
 
 
-
+#if ( ! defined RION_CODE )
 /*!
  * RF process function return codes
  */
@@ -306,7 +305,7 @@ void SX1276WriteFifo( uint8_t *buffer, uint8_t size );
  * \param [IN] size Number of bytes to be read from the FIFO
  */
 void SX1276ReadFifo( uint8_t *buffer, uint8_t size );
-#else
+#else	// RION_CODE
 //-----------------------------------------------------------------------------
 // ×Ó³ÌÐòÉùÃ÷
 //-----------------------------------------------------------------------------
@@ -328,13 +327,18 @@ void SX1276LoRaInit( void );
 
 extern void SX1278Reset(bool finflg);
 
+void RFM96_LoRaClearIrq();
+void RFM96_Standby();	
+
 uint8 SPIRead(uint8 adr);
 void SPIBurstRead(uint8 adr, uint8 *ptr, uint8 length);
 void SX1276ReadBuffer( uint8 addr, uint8 *buffer, uint8 size );
+void RFM96_Config(uint8 mode);
 void RFM96_LoRaEntryRx(void);
 uint8 RFM96_LoRaRxPacket(void);
 void RFM96_LoRaEntryTx(void);
-uint8 RFM96_LoRaTxPacket(void);
+uint8 RFM96_LoRaTxPacket(uint8 *buf, uint8 len);
+void RFM96_LoRaEntrySleep(void);
 void delayms(unsigned int t);
 /*!
  * SX1276 Internal registers Address

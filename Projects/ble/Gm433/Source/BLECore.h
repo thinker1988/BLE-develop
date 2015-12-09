@@ -128,6 +128,7 @@ extern void SYS_WS_INT_Cfg(uint8 task_id, wsintstate_t curintst);
 
 extern void SetSysState(sysstate_t newDevstate);
 extern sysstate_t GetSysState(void);
+extern void ChngSysState(sysstate_t newDevstate, uint32 waittime);
 
 extern void SetIntState(wsintstate_t newintstate);
 extern wsintstate_t GetIntState(void);

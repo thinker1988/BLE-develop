@@ -44,7 +44,7 @@
 #endif	// GDE_DEV_ID
 
 #ifndef GME_DEV_ID
-#define GME_DEV_ID		1001
+#define GME_DEV_ID		8001
 #endif	// GME_DEV_ID
 
 
@@ -90,6 +90,7 @@ mtd5: 00010000 00010000 "cfg"
 
 #define MAX_MNG_GDE_CNT			100
 
+#define UPGD_PKT_RESEND_TIMES	3
 /*********************************************************************
  * TYPEDEFS
  */
@@ -851,11 +852,11 @@ static void upgrade_gde_fw(int iSignNo)
 		fread(upgdbuf+RF_OAD_BLOCK_BEG_POS, 1, RF_OAD_BLOCK_SIZE, binfp);
 		printf("Write NO.%d block...\r\n",fwblk+1);
 		RFdestID = GDE_ADV_ID;
-		formGMEpkt(GME_SUBTYPE_UPGD_PKT, upgdbuf, EVLEN_GMS_UPGD);
-		usleep(150*1000);
-		RFdestID = GDE_ADV_ID;
-		formGMEpkt(GME_SUBTYPE_UPGD_PKT, upgdbuf, EVLEN_GMS_UPGD);
-		usleep(150*1000);
+		for (i=0;i<UPGD_PKT_RESEND_TIMES;i++)
+		{
+			formGMEpkt(GME_SUBTYPE_UPGD_PKT, upgdbuf, EVLEN_GMS_UPGD);
+			usleep(150*1000);
+		}
 	}
 	printf("Firmware send finish!\r\n");
 	fclose(binfp);
@@ -888,7 +889,7 @@ static void prep_upgrade(char* binstr)
 	fwvern = le_tohs(tmpbuf.oadvern);
 	fwlen = (uint32)(le_tohs(tmpbuf.oadfwdlen))*4;
 	fwcrc = le_tohs(tmpbuf.crcraw);
-	fwtotblk = fwlen/64;
+	fwtotblk = fwlen/RF_OAD_BLOCK_SIZE;
 
 	fclose(binfp);
 

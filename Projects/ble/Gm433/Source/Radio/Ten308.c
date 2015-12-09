@@ -21,7 +21,7 @@
  */
 
 // Default RF frequency params: work 433 set 433 upgrade 470
-uint8 RFwkfrq = 0x01,RFstfrq = 0x01,RFupgfrq = 0x02;
+uint8 RFwkfrq = 0x01,RFstfrq = 0x01,RFupgfrq = 0x01;
 
 // Default RF air baud rate: 9600
 uint8 RFairbaud = 0x05;
@@ -92,7 +92,7 @@ void RF_working(uint8 task_id, rfstate_t newrfstate)
 		{
 			TENModuleWakeup();
 			SetRFstate(RF_BEG_SET);
-			osal_start_timerEx(task_id, RF_DATA_PROC_EVT, WAIT_RF_PRESET_PERIOD);
+			osal_start_timerEx(task_id, RF_DATA_PROC_EVT, WAIT_RF_PRESET_PERIOD/2);
 			break;
 		}
 		case RF_BEG_SET:
@@ -107,7 +107,7 @@ void RF_working(uint8 task_id, rfstate_t newrfstate)
 		{
 			TENModuleSleep();
 			SetRFstate(RF_WAKEUP);
-			osal_start_timerEx(task_id, RF_DATA_PROC_EVT, WAIT_TEN_STOP_PERIOD);
+			osal_start_timerEx(task_id, RF_DATA_PROC_EVT, WAIT_RF_PRESET_PERIOD/2);
 			break;
 		}
 		case RF_WAKEUP:
@@ -167,7 +167,8 @@ void Com433Handle(uint8 port,uint8 *pBuffer, uint16 length)
 		// Print serial data directly in debug mode
 		Com433Write(COM433_DEBUG_PORT, pBuffer, length);
 #else	// !TEN_DEBUG_MODE
-		GMSPktForm(pBuffer,length);
+		if (GetRFstate()==RF_WAKEUP || GetRFstate()==RF_WORK)
+			GMSPktForm(pBuffer,length);
 #endif	// TEN_DEBUG_MODE
 	}
 	else if (port == COM433_DEBUG_PORT)

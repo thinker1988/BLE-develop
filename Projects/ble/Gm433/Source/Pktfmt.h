@@ -7,7 +7,7 @@ extern "C"
 {
 #endif
 
-#ifndef __linux__
+#ifdef __IAR_SYSTEMS_ICC__
 #include "comdef.h"
 #endif
 
@@ -68,9 +68,10 @@ extern "C"
 // Direction: GTE==>GDE
 #define GTE_SUBTYPE_PRESET_REQ		41	// ELE 6
 #define GTE_SUBTYPE_PARAM_READ_REQ	42	// ELE 10
-#define GTE_SUBTYPE_PARAM_SET_REQ	43	// ELE 5+3+12
+#define GTE_SUBTYPE_PARAM_SET_REQ	43	// ELE 5+12
 #define GTE_SUBTYPE_ORDER_UPGD_REQ	44	// ELE 6+9
 #define GTE_SUBTYPE_UPGD_PKT		45	// ELE 11
+#define GTE_SUBTYPE_SET_STATE_PKT	46	// ELE 3+12
 
 
 /**************reserved*******************/
@@ -135,10 +136,10 @@ extern "C"
 
 #define GTE_SUBTYPE_PRESET_REQ_PL_LEN		(ELM_HDR_SIZE+EVLEN_GMS_RF_FREQ)	// ELE 6
 #define GTE_SUBTYPE_PARAM_READ_REQ_PL_LEN	(ELM_HDR_SIZE+EVLEN_GTE_READ)	// ELE 10
-#define GTE_SUBTYPE_PARAM_SET_REQ_PL_LEN	(ELM_HDR_SIZE*3+EVLEN_GDE_PARAMS+EVLEN_CHNG_ID+EVLEN_CHNG_ID)	// ELE 5+3+12
+#define GTE_SUBTYPE_PARAM_SET_REQ_PL_LEN	(ELM_HDR_SIZE*2+EVLEN_GDE_PARAMS+EVLEN_CHNG_ID)	// ELE 5+12
 #define GTE_SUBTYPE_ORDER_UPGD_REQ_PL_LEN	(ELM_HDR_SIZE*2+EVLEN_GMS_RF_FREQ+EVLEN_GMS_FW_INFO)	// ELE 6+9
 #define GTE_SUBTYPE_UPGD_PKT_PL_LEN			(ELM_HDR_SIZE+EVLEN_GMS_UPGD)	// ELE 11
-
+#define GTE_SUBTYPE_SET_STATE_PKT_PL_LEN	(ELM_HDR_SIZE*2+EVLEN_GDE_BENCH_INFO+EVLEN_CHNG_ID)	// ELE 3+12
 
 /**************element header*****************/
 #define EID_SIZE			1
@@ -405,7 +406,7 @@ typedef enum pktgms
 }pktgms_t;
 
 
-#ifndef __linux__
+#ifdef __IAR_SYSTEMS_ICC__
 extern void InitCommDevID(void);
 extern void SetDevID(uint16 GDEaddr, uint16 GMEaddr, uint16 vern);
 

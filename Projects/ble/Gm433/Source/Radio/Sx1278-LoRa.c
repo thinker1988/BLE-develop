@@ -1,3 +1,5 @@
+#if ( !defined RION_CODE )
+
 /*
  * THE FOLLOWING FIRMWARE IS PROVIDED: (1) "AS IS" WITH NO WARRANTY; AND 
  * (2)TO ENABLE ACCESS TO CODING INFORMATION TO GUIDE AND FACILITATE CUSTOMER.
@@ -46,7 +48,7 @@
 #define RSSI_OFFSET_HF							-157.0
 
 
-#define GET_TICK_COUNT()						osal_GetSystemClock()
+#define GET_TICK_COUNT()						0//osal_GetSystemClock()
 
 
 /*!
@@ -448,6 +450,7 @@ uint32_t SX1276LoRaProcess( void )
 		if( ( SX1276LR->RegIrqFlags & RFLR_IRQFLAGS_PAYLOADCRCERROR ) == RFLR_IRQFLAGS_PAYLOADCRCERROR )
 		{
 			// Clear Irq
+			Com433WriteStr(COM433_DEBUG_PORT,"\r\nRFERR");
 			SX1276Write( REG_LR_IRQFLAGS, RFLR_IRQFLAGS_PAYLOADCRCERROR  );
 			
 			if( LoRaSettings.RxSingleOn == true ) // Rx single mode
@@ -685,3 +688,5 @@ uint32_t SX1276LoRaProcess( void )
 
 	return result;
 }
+
+#endif

@@ -12,9 +12,7 @@
 #include "BLECore.h"
 
 #include "RFProc.h"
-#if ( defined GM_IMAGE_A ) || ( defined GM_IMAGE_B )
 #include "CoreUpgrade.h"
-#endif	// GM_IMAGE_A || GM_IMAGE_B
 
 /*********************************************************************
  * MACROS
@@ -65,11 +63,6 @@ uint16 RFdestID;
  */
 extern uint8 BLECore_TaskId;
 
-extern int16 Xbenchmk;
-extern int16 Ybenchmk;
-extern int16 Zbenchmk;
-
-
 // Device setup frequency and upgrade frequency
 extern uint8 RFstfrq;
 extern uint8 RFupgfrq;
@@ -103,13 +96,14 @@ static void SetRfFreq(uint8 subtype,uint8 *rffrqbuf,  uint8 rffrqlen);
 
 static uint8 CalcGMChksum(uint8* chkbuf, uint16 len);
 
-static void SyncTMResp(uint8 *data, uint8 len);
+static void FillCurTmInfo(uint8 *pVal);
+static void SetCurLocTm(uint8 *data, uint8 len);
 
-static void FillGDEParam(uint8* readreq, uint8 len);
-static void GetDevIDParam(uint8 * rdbuf);
-
+static void SendGDEParam(uint8* readreq, uint8 len);
 static bool SetGDEParam(uint8 * setdata, uint8 len);
-static void ChangeDevIDParam(uint8 *chngdata, uint8 len);
+
+static void FillDevIDParam(uint8 * rdbuf);
+static void SetDevIDParam(uint8 *chngdata, uint8 len);
 
 /*static void SaveLastTMInfo(UTCTimeStruct tm);*/
 
@@ -163,11 +157,15 @@ void GMSPktForm(uint8 *rawbuf, uint8 rawlen)
 {
 	uint8 i,tmp;
 
+	if (GetSysState() == SYS_BOOTUP)
+		return;
+
 	for (i=0; i<rawlen; i++)
 	{
 		switch(pktgmsst)
 		{
 			case PKT_GMS_ID:
+				currdlen = 0;
 				if (rawbuf[i]==GME_SRC_ID || rawbuf[i]==GTE_SRC_ID)
 				{
 					pktgmsst=PKT_GMS_LEN;
@@ -191,6 +189,7 @@ void GMSPktForm(uint8 *rawbuf, uint8 rawlen)
 				gmsrdpkt[currdlen++]= rawbuf[i];
 				if (currdlen == totrdlen)
 				{
+					//Com433WriteInt(COM433_DEBUG_PORT, "\r\nT",osal_GetSystemClock(),10);
 #if ( defined GME_WORKING )
 					tmp = RFDataSend(gmsrdpkt, currdlen);
 #else	// !GME_WORKING
@@ -296,6 +295,9 @@ rfpkterr_t RFDataParse(uint8 *rfdata,uint8 len)
 			// Upgrade process	
 			case GTE_SUBTYPE_UPGD_PKT:
 				if (pldlen==GTE_SUBTYPE_UPGD_PKT_PL_LEN && GetSysState()== SYS_UPGRADE)
+					break;
+			case GTE_SUBTYPE_SET_STATE_PKT:
+				if (pldlen==GTE_SUBTYPE_SET_STATE_PKT_PL_LEN && GetSysState()== SYS_SETUP)
 					break;
 
 				return RF_PLD_ERR;
@@ -469,13 +471,11 @@ static rfpkterr_t ParseElmInfo(uint8 subtype,uint8 *pldbuf,  uint8 pldlen)
 				if (pldbuf[elmpos+EVAL_LEN_POS] == EVLEN_GME_NT_TM)
 				{
 					// Synchronizing time
-					SyncTMResp(pldbuf+elmpos+ELM_HDR_SIZE,EVLEN_GME_NT_TM);
+					SetCurLocTm(pldbuf+elmpos+ELM_HDR_SIZE,EVLEN_GME_NT_TM);
 					elmpos += ELM_HDR_SIZE+EVLEN_GME_NT_TM;
-					Com433WriteStr(COM433_DEBUG_PORT, "\r\nTime sync ok");
 					break;
 				}
 			case EID_GMS_FW_INFO:
-#if ( defined GM_IMAGE_A ) || ( defined GM_IMAGE_B )
 				if (pldbuf[elmpos+EVAL_LEN_POS] == EVLEN_GMS_FW_INFO)
 				{
 					// Prepare upgrade
@@ -483,18 +483,15 @@ static rfpkterr_t ParseElmInfo(uint8 subtype,uint8 *pldbuf,  uint8 pldlen)
 					elmpos += ELM_HDR_SIZE+EVLEN_GMS_FW_INFO;
 					break;
 				}
-#endif	// GM_IMAGE_A || GM_IMAGE_B
-
 			case EID_GTE_READ:
 				if (pldbuf[elmpos+EVAL_LEN_POS] == EVLEN_GTE_READ)
 				{
 					// Send read response
-					FillGDEParam(pldbuf+elmpos+ELM_HDR_SIZE,EVLEN_GTE_READ);
+					SendGDEParam(pldbuf+elmpos+ELM_HDR_SIZE,EVLEN_GTE_READ);
 					elmpos += ELM_HDR_SIZE+EVLEN_GTE_READ;
 					break;
 				}
 			case EID_GMS_UPGD:
-#if ( defined GM_IMAGE_A ) || ( defined GM_IMAGE_B )
 				if (pldbuf[elmpos+EVAL_LEN_POS] == EVLEN_GMS_UPGD)
 				{
 					// Upgrade data process
@@ -502,11 +499,10 @@ static rfpkterr_t ParseElmInfo(uint8 subtype,uint8 *pldbuf,  uint8 pldlen)
 					elmpos += ELM_HDR_SIZE+EVLEN_GMS_UPGD;
 					break;
 				}
-#endif	// GM_IMAGE_A || GM_IMAGE_B
 			case EID_CHNG_ID:
 				if (pldbuf[elmpos+EVAL_LEN_POS] == EVLEN_CHNG_ID)
 				{
-					ChangeDevIDParam(pldbuf+elmpos+ELM_HDR_SIZE,EVLEN_CHNG_ID);
+					SetDevIDParam(pldbuf+elmpos+ELM_HDR_SIZE,EVLEN_CHNG_ID);
 					elmpos += ELM_HDR_SIZE+EVLEN_CHNG_ID;
 					break;
 				}
@@ -539,16 +535,9 @@ static uint8 FillElmInfo(uint8 *buf, uint8 eid, uint8 evallen, uint8* evalbuf)
 			if (evallen != EVLEN_GDE_LOC_TM)
 				return 0;
 
-			UTCTimeStruct curtmst;
-
+			
 			VOID evalbuf;
-			osal_ConvertUTCTime(&curtmst, osal_getClock());
-			pVal[UTCL_HOUR_POS]=curtmst.hour;
-			pVal[UTCL_MINTS_POS]=curtmst.minutes;
-			pVal[UTCL_SECND_POS]=curtmst.seconds;
-			pVal[UTCL_DAY_POS]=curtmst.day+1;
-			pVal[UTCL_MONTH_POS]=curtmst.month+1;
-			pVal[UTCL_YEAR_POS]=curtmst.year - 2000;
+			FillCurTmInfo(pVal);
 			break;
 		}
 		case EID_GDE_HRTBT:
@@ -565,12 +554,7 @@ static uint8 FillElmInfo(uint8 *buf, uint8 eid, uint8 evallen, uint8* evalbuf)
 				return 0;
 
 			VOID evalbuf;
-			pVal[GDE_X_H_BCHMRK_POS] = HI_UINT16(Xbenchmk);
-			pVal[GDE_X_L_BCHMRK_POS] = LO_UINT16(Xbenchmk);
-			pVal[GDE_Y_H_BCHMRK_POS] = HI_UINT16(Ybenchmk);
-			pVal[GDE_Y_L_BCHMRK_POS] = LO_UINT16(Ybenchmk);
-			pVal[GDE_Z_H_BCHMRK_POS] = HI_UINT16(Zbenchmk);
-			pVal[GDE_Z_L_BCHMRK_POS] = LO_UINT16(Zbenchmk);
+			ReadGDEBench(pVal);
 			break;
 		}
 		case EID_GMS_INFO_ACK:
@@ -583,16 +567,9 @@ static uint8 FillElmInfo(uint8 *buf, uint8 eid, uint8 evallen, uint8* evalbuf)
 		}
 		case EID_GDE_PARAMS:
 		{
-			if (evallen != EVLEN_GDE_BENCH_INFO)
+			if (evallen != EVLEN_GDE_PARAMS)
 				return 0;
-
-			VOID evalbuf;
-			pVal[GDE_X_H_BCHMRK_POS] = HI_UINT16(Xbenchmk);
-			pVal[GDE_X_L_BCHMRK_POS] = LO_UINT16(Xbenchmk);
-			pVal[GDE_Y_H_BCHMRK_POS] = HI_UINT16(Ybenchmk);
-			pVal[GDE_Y_L_BCHMRK_POS] = LO_UINT16(Ybenchmk);
-			pVal[GDE_Z_H_BCHMRK_POS] = HI_UINT16(Zbenchmk);
-			pVal[GDE_Z_L_BCHMRK_POS] = LO_UINT16(Zbenchmk);
+			osal_memcpy(pVal, evalbuf, evallen);
 			break;
 		}
 		case EID_GMS_RF_FREQ:
@@ -615,7 +592,7 @@ static uint8 FillElmInfo(uint8 *buf, uint8 eid, uint8 evallen, uint8* evalbuf)
 		{
 			if (evallen != EVLEN_CHNG_ID)
 				return 0;
-			GetDevIDParam(pVal);
+			FillDevIDParam(pVal);
 			break;
 		}
 		case EID_GME_NT_TM:
@@ -677,8 +654,7 @@ static void SetRfFreq(uint8 subtype,uint8 *rffrqbuf,  uint8 rffrqlen)
 			RFstfrq = (tmpfreq==0? RFstfrq: tmpfreq);
 			RFDataForm(GDE_SUBTYPE_T_PRESET_RESP, &RFstfrq, sizeof(RFstfrq));
 			//RF_working(BLECore_TaskId, GetRFstate());
-
-			SetSysState(SYS_SETUP);// State will change after working state over
+			ChngSysState(SYS_SETUP,IDLE_PWR_HOLD_PERIOD);
 			break;
 		case GTE_SUBTYPE_ORDER_UPGD_REQ:
 		case GME_SUBTYPE_ORDER_UPGD_REQ:
@@ -713,8 +689,21 @@ static uint8 CalcGMChksum(uint8* chkbuf, uint16 len)
 	return sum;
 }
 
+static void FillCurTmInfo(uint8 *pVal)
+{
+	UTCTimeStruct curtmst;
+
+	osal_ConvertUTCTime(&curtmst, osal_getClock());
+	pVal[UTCL_HOUR_POS]=curtmst.hour;
+	pVal[UTCL_MINTS_POS]=curtmst.minutes;
+	pVal[UTCL_SECND_POS]=curtmst.seconds;
+	pVal[UTCL_DAY_POS]=curtmst.day+1;
+	pVal[UTCL_MONTH_POS]=curtmst.month+1;
+	pVal[UTCL_YEAR_POS]=curtmst.year - 2000;
+}
+
 /*********************************************************************
- * @fn		SyncTMResp
+ * @fn		SetCurLocTm
  *
  * @brief	Synchronize time based on element data
  *
@@ -723,7 +712,7 @@ static uint8 CalcGMChksum(uint8* chkbuf, uint16 len)
  *
  * @return	none
  */
-static void SyncTMResp(uint8 *data, uint8 len)
+static void SetCurLocTm(uint8 *data, uint8 len)
 {
 	if (len!=EVLEN_GME_NT_TM)
 		return;
@@ -751,12 +740,12 @@ static void SyncTMResp(uint8 *data, uint8 len)
 	Com433WriteInt(COM433_DEBUG_PORT,":",settmst.seconds,10);
 #endif	// !GM_TEST_COMM
 
+	Com433WriteStr(COM433_DEBUG_PORT, "\r\nTime sync ok");
 
 }
 
-
 /*********************************************************************
- * @fn		FillGDEParam
+ * @fn		SendGDEParam
  *
  * @brief	read GDE parameters.
  *
@@ -764,7 +753,7 @@ static void SyncTMResp(uint8 *data, uint8 len)
  *
  * @return	none
  */
-static void FillGDEParam(uint8* readreq, uint8 len)
+static void SendGDEParam(uint8* readreq, uint8 len)
 {
 	uint8 rddata[EVLEN_GDE_PARAMS];
 
@@ -777,6 +766,8 @@ static void FillGDEParam(uint8* readreq, uint8 len)
 	RFDataForm(GDE_SUBTYPE_T_READ_RESP, rddata, sizeof(rddata));
 	//RF_working(BLECore_TaskId, GetRFstate());
 }
+
+
 
 /*********************************************************************
  * @fn		SetGDEParam
@@ -807,7 +798,7 @@ static bool SetGDEParam(uint8 *setdata, uint8 len)
 }
 
 /*********************************************************************
- * @fn		GetDevIDParam
+ * @fn		FillDevIDParam
  *
  * @brief	Read GDE ID parameters.
  *
@@ -815,7 +806,7 @@ static bool SetGDEParam(uint8 *setdata, uint8 len)
  *
  * @return	none
  */
-static void GetDevIDParam(uint8 *rdbuf)
+static void FillDevIDParam(uint8 *rdbuf)
 {
 	rdbuf[CHNG_GDE_ADDR_H_POS] = HI_UINT16(RFGDEID);
 	rdbuf[CHNG_GDE_ADDR_L_POS] = LO_UINT16(RFGDEID);
@@ -829,7 +820,7 @@ static void GetDevIDParam(uint8 *rdbuf)
 
 
 /*********************************************************************
- * @fn		ChangeDevIDParam
+ * @fn		SetDevIDParam
  *
  * @brief	Change device ID or erase version.
  *
@@ -838,7 +829,7 @@ static void GetDevIDParam(uint8 *rdbuf)
  *
  * @return	setup result
  */
-static void ChangeDevIDParam(uint8 *chngdata, uint8 len)
+static void SetDevIDParam(uint8 *chngdata, uint8 len)
 {
 	if ( len != EVLEN_CHNG_ID )
 		return;

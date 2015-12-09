@@ -73,6 +73,7 @@ extern "C" {
 // CC112X GPIO2 INT -> P1.3
 #define RF_SYNC_INT_PINSEL			P1SEL
 #define RF_SYNC_INT_PINDIR			P1DIR
+#define RF_SYNC_INT_PININP			P1INP
 #define RF_SYNC_INT_IFG				P1IFG
 #define RF_SYNC_INT_IF				P1IF
 #define RF_SYNC_INT_IEN				P1IEN

@@ -49,14 +49,11 @@ extern "C" {
 // Wait 100ms for serial command data send
 #define WAIT_TEN_CMD_PERIOD			100
 
-// Wait 50ms for TEN module enter sleep
-#define WAIT_TEN_STOP_PERIOD		50
-
-// Wait 250ms for TEN module RF ready to RX/TX
-#define WAIT_TEN_RF_RDY_PERIOD		250
+// Wait 100ms for TEN module RF ready to RX/TX
+#define WAIT_TEN_RF_RDY_PERIOD		100
 
 // Total RF work period
-#define WAIT_RF_WORK_PERIOD			(WAIT_RF_PRESET_PERIOD+WAIT_TEN_CMD_PERIOD+WAIT_TEN_STOP_PERIOD+WAIT_TEN_RF_RDY_PERIOD)
+#define WAIT_RF_WORK_PERIOD			(WAIT_RF_PRESET_PERIOD+WAIT_TEN_CMD_PERIOD+WAIT_TEN_RF_RDY_PERIOD)
 
 // Max length of TEN308 cmd
 #define TEN_RF_CMD_MAX_LEN			20

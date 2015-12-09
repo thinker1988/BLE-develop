@@ -142,7 +142,8 @@ typedef enum detectstatus
 	NO_CAR_DETECTED=0,
 	CAR_DETECTED_OK,
 	BENCH_CALIBRATING,
-	ABNORMAL_DETECTION
+	ABNORMAL_DETECTION,
+	ERROR_DETECTION
 }detectstatus_t;
 
 
@@ -172,11 +173,15 @@ extern void SendSyncTMReq(void);
 extern void FormHrtbtData(uint8 *hrtbtdata,int16 tmpX, int16 tmpY, int16 tmpZ);
 
 extern void ClearSyncTMReq(void);
+extern void ClearHeartBeat(void);
 extern void ClearDataResend(void);
 
 extern void ReadGMParam(uint8 * rdbuf);
 extern bool SetGMParam(uint8 hrtbtmin, uint8 dtval, uint8 alg, uint8 status);
+extern void ReadGDEBench(uint8* pVal);
 
+extern bool InitBenchmk(detectstatus_t cardetectts,int16 xVal,int16 yVal, int16 zVal);
+extern uint8 GetEmpBenchCnt(void);
 
 #ifdef  __cplusplus
 }

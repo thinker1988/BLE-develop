@@ -66,9 +66,9 @@
 // Heart beat in minutes, default 10 min
 uint8 hrtbt_inmin = 10;
 
-// GM car detect threshold & default use level 2, i.e. 1000
+// GM car detect threshold & default use level 1, i.e. 1000
 uint32 sqrthrhldarr[] = {800,1000,1200};
-uint8 detectlevel = 2;
+uint8 detectlevel = 1;
 
 // GDE benchmark fix flag
 bool benchfixflg = FALSE;
@@ -105,20 +105,17 @@ static uint8 sndtyp = 0;
 
 // Current GM state
 static detectstatus_t cardetect = BENCH_CALIBRATING;
-// Pevious GM state, only used in first boot
-//static detectstatus_t prevcardetect;
 
-// Resend times (<=MAX_RESEND_TIMES)
-static uint8 rsndautostop;
-
-// TM sync resend times
-static uint8 syncautostop;
+// Lot status change resend times (<=MAX_RESEND_TIMES)
+static uint8 chngautostop;
 
 // Time synchronization counts, increase every heart beat times
 static uint16 tmsynccnt = 0;
+// Time synchronization data resend times
+static uint8 syncautostop;
 
-// Empty detect counts, use this to adjust benchmark
-static uint16 empcnt = 0;
+// Adjust benchmark count in empty status
+static uint16 bnchadjcnt = 0;
 
 // Unknow status detect counts
 static uint16 unkwncnt = 0;
@@ -126,7 +123,6 @@ static uint16 unkwncnt = 0;
 // Temporary benchmark set and counts
 static int16 tmpXbench[BENCH_AVG_LEN],tmpYbench[BENCH_AVG_LEN],tmpZbench[BENCH_AVG_LEN];
 static uint8 tmpbenchcnt = 0;
-
 
 // Car detect Benchmark
 static int16 Xdtctval,Ydtctval,Zdtctval;
@@ -140,6 +136,8 @@ static int8 gdetmpr = 0;
 // GDE battery power remain percentage
 static uint8 btprcnt = 100;
 
+// Emptyy status reversed
+static bool emprvsflg = FALSE;
 /*********************************************************************
  * LOCAL FUNCTIONS
  */
@@ -153,6 +151,8 @@ static void GM_dev_preread(void);
 
 static void GM_dev_read(uint8 task_id);
 static void GM_dev_proc(int16 tmpX,int16 tmpY,int16 tmpZ);
+
+static void GM_read_tick_rst(void);
 static void GM_read_tick_update(void);
 static void GM_send_data(uint8 task_id, int16 tmpX, int16 tmpY, int16 tmpZ);
 
@@ -172,21 +172,18 @@ static bool GM_write_reg(uint8 addr, uint8 *pBuf, uint8 nBytes);
 
 
 static detectstatus_t CheckCarIn(int16 tmpX, int16 tmpY, int16 tmpZ);
+static void ProcEmpData(detectstatus_t curdtct, int16 tmpX, int16 tmpY, int16 tmpZ);
 static detectstatus_t CheckCarOut(int16 tmpX, int16 tmpY, int16 tmpZ);
+static void ProcOcpData(detectstatus_t curdtct, int16 tmpX, int16 tmpY, int16 tmpZ);
 
 
 static void ModifyBenchmk(detectstatus_t newstts);
 
-static bool InitBenchmk(detectstatus_t cardetectts,int16 xVal,int16 yVal, int16 zVal);
-
 static void NormRgltEmpBenchmk(int16 xVal,int16 yVal, int16 zVal);
-
-static void WghtRgltOcpBenchmk(int16 xVal, int16 yVal, int16 zVal);
-
-
-static int16 CalcWeight(int16 * buf, uint8 len, uint8 bound);
 static int16 CalcAvrg(int16 *buf, uint8 n);
 
+static void WghtRgltOcpBenchmk(int16 xVal, int16 yVal, int16 zVal);
+static int16 CalcWeight(int16 * buf, uint8 len, uint8 bound);
 
 /*********************************************************************
  * PUBLIC FUNCTIONS
@@ -283,7 +280,7 @@ void SendSyncTMReq(void)
 	RFDataForm(GDE_SUBTYPE_TMSYN_REQ,&tmsync,sizeof(tmsync));
 
 #if ( !defined GM_TEST_COMM )
-	if (++syncautostop > MAX_TM_SYNC_TIMES)
+	if (syncautostop++ > MAX_TM_SYNC_TIMES)
 		ClearSyncTMReq();
 #else	// GM_TEST_COMM
 	Com433WriteStr(COM433_DEBUG_PORT,"\r\nSend sync...\t");
@@ -330,6 +327,12 @@ void ClearSyncTMReq(void)
 	CLR_SEND_BIT(sndtyp, SND_BIT_TM_SYNC);
 }
 
+
+void ClearHeartBeat(void)
+{
+	CLR_SEND_BIT(sndtyp, SND_BIT_HRT_BT);
+}
+
 /*********************************************************************
  * @fn		ClearDataResend
  *
@@ -341,7 +344,7 @@ void ClearSyncTMReq(void)
  */
 void ClearDataResend(void)
 {
-	rsndautostop = 0;
+	chngautostop = 0;
 	CLR_SEND_BIT(sndtyp, SND_BIT_DAT_CHNG);
 }
 
@@ -375,15 +378,64 @@ void ReadGMParam(uint8 *rdbuf)
  * @return	TRUE - set OK
  */
 bool SetGMParam(uint8 hrtbtmin, uint8 dtval, uint8 alg, uint8 status)
-{
-	VOID alg;
-	
+{	
 	hrtbt_inmin = (hrtbtmin==0? hrtbt_inmin: hrtbtmin);
-	detectlevel = (dtval==0||dtval>sizeof(sqrthrhldarr)? detectlevel: dtval);
-	
+	detectlevel = (dtval>=sizeof(sqrthrhldarr)? detectlevel: dtval);
+	benchfixflg = (alg==FALSE? FALSE: TRUE);
 	ModifyBenchmk((detectstatus_t)status);
 
 	return TRUE;
+}
+
+void ReadGDEBench(uint8* pVal)
+{
+	pVal[GDE_X_H_BCHMRK_POS] = HI_UINT16(Xbenchmk);
+	pVal[GDE_X_L_BCHMRK_POS] = LO_UINT16(Xbenchmk);
+	pVal[GDE_Y_H_BCHMRK_POS] = HI_UINT16(Ybenchmk);
+	pVal[GDE_Y_L_BCHMRK_POS] = LO_UINT16(Ybenchmk);
+	pVal[GDE_Z_H_BCHMRK_POS] = HI_UINT16(Zbenchmk);
+	pVal[GDE_Z_L_BCHMRK_POS] = LO_UINT16(Zbenchmk);
+}
+
+
+/*********************************************************************
+ * @fn		InitBenchmk
+ *
+ * @brief	Initiate GM benchmark based on different GM & lot status.
+ *
+ * @param	cardetectts - current GM & lot status.
+ * @param	xVal - current X axis value.
+ * @param	yVal - current Y axis value.
+ * @param	zVal - current Z axis value.
+ *
+ * @return	TRUE - init OK
+ */
+bool InitBenchmk(detectstatus_t cardetectts,int16 xVal,int16 yVal, int16 zVal)
+{
+	switch (cardetectts)
+	{
+		case BENCH_CALIBRATING:
+			// clear previous benchmark, Assume no car
+			tmpbenchcnt = 0;
+		case NO_CAR_DETECTED:
+			NormRgltEmpBenchmk(xVal,yVal,zVal);
+			cardetect = NO_CAR_DETECTED;
+			break;
+		case CAR_DETECTED_OK:
+			tmpdtctcnt = 0;
+			WghtRgltOcpBenchmk(xVal,yVal,zVal);
+			cardetect = CAR_DETECTED_OK;
+			break;
+		default:
+			return FALSE;
+	}
+
+	return TRUE;
+}
+
+uint8 GetEmpBenchCnt(void)
+{
+	return tmpbenchcnt;
 }
 
 
@@ -470,32 +522,20 @@ static void InitGMState(void)
 #if ( defined GM_IMAGE_A ) || ( defined GM_IMAGE_B )
 	// Clear read times if not preparing upgrade
 	if (GetPrepUpgdState() == FALSE)
-		readcnt = 0;
-#else
-	readcnt = 0;
 #endif	// GM_IMAGE_A || GM_IMAGE_B
+		GM_read_tick_rst();
 
-	// Clear empty and unknown status times
-	empcnt = 0;
+	// Clear adjust and unknown status times
+	bnchadjcnt = 0;
 	unkwncnt = 0;
 	
 	// Clear benchmark times
 	tmpbenchcnt = 0;
 	cardetect = BENCH_CALIBRATING;
+	btprcnt = 100;
 
 #if ( defined GM_IMAGE_A ) || ( defined GM_IMAGE_B )
-	static bool finfistbootflg = FALSE;
-	int16 prevXbench,prevYbench,prevZbench;
-
-	if (finfistbootflg == FALSE)
-	{
-		finfistbootflg = TRUE;
-		if (ReadGMSetting(&prevXbench,&prevYbench,&prevZbench) == TRUE)
-		{
-			InitBenchmk(cardetect,prevXbench,prevYbench,prevZbench);
-			cardetect = CAR_DETECTED_OK;
-		}
-	}
+	ReadGMSetting();
 #endif	// GM_IMAGE_A || GM_IMAGE_B
 }
 
@@ -597,32 +637,13 @@ static void GM_dev_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 		case NO_CAR_DETECTED:
 		{
 			tmpcardetect = CheckCarIn(tmpX,tmpY,tmpZ);
-			if (tmpcardetect == CAR_DETECTED_OK)
-			{
-				set_data_change();
-				// Reinit detect benchmark every time
-				InitBenchmk(CAR_DETECTED_OK,tmpX, tmpY, tmpZ);
-
-			}
+			ProcEmpData(tmpcardetect,tmpX,tmpY,tmpZ);
 			break;
 		}
 		case CAR_DETECTED_OK:
 		{
 			tmpcardetect = CheckCarOut(tmpX,tmpY,tmpZ);
-			if ( tmpcardetect == NO_CAR_DETECTED)
-			{
-				cardetect = tmpcardetect;
-				set_data_change();
-				//NormRgltEmpBenchmk(tmpX,tmpY,tmpZ);
-			}
-			else if ( tmpcardetect == ABNORMAL_DETECTION )
-			{
-				// Send error data
-				set_heart_beat();
-				PrintGMvalue(COM433_DEBUG_PORT, "\r\nOCP ERR:",tmpX,tmpY,tmpZ);
-			}
-			else
-				PrintGMvalue(COM433_DEBUG_PORT, "\r\nDR:",tmpX,tmpY,tmpZ);
+			ProcOcpData(tmpcardetect,tmpX,tmpY,tmpZ);
 			break;
 		}
 		case BENCH_CALIBRATING:
@@ -640,6 +661,11 @@ static void GM_dev_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 
 }
 
+static void GM_read_tick_rst(void)
+{
+	readcnt = 0;
+}
+
 static void GM_read_tick_update(void)
 {
 	uint16 hrtbt_tick_cnt;
@@ -648,7 +674,7 @@ static void GM_read_tick_update(void)
 	// Calculate heart beat timing
 	if (++readcnt >= hrtbt_tick_cnt)
 	{
-		readcnt = 0;
+		GM_read_tick_rst();
 		tmsynccnt++;
 		set_heart_beat();
 	}
@@ -666,7 +692,7 @@ static void GM_read_tick_update(void)
 	{
 		if (tmsynccnt >= ordrcnt/hrtbt_tick_cnt)
 			if (readcnt >= ordrcnt%hrtbt_tick_cnt)
-				SetSysState(SYS_UPGRADE);
+				SetSysState(SYS_UPGRADE);	//  system state will change
 	}
 #endif	// GM_IMAGE_A || GM_IMAGE_B
 }
@@ -688,11 +714,11 @@ static void GM_send_data(uint8 task_id, int16 tmpX, int16 tmpY, int16 tmpZ)
 	uint8 i,hrtbtdata[EVLEN_GDE_HRTBT];
 
 	if (NO_MSG_SEND(sndtyp) || GetSysState()==SYS_SETUP || GetSysState()==SYS_UPGRADE)
-	{
 		return;
-	}
 
 	SetSysState(SYS_WORKING);
+	PowerHold(task_id);
+
 	for (i=0;i<sizeof(sndtyp)*8;i++)
 	{
 		if ((sndtyp>>i) & 0x01 != 0)
@@ -704,7 +730,7 @@ static void GM_send_data(uint8 task_id, int16 tmpX, int16 tmpY, int16 tmpZ)
 		case SND_BIT_DAT_CHNG:
 			FormHrtbtData(hrtbtdata,tmpX,tmpY,tmpZ);
 			RFDataForm(GDE_SUBTYPE_CARINFO_REQ,hrtbtdata,EVLEN_GDE_HRTBT);
-			if (rsndautostop++ > MAX_RESEND_TIMES)
+			if (chngautostop++ > MAX_RESEND_TIMES)
 				ClearDataResend();
 			break;
 		case SND_BIT_HRT_BT:
@@ -712,7 +738,7 @@ static void GM_send_data(uint8 task_id, int16 tmpX, int16 tmpY, int16 tmpZ)
 			gdetmpr = GM_dev_get_tmpr();
 			FormHrtbtData(hrtbtdata,tmpX,tmpY,tmpZ);
 			RFDataForm(GDE_SUBTYPE_HRTBEAT_REQ,hrtbtdata,EVLEN_GDE_HRTBT);
-			CLR_SEND_BIT(sndtyp, SND_BIT_HRT_BT);
+			ClearHeartBeat();
 			break;
 		case SND_BIT_TM_SYNC:
 			SendSyncTMReq();
@@ -868,6 +894,7 @@ static void set_heart_beat(void)
  */
 static void set_data_change(void)
 {
+	chngautostop = 0;	// restart sen count
 	SET_SEND_BIT(sndtyp, SND_BIT_DAT_CHNG);
 }
 
@@ -942,73 +969,77 @@ static detectstatus_t CheckCarIn(int16 tmpX, int16 tmpY, int16 tmpZ)
 {
 	uint32 xdev,ydev,zdev,devsqrsum;
 
-	// Prepare set benchmark
-	if (tmpbenchcnt == 0)
-		return NO_CAR_DETECTED;
-
 	xdev = CALC_ABS(tmpX-Xbenchmk);
 	ydev = CALC_ABS(tmpY-Ybenchmk);
 	zdev = CALC_ABS(tmpZ-Zbenchmk);
 
 	// X/Y/Z almost no change
-	//if (xdev+ydev+zdev < NO_CHANGE_THRSHLD)
-	//	return NO_CAR_DETECTED;
+	if (xdev+ydev+zdev < NO_CHANGE_THRSHLD)
+		return NO_CAR_DETECTED;
 
 	devsqrsum = xdev*xdev+ydev*ydev+zdev*zdev;
 
 	// First process long time abnormal value
-	if (devsqrsum >= sqrthrhldarr[detectlevel-1]/2 && devsqrsum < sqrthrhldarr[detectlevel-1] )
-	{
-		if (++unkwncnt > MAX_ABNORMAL_TIMES)
-		{
-			unkwncnt = 0;
-
-			return CAR_DETECTED_OK;
-		}
-		else
-		{
-			PrintGMvalue(COM433_DEBUG_PORT, "\r\nABN:",tmpX,tmpY,tmpZ);
-
-			return NO_CAR_DETECTED;
-		}
-	}
-	else
-	{
-		unkwncnt = 0;
-	}
-
-	// Dev^2 belongs to normal car in range
-	if (devsqrsum >= sqrthrhldarr[detectlevel-1] && devsqrsum < GM_ERROR_VALUE)
-	{
+	if (devsqrsum >= sqrthrhldarr[detectlevel]/2 && devsqrsum < sqrthrhldarr[detectlevel] )
+		return ABNORMAL_DETECTION;
+	else if (devsqrsum >= sqrthrhldarr[detectlevel] && devsqrsum < GM_ERROR_VALUE)
 		return CAR_DETECTED_OK;
-	}
-	// Almost no change
-	else if (devsqrsum < sqrthrhldarr[detectlevel-1]/4)
-	{
-		empcnt++;
-		// Continuously adjust benchmark at first 10 times and fill the array
-		if ( tmpbenchcnt < BENCH_AVG_LEN)
-			NormRgltEmpBenchmk(tmpX,tmpY,tmpZ);
-		// Ajust benchmark envery 30min
-		else if (empcnt >= ADJ_BENCHMK_TIMES && benchfixflg == FALSE)
-			NormRgltEmpBenchmk(tmpX,tmpY,tmpZ);
-		else
-			PrintGMvalue(COM433_DEBUG_PORT, "\r\nR:",tmpX,tmpY,tmpZ);
-	}
-	// A little change
-	else if (devsqrsum >= sqrthrhldarr[detectlevel-1]/4 && devsqrsum < sqrthrhldarr[detectlevel-1]/2 )
+	else if (devsqrsum < sqrthrhldarr[detectlevel]/2)	// use 1/4
+		return NO_CAR_DETECTED;
+	else
+		return ERROR_DETECTION;
+
+/*	// A little change
+	else if (devsqrsum >= sqrthrhldarr[detectlevel]/4 && devsqrsum < sqrthrhldarr[detectlevel]/2 )
 	{
 		PrintGMvalue(COM433_DEBUG_PORT, "\r\nR:",tmpX,tmpY,tmpZ);
-	}
+	}*/
 	// Error value detect
-	else
-	{
-		// Send error data
-		set_heart_beat();
-		PrintGMvalue(COM433_DEBUG_PORT, "\r\nEMP ERR:",tmpX,tmpY,tmpZ);
-	}
+}
 
-	return NO_CAR_DETECTED;
+static void ProcEmpData(detectstatus_t curdtct, int16 tmpX, int16 tmpY, int16 tmpZ)
+{
+	if (curdtct != ABNORMAL_DETECTION)
+		unkwncnt = 0;
+
+	switch(curdtct)
+	{
+		case CAR_DETECTED_OK:
+			set_data_change();
+			// Reinit detect benchmark every time
+			InitBenchmk(CAR_DETECTED_OK,tmpX, tmpY, tmpZ);
+			break;
+		case NO_CAR_DETECTED:
+		{
+			bnchadjcnt++;
+			// Continuously adjust benchmark at first 10 times and fill the array
+			if ( tmpbenchcnt <= BENCH_AVG_LEN)
+				NormRgltEmpBenchmk(tmpX,tmpY,tmpZ);
+			// Adjust benchmark at each ADJ_BENCHMK_TIMES
+			else if (bnchadjcnt >= ADJ_BENCHMK_TIMES && benchfixflg == FALSE)
+				NormRgltEmpBenchmk(tmpX,tmpY,tmpZ);
+			else
+				PrintGMvalue(COM433_DEBUG_PORT, "\r\nR:",tmpX,tmpY,tmpZ);
+			break;
+		}
+		case ABNORMAL_DETECTION:
+			if (++unkwncnt > MAX_ABNORMAL_TIMES)
+			{
+				unkwncnt = 0;
+				set_data_change();
+				InitBenchmk(CAR_DETECTED_OK,tmpX, tmpY, tmpZ);
+			}
+			else
+				PrintGMvalue(COM433_DEBUG_PORT, "\r\nABN:",tmpX,tmpY,tmpZ);
+			break;
+		case ERROR_DETECTION:
+			// Send error data
+			set_heart_beat();
+			PrintGMvalue(COM433_DEBUG_PORT, "\r\nEMP ERR:",tmpX,tmpY,tmpZ);
+			break;
+		default:
+			break;
+	}
 }
 
 /*********************************************************************
@@ -1026,8 +1057,8 @@ static detectstatus_t CheckCarOut(int16 tmpX, int16 tmpY, int16 tmpZ)
 {
 	uint32 xdev,ydev,zdev,devsqrsum;
 
-	// normal check
-	if ( tmpbenchcnt != 0 )
+	// Normal check base on empty benchmark
+	if ( emprvsflg == FALSE )
 	{
 		xdev = CALC_ABS(tmpX-Xbenchmk);
 		ydev = CALC_ABS(tmpY-Ybenchmk);
@@ -1036,14 +1067,14 @@ static detectstatus_t CheckCarOut(int16 tmpX, int16 tmpY, int16 tmpZ)
 		devsqrsum = xdev*xdev+ydev*ydev+zdev*zdev;
 
 		// Change state when lower than 1/4 threshold, use hysteresis method
-		if (devsqrsum < sqrthrhldarr[detectlevel-1]/4)
+		if (devsqrsum < sqrthrhldarr[detectlevel]/4)
 			return NO_CAR_DETECTED;
 		else if (devsqrsum >= GM_ERROR_VALUE)
-			return ABNORMAL_DETECTION;
+			return ERROR_DETECTION;
 		else
 			return CAR_DETECTED_OK;
 	}
-	// in case cardetectatus modified by GTE, no benchmark
+	// In case car detect status modified by GTE, no benchmark
 	else
 	{
 		xdev = CALC_ABS(tmpX-Xdtctval);
@@ -1053,12 +1084,59 @@ static detectstatus_t CheckCarOut(int16 tmpX, int16 tmpY, int16 tmpZ)
 		devsqrsum = xdev*xdev+ydev*ydev+zdev*zdev;
 
 		// Use 1/2 threshold
-		if ( devsqrsum >= sqrthrhldarr[detectlevel-1]/2 )
+		if ( devsqrsum >= sqrthrhldarr[detectlevel]/2 )
 			return NO_CAR_DETECTED;
 		else
 			return CAR_DETECTED_OK;
 	}
 }
+
+static void ProcOcpData(detectstatus_t curdtct, int16 tmpX, int16 tmpY, int16 tmpZ)
+{
+	if (emprvsflg == FALSE)
+	{
+		switch(curdtct)
+		{
+			case NO_CAR_DETECTED:
+				cardetect = curdtct;
+				set_data_change();
+				break;
+			case ERROR_DETECTION:
+				set_heart_beat();
+				PrintGMvalue(COM433_DEBUG_PORT, "\r\nOCP ERR:",tmpX,tmpY,tmpZ);
+				break;
+			case CAR_DETECTED_OK:
+				PrintGMvalue(COM433_DEBUG_PORT, "\r\nDR:",tmpX,tmpY,tmpZ);
+				break;
+			default:
+				break;
+		}
+	}
+	else
+	{
+		switch(curdtct)
+		{
+			case NO_CAR_DETECTED:
+				if ( tmpbenchcnt <= BENCH_AVG_LEN)
+					NormRgltEmpBenchmk(tmpX,tmpY,tmpZ);
+				else
+				{
+					emprvsflg = FALSE;
+					cardetect = curdtct;
+					set_data_change();
+				}
+				break;
+			case CAR_DETECTED_OK:
+				tmpbenchcnt = 0;
+				WghtRgltOcpBenchmk(tmpX,tmpY,tmpZ);
+				PrintGMvalue(COM433_DEBUG_PORT, "\r\nDBR:",tmpX,tmpY,tmpZ);
+				break;
+			default:
+				break;
+		}	
+	}
+}
+
 
 
 /*********************************************************************
@@ -1078,59 +1156,26 @@ static void ModifyBenchmk(detectstatus_t newstts)
 	if (newstts > CAR_DETECTED_OK)
 		return;
 
+	ClearDataResend();
+	ClearSyncTMReq();
+	
 	set_data_change();
 	
 	// No Car--> Get Car
 	if (newstts == CAR_DETECTED_OK)
 	{
-		InitBenchmk(newstts,Xbenchmk,Ybenchmk,Zbenchmk);
-		tmpbenchcnt = 0;	// previous benchmark invalid, when perform CheckCarOut
-		
+		// Change current empty benchmark to occupyed
+		InitBenchmk(CAR_DETECTED_OK,Xbenchmk,Ybenchmk,Zbenchmk);
+		// previous benchmark invalid, when perform CheckCarOut
+		emprvsflg = TRUE;
+		tmpbenchcnt = 0;	
 	}
 	// Get Car-->No Car
 	else
-		InitBenchmk(newstts,Xdtctval,Ydtctval,Zdtctval);
+		InitBenchmk(BENCH_CALIBRATING,Xdtctval,Ydtctval,Zdtctval);
 
-	// Clear resend times
-	rsndautostop = 0;
-	syncautostop = 0;
-	
-	empcnt = 0;
+	bnchadjcnt = 0;
 	unkwncnt = 0;
-}
-
-/*********************************************************************
- * @fn		InitBenchmk
- *
- * @brief	Initiate GM benchmark based on different GM & lot status.
- *
- * @param	cardetectts - current GM & lot status.
- * @param	xVal - current X axis value.
- * @param	yVal - current Y axis value.
- * @param	zVal - current Z axis value.
- *
- * @return	TRUE - init OK
- */
-static bool InitBenchmk(detectstatus_t cardetectts,int16 xVal,int16 yVal, int16 zVal)
-{
-	switch (cardetectts)
-	{
-		case BENCH_CALIBRATING:
-			// clear previous benchmark, Assume no car
-			tmpbenchcnt = 0;
-		case NO_CAR_DETECTED:
-			NormRgltEmpBenchmk(xVal,yVal,zVal);
-			cardetect = NO_CAR_DETECTED;
-			break;
-		case CAR_DETECTED_OK:
-			WghtRgltOcpBenchmk(xVal,yVal,zVal);
-			cardetect = CAR_DETECTED_OK;
-			break;
-		default:
-			return FALSE;
-	}
-
-	return TRUE;
 }
 
 /*********************************************************************
@@ -1146,7 +1191,7 @@ static bool InitBenchmk(detectstatus_t cardetectts,int16 xVal,int16 yVal, int16 
  */
 static void NormRgltEmpBenchmk(int16 xVal,int16 yVal, int16 zVal)
 {
-	empcnt = 0;
+	bnchadjcnt = 0;
 	tmpbenchcnt++;
 
 	if ( tmpbenchcnt > BENCH_AVG_LEN )
@@ -1211,14 +1256,6 @@ static int16 CalcAvrg(int16 *buf, uint8 n)
  */
 static void WghtRgltOcpBenchmk(int16 xVal,int16 yVal, int16 zVal)
 {
-#if 1
-	tmpdtctcnt = 1;
-#else
-	// adjust benchmark ervery 10s
-	if ( ++dtctcnt < 2 )
-		return;
-
-	dtctcnt = 0;
 	tmpdtctcnt++;
 
 	if ( tmpdtctcnt > BENCH_WEIGHT_LEN )
@@ -1235,7 +1272,6 @@ static void WghtRgltOcpBenchmk(int16 xVal,int16 yVal, int16 zVal)
 		Zdtctval = CalcWeight(tmpXdtctval,tmpdtctcnt,BENCH_WEIGHT_LEN);
 	}
 	else
-#endif
 	{
 		tmpXdtctval[tmpdtctcnt-1]=xVal;
 		tmpYdtctval[tmpdtctcnt-1]=yVal;
@@ -1276,6 +1312,3 @@ static int16 CalcWeight(int16 *buf, uint8 len, uint8 bound)
 
 	return sum/nweight;	
 }
-
-
-

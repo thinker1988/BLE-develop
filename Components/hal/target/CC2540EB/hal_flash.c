@@ -164,6 +164,7 @@ void HalFlashErase(uint8 pg)
 {
   FADDRH = pg * (HAL_FLASH_PAGE_SIZE / HAL_FLASH_WORD_SIZE / 256);
   FCTL |= 0x01;
+  while( FCTL & 0x80 ); // wait for erase to complete  
 }
 
 /**************************************************************************************************
