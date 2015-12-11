@@ -314,7 +314,7 @@ void FormHrtbtData(uint8* hrtbtdata, int16 tmpX, int16 tmpY, int16 tmpZ)
 	hrtbtdata[HRT_BT_ZVAL_H_POS]=HI_UINT16(tmpZ);
 	hrtbtdata[HRT_BT_ZVAL_L_POS]=LO_UINT16(tmpZ);
 	
-	hrtbtdata[HRT_BT_STAT_POS]=cardetect;
+	hrtbtdata[HRT_BT_STAT_POS]=(cardetect==CAR_DETECTED_OK? CAR_DETECTED_OK: NO_CAR_DETECTED);
 
 	//if ( cardetect!=NO_CAR_DETECTED && cardetect!=CAR_DETECTED_OK)
 	//	return;

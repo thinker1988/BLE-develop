@@ -460,14 +460,12 @@ static rfpkterr_t rfdataparse(uint8 *rfdata,uint8 len)
 			case GDE_SUBTYPE_HRTBEAT_REQ:	// GDE heart beat recieved success
 				if (pldlen == GDE_SUBTYPE_HRTBEAT_REQ_PL_LEN)
 				{
-					//httpsend(rfdata, len);
 					printf("===>Heart beat.\r\n");
 					break;
 				}
 			case GDE_SUBTYPE_CARINFO_REQ:	// GDE carinfo recieved success
 				if (pldlen == GDE_SUBTYPE_CARINFO_REQ_PL_LEN)
 				{
-					//httpsend(rfdata, len);
 					printf("===>Car detected.\r\n");
 					break;
 				}
@@ -499,6 +497,8 @@ static rfpkterr_t rfdataparse(uint8 *rfdata,uint8 len)
 	}
 	GDEPktElmProc(rfdata[GMS_SUB_TYPE_POS],rfdata+GMS_PKT_HDR_SIZE, pldlen);
 
+	if (rfdata[GMS_SUB_TYPE_POS]==GDE_SUBTYPE_HRTBEAT_REQ || rfdata[GMS_SUB_TYPE_POS]==GDE_SUBTYPE_CARINFO_REQ)
+		httpsend(rfdata, len);
 	return RF_SUCCESS;
 }
 
@@ -825,7 +825,7 @@ static void PrintHrtbtData(uint8* hrtbtval)
 }
 static void PrintBnchmk(uint8* bnchmk)
 {
-	printf("\tXB: %5d  YB: %5d  ZB %5d\r\n",(int16)BUILD_UINT16(bnchmk[GDE_X_L_BCHMRK_POS],bnchmk[GDE_X_H_BCHMRK_POS]),\
+	printf("\tXB: %5d  YB: %5d  ZB: %5d\r\n",(int16)BUILD_UINT16(bnchmk[GDE_X_L_BCHMRK_POS],bnchmk[GDE_X_H_BCHMRK_POS]),\
 			(int16)BUILD_UINT16(bnchmk[GDE_Y_L_BCHMRK_POS],bnchmk[GDE_Y_H_BCHMRK_POS]),\
 			(int16)BUILD_UINT16(bnchmk[GDE_Z_L_BCHMRK_POS],bnchmk[GDE_Z_H_BCHMRK_POS]));
 }
