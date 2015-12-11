@@ -285,6 +285,11 @@ uint16 BLECore_ProcessEvent( uint8 task_id, uint16 events )
 		return (events ^ HG_SWITCH_EVT);
 	}
 
+	if (events & SYSTEM_RESET_EVT)
+	{
+		HAL_SYSTEM_RESET();
+	}
+
 	return 0;
 }
 
@@ -313,7 +318,7 @@ void sys_working(uint8 task_id, sysstate_t newDevstate)
 			// Do not enter power saving
 			PowerHold(task_id);
 			RF_working(task_id, RF_PRESET);
-#if ( !defined GME_WORKING )
+#if ( !defined GME_WORKING && !defined RF_TRSPRNT_MODE )
 			GM_working(task_id, GMSnTest);
 #endif	// !GME_WORKING
 			break;
@@ -378,6 +383,7 @@ void sys_working(uint8 task_id, sysstate_t newDevstate)
 				PowerHold(task_id);
 				SetPrepUpgdState(FALSE);
 				StopAllTimer(task_id);
+				EraseTargetFlash();
 				RF_working(task_id, RF_PRESET);
 				osal_start_timerEx(task_id, BLE_SYS_WORKING_EVT, UPGD_RF_WAIT_PERIOD);
 			}
@@ -539,6 +545,17 @@ uint32 c_rand(void)
 	return (uint32)(next/65536)%32768;  
 }
 
+
+void PerformSystemReset(void)
+{
+	StoreSetting(GMS_NV_DT_STATE_ID);
+	StoreSetting(GMS_NV_BENCH_CNT_ID);
+	StoreSetting(GMS_NV_GDE_X_BENCH_ID);
+	StoreSetting(GMS_NV_GDE_Y_BENCH_ID);
+	StoreSetting(GMS_NV_GDE_Z_BENCH_ID);
+	
+	osal_start_timerEx(BLECore_TaskId, SYSTEM_RESET_EVT, IDLE_PWR_HOLD_PERIOD);
+}
 
 /*********************************************************************
  * PRIVATE FUNCTIONS

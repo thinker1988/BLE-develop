@@ -29,19 +29,6 @@
 /*********************************************************************
  * CONSTANTS
  */
-// App NV id (>0x80 available, see Bcomdef.h: BLE_NVID_XXXX)
-// Save previous GDE ID, GME ID
-#define GMS_NV_GDE_ID_ID		0xA0
-#define GMS_NV_GME_ID_ID		0xA1
-
-//Save previous benchmark count and car detect state
-#define GMS_NV_DT_STATE_ID		0xA2
-#define GMS_NV_BENCH_CNT_ID		0xA3
-
-// Benchmark of X/Y/Z, in case upgrade when car detected
-#define GMS_NV_GDE_X_BENCH_ID	0xA4
-#define GMS_NV_GDE_Y_BENCH_ID	0xA5
-#define GMS_NV_GDE_Z_BENCH_ID	0xA6
 
 /*********************************************************************
  * MACROS
@@ -77,7 +64,7 @@ static uint32 oadodrfwlen;
  * LOCAL FUNCTIONS
  */
 
-static bool ReadPrevGMstatus(int16* tmpxbm, int16* tmpybm, int16* tmpzbm);
+static bool ReadPrevDtctStatus(int16* tmpxbm, int16* tmpybm, int16* tmpzbm);
 static uint8 GetValidFirmwareCount(void);
 
 static void set_fw_upgd_tick_alarm(uint8 alrmhh, uint8 alrmmm, uint8 alrmss);
@@ -156,7 +143,7 @@ void ReadGMSetting(void)
 	if (finfistbootflg == FALSE)
 	{
 		finfistbootflg = TRUE;
-		if (ReadPrevGMstatus(&prevXbench,&prevYbench,&prevZbench) == TRUE)
+		if (ReadPrevDtctStatus(&prevXbench,&prevYbench,&prevZbench) == TRUE)
 		{
 			InitBenchmk(BENCH_CALIBRATING,prevXbench,prevYbench,prevZbench);
 			SetGMState(CAR_DETECTED_OK);
@@ -234,20 +221,135 @@ void PrepareUpgrade(uint8 subtype, uint8* upgpkt, uint8 len)
 void EraseFirmwareInfo(void)
 {
 	uint16 clrcrc[2]={ 0x0000, 0xFFFF };//{0};
+	uint16 addr = RF_OAD_IMG_ORG_PAGE*RF_OAD_FLASH_PAGE_MULT + RF_OAD_IMG_CRC_OSET/HAL_FLASH_WORD_SIZE;
 
 	if (GetValidFirmwareCount() == 2)
 	{
-		//HalFlashWrite(RF_OAD_IMG_ORG_PAGE, (uint8 *)clrcrc, 1);
-		HalFlashErase(RF_OAD_IMG_ORG_PAGE);
-		ASM_NOP;
-		HAL_SYSTEM_RESET();
+		HalFlashWrite(addr, (uint8 *)clrcrc, 1);
+		PerformSystemReset();
 	}
 
 	return;
 }
 
+void EraseTargetFlash(void)
+{
+	uint8 i,erspg = RF_OAD_IMG_DST_PAGE;
 
-static bool ReadPrevGMstatus(int16* tmpxbm, int16* tmpybm, int16* tmpzbm)
+	oadcurblknum = 0;
+	for (i=0; i<RF_OAD_IMG_DST_AREA; i++)
+	{
+#if ( defined GM_IMAGE_B )
+		if (erspg >= RF_OAD_IMG_B_PAGE)	// Erase next flash page
+			erspg += RF_OAD_IMG_B_AREA;
+#endif	// GM_IMAGE_B
+		HalFlashErase(erspg+i);
+	}
+}
+
+void SetPrepUpgdState(bool state)
+{
+	prepupgrd = state;
+}
+
+bool GetPrepUpgdState(void)
+{
+	return prepupgrd;
+}
+
+void ReportUpgdState(void)
+{
+	uint8 subtype;
+
+	// Always check upgrade state no mater it success
+	if ( upgdret == MSG_SUCCESS)
+	{
+		if(RFOadCheckDL())
+		{
+			upgdfin = TRUE;
+			upgdret = MSG_SUCCESS;
+			Com433WriteStr(COM433_DEBUG_PORT,"\r\nUpgrade OK\r\n");
+		}
+		else
+		{
+			upgdret = IMG_CRC_FAIL;
+			Com433WriteStr(COM433_DEBUG_PORT,"\r\nUpgrade CRC failed\r\n");
+		}
+	}
+
+	subtype = (upgdsrcgte==FALSE? GDE_SUBTYPE_UPGD_ACK: GDE_SUBTYPE_T_UPGD_ACK);
+	RFDataForm(subtype, (uint8*)&upgdret, sizeof(uint8));
+
+
+	if (upgdfin == TRUE)
+		PerformSystemReset();
+}
+
+/*********************************************************************
+ * @fn		RFOadImgBlockWrite
+ *
+ * @brief	 Process the Image Block Write.
+ *
+ * @param	 subtype - send to GDE or GTE subtype
+ * @param	 pValue - pointer to data to be written
+ *
+ * @return	status
+ */
+void RFOadImgBlockWrite(uint8 subtype, uint8 *pValue, uint8 len)
+{
+	uint16 blkNum = BUILD_UINT16( pValue[NEW_FW_CUR_BLK_L_POS], pValue[NEW_FW_CUR_BLK_H_POS] );
+
+	// make sure this is the image we're expecting
+	if ( blkNum == 0 && oadcurblknum == 0 )
+	{
+		uint16 fwcrc;
+		oad_img_hdr_t ImgHdr;
+
+		osal_memcpy(&fwcrc, pValue+RF_OAD_BLOCK_BEG_POS, sizeof(uint16));
+		osal_memcpy((uint8 *)&ImgHdr, pValue+RF_OAD_BLOCK_BEG_POS+RF_OAD_IMG_HDR_OSET,sizeof(oad_img_hdr_t));
+
+		if ( oadodrvrn != ImgHdr.ver )
+			upgdret = IMG_TYPE_ERR;
+
+		if ( oadcurblknum != blkNum  || oadodrfwcrc != fwcrc || oadodrtotblk != \
+				ImgHdr.len/(RF_OAD_BLOCK_SIZE/HAL_FLASH_WORD_SIZE))
+			upgdret = IMG_SIZE_ERR;
+
+		if (upgdret != MSG_SUCCESS)
+			ChngSysState(SYS_UPGRADE, 0);
+	}
+
+	if (oadcurblknum == blkNum)
+	{
+		Com433WriteInt(COM433_DEBUG_PORT, "\r\nN:",blkNum,10);
+		uint16 addr = oadcurblknum * (RF_OAD_BLOCK_SIZE / HAL_FLASH_WORD_SIZE) + \
+								(RF_OAD_IMG_DST_PAGE * RF_OAD_FLASH_PAGE_MULT);
+		oadcurblknum++;	
+#if ( defined GM_IMAGE_B )
+		// Skip the Image-B area which lies between the lower & upper Image-A parts, when upgrading image A.
+		if (addr >= (RF_OAD_IMG_B_PAGE * RF_OAD_FLASH_PAGE_MULT))
+			addr += RF_OAD_IMG_B_AREA * RF_OAD_FLASH_PAGE_MULT;
+#endif	// GM_IMAGE_B
+
+
+#if ( defined GM_IMAGE_A ) || ( defined GM_IMAGE_B )
+		HalFlashWrite(addr, pValue+RF_OAD_BLOCK_BEG_POS, (RF_OAD_BLOCK_SIZE/ HAL_FLASH_WORD_SIZE));
+#endif	// GM_IMAGE_A || GM_IMAGE_B
+
+		if (oadcurblknum == oadodrtotblk)	// If the OAD Image is complete.
+			ChngSysState(SYS_UPGRADE, IDLE_PWR_HOLD_PERIOD+c_rand()*SEC_IN_MIN/MAX_RANDOM_SECONDS);	
+	}
+	else if (blkNum>oadcurblknum)
+	{
+		Com433WriteInt(COM433_DEBUG_PORT, "\r\nLOSE:",oadcurblknum,10);
+		ChngSysState(SYS_UPGRADE, 0);
+		return;
+	}
+
+	return;
+}
+
+static bool ReadPrevDtctStatus(int16* tmpxbm, int16* tmpybm, int16* tmpzbm)
 {
 	uint8 ret = SUCCESS,prevcnt;
 	detectstatus_t prevdtst;
@@ -307,118 +409,6 @@ static void set_fw_upgd_tick_alarm(uint8 alrmhh, uint8 alrmmm, uint8 alrmss)
 			+(int32)(alrmss-curtmst.seconds);
 
 	ordrcnt = totscnd/(GM_READ_EVT_PERIOD/MILSEC_IN_SEC)+readcnt;
-}
-
-
-void SetPrepUpgdState(bool state)
-{
-	prepupgrd = state;
-}
-
-bool GetPrepUpgdState(void)
-{
-	return prepupgrd;
-}
-
-void ReportUpgdState(void)
-{
-	uint8 subtype;
-
-	// Always check upgrade state no mater it success
-	if ( upgdret == MSG_SUCCESS)
-	{
-		if(RFOadCheckDL())
-		{
-			upgdfin = TRUE;
-			upgdret = MSG_SUCCESS;
-			Com433WriteStr(COM433_DEBUG_PORT,"\r\nUpgrade OK\r\n");
-		}
-		else
-		{
-			upgdret = IMG_CRC_FAIL;
-			Com433WriteStr(COM433_DEBUG_PORT,"\r\nUpgrade CRC failed\r\n");
-		}
-	}
-
-	subtype = (upgdsrcgte==FALSE? GDE_SUBTYPE_UPGD_ACK: GDE_SUBTYPE_T_UPGD_ACK);
-	RFDataForm(subtype, (uint8*)&upgdret, sizeof(uint8));
-
-#if ( !defined USE_TEN308_RF)
-	while (GetRTxRdyFlg() == FALSE);
-#endif
-
-	if (upgdfin == TRUE)
-	{
-		HAL_SYSTEM_RESET();
-	}
-}
-
-/*********************************************************************
- * @fn		RFOadImgBlockWrite
- *
- * @brief	 Process the Image Block Write.
- *
- * @param	 subtype - send to GDE or GTE subtype
- * @param	 pValue - pointer to data to be written
- *
- * @return	status
- */
-void RFOadImgBlockWrite(uint8 subtype, uint8 *pValue, uint8 len)
-{
-	uint16 blkNum = BUILD_UINT16( pValue[NEW_FW_CUR_BLK_L_POS], pValue[NEW_FW_CUR_BLK_H_POS] );
-
-	Com433WriteInt(COM433_DEBUG_PORT, "\r\nN:",blkNum,10);
-
-	// make sure this is the image we're expecting
-	if ( blkNum == 0 && oadcurblknum == 0 )
-	{
-		uint16 fwcrc;
-		oad_img_hdr_t ImgHdr;
-
-		osal_memcpy(&fwcrc, pValue+RF_OAD_BLOCK_BEG_POS, sizeof(uint16));
-		osal_memcpy((uint8 *)&ImgHdr, pValue+RF_OAD_BLOCK_BEG_POS+RF_OAD_IMG_HDR_OSET,sizeof(oad_img_hdr_t));
-
-		if ( oadodrvrn != ImgHdr.ver )
-			upgdret = IMG_TYPE_ERR;
-
-		if ( oadcurblknum != blkNum  || oadodrfwcrc != fwcrc || oadodrtotblk != \
-				ImgHdr.len/(RF_OAD_BLOCK_SIZE/HAL_FLASH_WORD_SIZE))
-			upgdret = IMG_SIZE_ERR;
-
-		if (upgdret != MSG_SUCCESS)
-			ChngSysState(SYS_UPGRADE, 0);
-	}
-
-	if (oadcurblknum == blkNum)
-	{
-		uint16 addr = oadcurblknum * (RF_OAD_BLOCK_SIZE / HAL_FLASH_WORD_SIZE) + \
-								(RF_OAD_IMG_DST_PAGE * RF_OAD_FLASH_PAGE_MULT);
-		oadcurblknum++;	
-#if ( defined GM_IMAGE_B )
-		// Skip the Image-B area which lies between the lower & upper Image-A parts, when upgrading image A.
-		if (addr >= (RF_OAD_IMG_B_PAGE * RF_OAD_FLASH_PAGE_MULT))
-			addr += RF_OAD_IMG_B_AREA * RF_OAD_FLASH_PAGE_MULT;
-#endif	// GM_IMAGE_B
-
-
-#if ( defined GM_IMAGE_A ) || ( defined GM_IMAGE_B )
-		if ((addr % RF_OAD_FLASH_PAGE_MULT) == 0)	// Erase next flash page
-			HalFlashErase(addr / RF_OAD_FLASH_PAGE_MULT);
-
-		HalFlashWrite(addr, pValue+RF_OAD_BLOCK_BEG_POS, (RF_OAD_BLOCK_SIZE/ HAL_FLASH_WORD_SIZE));
-#endif	// GM_IMAGE_A || GM_IMAGE_B
-
-		if (oadcurblknum == oadodrtotblk)	// If the OAD Image is complete.
-			ChngSysState(SYS_UPGRADE, IDLE_PWR_HOLD_PERIOD+c_rand()*SEC_IN_MIN/MAX_RANDOM_SECONDS);	
-	}
-	else if (blkNum>oadcurblknum)
-	{
-		Com433WriteInt(COM433_DEBUG_PORT, "\r\nLOSE:",oadcurblknum,10);
-		ChngSysState(SYS_UPGRADE, 0);
-		return;
-	}
-
-	return;
 }
 
 
@@ -504,7 +494,7 @@ static uint16 RFOadCrcCalc(void)
 static uint8 RFOadCheckDL(void)
 {
 	uint16 crc[2];
-	uint16 addr = RF_OAD_IMG_DST_PAGE * RF_OAD_FLASH_PAGE_MULT + RF_OAD_IMG_CRC_OSET / HAL_FLASH_WORD_SIZE;
+	uint16 addr = RF_OAD_IMG_DST_PAGE*RF_OAD_FLASH_PAGE_MULT + RF_OAD_IMG_CRC_OSET/HAL_FLASH_WORD_SIZE;
 
 	HalFlashRead(RF_OAD_IMG_DST_PAGE, RF_OAD_IMG_CRC_OSET, (uint8 *)crc, sizeof(crc));
 

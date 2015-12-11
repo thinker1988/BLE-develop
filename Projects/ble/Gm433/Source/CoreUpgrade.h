@@ -8,6 +8,20 @@ extern "C"
 {
 #endif
 
+// App NV id (>0x80 available, see Bcomdef.h: BLE_NVID_XXXX)
+// Save previous GDE ID, GME ID
+#define GMS_NV_GDE_ID_ID		0xA0
+#define GMS_NV_GME_ID_ID		0xA1
+
+//Save previous benchmark count and car detect state
+#define GMS_NV_DT_STATE_ID		0xA2
+#define GMS_NV_BENCH_CNT_ID		0xA3
+
+// Benchmark of X/Y/Z, in case upgrade when car detected
+#define GMS_NV_GDE_X_BENCH_ID	0xA4
+#define GMS_NV_GDE_Y_BENCH_ID	0xA5
+#define GMS_NV_GDE_Z_BENCH_ID	0xA6
+
 #if ( defined VERSION_NUMBER )
 
 #if ( defined GM_IMAGE_A )
@@ -113,6 +127,7 @@ extern bool GetPrepUpgdState(void);
 
 extern void RFOadImgBlockWrite(uint8 subtype, uint8 *pValue, uint8 len);
 extern void EraseFirmwareInfo(void);
+extern void EraseTargetFlash(void);
 
 
 #ifdef __cplusplus

@@ -56,7 +56,7 @@ static bool LoRaOnState = false;
  */
 static void RXTXAntSet(uint8 antst);
 static void TRXSyncIntOn(void);
-static void TRXSyncIntOff(void);
+//static void TRXSyncIntOff(void);
 
 
 /*********************************************************************
@@ -127,10 +127,8 @@ void RF_working(uint8 task_id, rfstate_t newrfstate)
 			VOID LoRaOnState;
 
 			RFM96_Config(0);	//setting base parameter
-
 			RFM96_LoRaEntryRx();
 #else	// !RION_CODE
-
 			osal_memset(SX1276Regs+1, 0x00, SX1278_REG_SIZE-1);
 			SX1276LR = ( tSX1276LR* )SX1276Regs;
 
@@ -175,21 +173,15 @@ void RF_working(uint8 task_id, rfstate_t newrfstate)
 #else	// !RION_CODE
 				if ( SX1276Process() == RF_RX_DONE)
 				{
-					uint8 gmdata[RF_BUFFER_SIZE+1];
+					uint8 gmdata[RF_BUFFER_SIZE];
 					uint16 len;
 
-
-					//SX1276GetRxPacket(gmdata+1, &len);
-					//gmdata[0] = ' ';
-					//gmdata[len] = '\0';
-					//Com433WriteStr(COM433_DEBUG_PORT, gmdata);
 					SX1276GetRxPacket(gmdata, &len);
-
-					TRXSyncIntOff();
-					//Com433WriteInt(COM433_DEBUG_PORT, "\r\nR:",len-1,10);
+#if ( defined RF_TRSPRNT_MODE )
+					Com433Write(COM433_DEBUG_PORT, gmdata,len-1);
+#else	// !RF_TRSPRNT_MODE
 					GMSPktForm(gmdata,len-1);
-
-					TRXSyncIntOn();
+#endif	// RF_TRSPRNT_MODE
 				}
 #endif	// RION_CODE
 			}
@@ -214,7 +206,6 @@ void RF_working(uint8 task_id, rfstate_t newrfstate)
 rfpkterr_t RFDataSend(uint8 *buf, uint8 len)
 {
 	SetRFstate(RF_SEND);
-	TRXSyncIntOn();
 #if ( !defined RION_CODE )
 	SX1276SetTxPacket(buf, len);
 	RXTXAntSet(RFLR_OPMODE_TRANSMITTER);
@@ -814,37 +805,37 @@ uint8 RFM96_LoRaRxWaitStable(void)
 **********************************************************/
 uint8 RFM96_LoRaRxPacket(void)
 {
-		uint8 addr;
-		uint8 packet_size;
+	uint8 addr;
+	uint8 packet_size;
 
-		//if(RF_IRQ_DIO0)// 收到一包LoRa 数据了RF_IRQ ---DIO0
-		{
-			osal_memset(gb_RxData,0,GMS_PKT_MAX_LEN);
+	//if(RF_IRQ_DIO0)// 收到一包LoRa 数据了RF_IRQ ---DIO0
+	{
+		osal_memset(gb_RxData,0,GMS_PKT_MAX_LEN);
 
-			addr = SPIRead((uint8)(LR_RegFifoRxCurrentaddr>>8));		//last packet addr 数据包的最后地址(数据的尾地址)
-			SPIWrite(LR_RegFifoAddrPtr+addr);						//RxBaseAddr -> FiFoAddrPtr	 
-			asm("nop");
+		addr = SPIRead((uint8)(LR_RegFifoRxCurrentaddr>>8));		//last packet addr 数据包的最后地址(数据的尾地址)
+		SPIWrite(LR_RegFifoAddrPtr+addr);						//RxBaseAddr -> FiFoAddrPtr	 
+		asm("nop");
 
-			if(RFM96SpreadFactorTbl[gb_SF]==6)			 //When SpreadFactor is six，will used Implicit Header mode(Excluding internal packet length)
-				packet_size=21;
-			else
-				packet_size = SPIRead((uint8)(LR_RegRxNbBytes>>8));	 //Number for received bytes	
+		if(RFM96SpreadFactorTbl[gb_SF]==6)			 //When SpreadFactor is six，will used Implicit Header mode(Excluding internal packet length)
+			packet_size=21;
+		else
+			packet_size = SPIRead((uint8)(LR_RegRxNbBytes>>8));	 //Number for received bytes	
 
-			gtmp= packet_size;
-//			Com433WriteInt(COM433_DEBUG_PORT,"\r\nGET:",gtmp,10);
-			SPIBurstRead(0x00, gb_RxData, packet_size);
+		gtmp= packet_size;
+		SPIBurstRead(0x00, gb_RxData, packet_size);
 
-			RFM96_LoRaClearIrq();
-			asm("nop");
-/*			for(i=0;i<gtmp;i++)//验证数据 数据OK i==17
-			{
-				Com433WriteInt(COM433_DEBUG_PORT," ",gb_RxData[i],16);	
-			}	*/
+		RFM96_LoRaClearIrq();
+		asm("nop");
 
-		}
+#if ( defined RF_TRSPRNT_MODE )
+		Com433WriteInt(COM433_DEBUG_PORT,"\r\nG:",gtmp,10);
+		Com433Write(COM433_DEBUG_PORT,gb_RxData, gtmp-1);
+#else	// !RF_TRSPRNT_MODE
 		GMSPktForm(gb_RxData, gtmp-1);
-				
-		return(0);
+#endif	// RF_TRSPRNT_MODE
+	}
+
+	return(0);
 }
 
 
@@ -991,7 +982,7 @@ static void TRXSyncIntOn(void)
 	SET_P1_INT_ENABLE();
 }
 
-
+/*
 static void TRXSyncIntOff(void)
 {
 	SET_P1_INT_DISABLE();
@@ -999,4 +990,4 @@ static void TRXSyncIntOff(void)
 
 	RF_SYNC_INT_PININP |= (uint8) RF_SYNC_INT_IE;
 }
-
+*/

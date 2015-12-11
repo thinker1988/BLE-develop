@@ -312,4 +312,11 @@ void SX1276LoRaSetNbTrigPeaks( uint8_t value );
  * \retval value number of preamble symbol
  */
 uint8_t SX1276LoRaGetNbTrigPeaks( void );
+
+
+/*
+ * Settings for optimized receiver response, see errata
+ */
+void SX1276LoRaOptmRecvResp(void);
+
 #endif //__SX1276_LORA_MISC_H__

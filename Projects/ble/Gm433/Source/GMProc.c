@@ -595,13 +595,9 @@ static void GM_dev_read(uint8 task_id)
 		}
 		else
 		{
-#if ( !defined GM_TEST_COMM )
 			osal_start_timerEx(task_id,GM_DATA_PROC_EVT,GM_READ_EVT_PERIOD-GM_SNSR_MEASURE_PERIOD);
 			GM_dev_proc(xval,yval,zval);
-#else
-			//osal_start_timerEx(task_id,GM_DATA_PROC_EVT,2000-GM_SNSR_MEASURE_PERIOD);
-			set_time_sync();
-#endif	// !GM_TEST_COMM
+
 			GM_read_tick_update();
 			GM_send_data(task_id,xval,yval,zval);
 
@@ -630,6 +626,7 @@ static void GM_dev_read(uint8 task_id)
  */
 static void GM_dev_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 {
+#if ( !defined GM_TEST_COMM )
 	detectstatus_t tmpcardetect;
 
 	switch(cardetect)
@@ -648,16 +645,26 @@ static void GM_dev_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 		}
 		case BENCH_CALIBRATING:
 		{
-			InitBenchmk(cardetect,tmpX,tmpY,tmpZ);
-			GetDevPowerPrcnt();
-			set_heart_beat();
-			set_time_sync();
+			if (bnchadjcnt++ < GM_SNSR_WAIT_STEADY_CNT)
+			{
+				PrintGMvalue(COM433_DEBUG_PORT, "\r\nR:",tmpX,tmpY,tmpZ);
+				set_heart_beat();
+				GetDevPowerPrcnt();
+			}
+			else
+			{
+				InitBenchmk(cardetect,tmpX,tmpY,tmpZ);
+				set_time_sync();
+			}
 			break;
 		}
 		case ABNORMAL_DETECTION:
 		default:
 			break;
 	}
+#else	//  GM_TEST_COMM
+	set_time_sync();
+#endif	// !GM_TEST_COMM
 
 }
 

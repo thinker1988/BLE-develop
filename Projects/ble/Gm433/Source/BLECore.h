@@ -26,13 +26,7 @@ extern "C"
 #define RF_DATA_PROC_EVT			0x0002
 #define GM_DATA_PROC_EVT			0x0004
 #define HG_SWITCH_EVT				0x0008
-/*#define CORE_PWR_SAVING_EVT			0x0010
-#define RF_RXTX_RDY_EVT				0x0020
-
-#if ( !defined USE_CC112X_RF )
-#define RF_WORK_EVT				0x0040
-#endif	// USE_CC112X_RF
-*/
+#define SYSTEM_RESET_EVT			0x0010
 
 // Self test period
 #define SELF_TEST_PERIOD			1000UL
@@ -137,7 +131,7 @@ extern void PowerSave(uint8 task_id);
 extern void PowerHold(uint8 task_id);
 
 extern uint32 c_rand(void);
-
+extern void PerformSystemReset(void);
 
 /*********************************************************************
 *********************************************************************/

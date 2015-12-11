@@ -405,4 +405,19 @@ uint8_t SX1276LoRaGetNbTrigPeaks( void )
 	return ( SX1276LR->RegDetectOptimize & 0x07 );
 }
 
+void SX1276LoRaOptmRecvResp(void)
+{
+	SX1276Read( REG_LR_LORADETECTOPTIMIZE, &SX1276LR->RegDetectOptimize );
+	SX1276LR->RegDetectOptimize = ( SX1276LR->RegDetectOptimize & 0x7F);
+	SX1276Write( REG_LR_LORADETECTOPTIMIZE, SX1276LR->RegDetectOptimize );
+	
+	SX1276Read( REG_LR_LORADRECVOPTIMIZE_2F, &SX1276LR->RegTestReserved2F );
+	SX1276LR->RegTestReserved2F= 0x40;	// used for bw 250
+	SX1276Write( REG_LR_LORADRECVOPTIMIZE_2F, SX1276LR->RegTestReserved2F );
+	
+	SX1276Read( REG_LR_LORADRECVOPTIMIZE_30, &SX1276LR->RegTestReserved30 );
+	SX1276LR->RegTestReserved30= 0x00;	// used for bw 250
+	SX1276Write( REG_LR_LORADRECVOPTIMIZE_30, SX1276LR->RegTestReserved30 );
+}
+
 #endif

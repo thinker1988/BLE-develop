@@ -402,6 +402,8 @@ typedef enum pktgms
 {
 	PKT_GMS_ID,
 	PKT_GMS_LEN,
+	PKT_GMS_SUBTYP,
+	PKT_GMS_RSRV,
 	PKT_GMS_DATA
 }pktgms_t;
 

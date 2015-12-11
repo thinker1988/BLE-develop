@@ -49,12 +49,15 @@ extern "C" {
 // Sleep mode ( idle mode)
 #define SET_GM_SLEEP_MODE			0x03
 
-//GM base temperature and invalid temperature
+// GM base temperature and invalid temperature
 #define GM_BASE_TEMPR 				25
 #define GM_INVALID_TEMPR			127
 
-// GM read once wait data ready period, see HMC
-#define GM_SNSR_MEASURE_PERIOD			6
+// GM read once wait data ready period in ms, see HMC
+#define GM_SNSR_MEASURE_PERIOD		6
+
+// Wait GM sensor data strady
+#define GM_SNSR_WAIT_STEADY_CNT		3
 
 /**********Hardware version define**********/
 #if ( !defined HW_VERN ) || ( HW_VERN == 0 )

@@ -132,7 +132,7 @@ void SetDevID(uint16 GDEaddr, uint16 GMEaddr, uint16 vern)
 	RFGMEID = ((GMEaddr<= GDE_ADV_ID || GMEaddr>=GME_ADV_ID)? RFGMEID: GMEaddr);
 
 	if (GDEaddr==0 && GMEaddr==0 && vern == 0)
-		HAL_SYSTEM_RESET();
+		PerformSystemReset();
 
 #if ( defined GM_IMAGE_A ) || ( defined GM_IMAGE_B )
 	if (vern == ERASE_VERN_VAL)
@@ -174,7 +174,7 @@ void GMSPktForm(uint8 *rawbuf, uint8 rawlen)
 				break;
 			case PKT_GMS_LEN:
 				totrdlen= rawbuf[i];
-				if (totrdlen >= GMS_PKT_MAX_LEN)
+				if (totrdlen >= GMS_PKT_MAX_LEN || totrdlen < GMS_PKT_HDR_SIZE)
 				{
 					pktgmsst = PKT_GMS_ID;
 					currdlen = 0;
@@ -182,14 +182,27 @@ void GMSPktForm(uint8 *rawbuf, uint8 rawlen)
 				else
 				{
 					gmsrdpkt[currdlen++] =totrdlen;
-					pktgmsst=PKT_GMS_DATA;
+					pktgmsst=PKT_GMS_SUBTYP;
+				}
+				break;
+			case PKT_GMS_SUBTYP:
+				gmsrdpkt[currdlen++]= rawbuf[i];
+				pktgmsst=PKT_GMS_RSRV;
+				break;
+			case PKT_GMS_RSRV:
+				gmsrdpkt[currdlen++]= rawbuf[i];
+				if (currdlen == GMS_CHK_SUM_POS)
+				{
+					if (osal_memcmp(gmsrdpkt+GMS_RESERVE_POS, GMS_RESERVE_STR, GMS_RESERVE_SIZE)== TRUE)
+						pktgmsst=PKT_GMS_DATA;
+					else
+						pktgmsst=PKT_GMS_ID;
 				}
 				break;
 			case PKT_GMS_DATA:
 				gmsrdpkt[currdlen++]= rawbuf[i];
 				if (currdlen == totrdlen)
 				{
-					//Com433WriteInt(COM433_DEBUG_PORT, "\r\nT",osal_GetSystemClock(),10);
 #if ( defined GME_WORKING )
 					tmp = RFDataSend(gmsrdpkt, currdlen);
 #else	// !GME_WORKING

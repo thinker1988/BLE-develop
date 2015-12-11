@@ -4572,9 +4572,10 @@
           <state>GM_IMAGE_A</state>
           <state>OAD_KEEP_NV_PAGES</state>
           <state>USE_SX1278_RF</state>
-          <state>GDE_DEV_ID=23</state>
+          <state>GDE_DEV_ID=18</state>
           <state>GME_DEV_ID=8001</state>
           <state>VERSION_NUMBER=0x0100</state>
+          <state>xRF_TRSPRNT_MODE</state>
           <state>xRION_CODE</state>
           <state>xGME_WORKING</state>
           <state>xGM_TEST_COMM</state>
@@ -4585,7 +4586,7 @@
           <state>HAL_UART_SPI=2</state>
           <state>HAL_SPI_MASTER</state>
           <state>POWER_SAVING</state>
-          <state>INT_HEAP_LEN=1500</state>
+          <state>INT_HEAP_LEN=1024</state>
           <state>HALNODEBUG</state>
           <state>OSAL_CBTIMER_NUM_TASKS=1</state>
           <state>HAL_DMA=TRUE</state>
@@ -5651,7 +5652,7 @@
           <state>USE_SX1278_RF</state>
           <state>GDE_DEV_ID=8</state>
           <state>GME_DEV_ID=8001</state>
-          <state>VERSION_NUMBER=0x0101</state>
+          <state>VERSION_NUMBER=0x0103</state>
           <state>xGME_WORKING</state>
           <state>xGM_TEST_COMM</state>
           <state>ALLOW_DEBUG_OUTPUT</state>
@@ -6724,8 +6725,9 @@
           <name>CCDefines</name>
           <state>GM_IMAGE_A</state>
           <state>OAD_KEEP_NV_PAGES</state>
+          <state>RF_TRSPRNT_MODE</state>
           <state>USE_TEN308_RF</state>
-          <state>GDE_DEV_ID=7</state>
+          <state>GDE_DEV_ID=24</state>
           <state>GME_DEV_ID=8001</state>
           <state>VERSION_NUMBER=0x0100</state>
           <state>xRION_CODE</state>

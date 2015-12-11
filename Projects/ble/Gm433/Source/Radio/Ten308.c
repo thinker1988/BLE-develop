@@ -163,19 +163,19 @@ void Com433Handle(uint8 port,uint8 *pBuffer, uint16 length)
 	// No func will be called in CC112X RF from working port (recieve data by interrupt)
 	if (port == COM433_WORKING_PORT)
 	{
-#if ( defined TEN_DEBUG_MODE )
+#if ( defined RF_TRSPRNT_MODE )
 		// Print serial data directly in debug mode
 		Com433Write(COM433_DEBUG_PORT, pBuffer, length);
-#else	// !TEN_DEBUG_MODE
+#else	// !RF_TRSPRNT_MODE
 		if (GetRFstate()==RF_WAKEUP || GetRFstate()==RF_WORK)
 			GMSPktForm(pBuffer,length);
-#endif	// TEN_DEBUG_MODE
+#endif	// RF_TRSPRNT_MODE
 	}
 	else if (port == COM433_DEBUG_PORT)
 	{
-#if ( defined TEN_DEBUG_MODE )
+#if ( defined RF_TRSPRNT_MODE )
 		Com433Write(COM433_WORKING_PORT, pBuffer, length);
-#endif	// TEN_DEBUG_MODE
+#endif	// RF_TRSPRNT_MODE
 	}
 
 	return;
