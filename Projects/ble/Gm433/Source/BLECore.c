@@ -109,6 +109,7 @@ static sysstate_t Devstate = SYS_BOOTUP;
 // Working status interrupt state
 static wsintstate_t wsint = WS_INT_DISABLE;
 
+// Indicate device sleep state
 static bool sleepflag = FALSE;
 
 // Already in power hold flag, use this flag to avoid reentry
@@ -548,11 +549,8 @@ uint32 c_rand(void)
 
 void PerformSystemReset(void)
 {
-	StoreSetting(GMS_NV_DT_STATE_ID);
-	StoreSetting(GMS_NV_BENCH_CNT_ID);
-	StoreSetting(GMS_NV_GDE_X_BENCH_ID);
-	StoreSetting(GMS_NV_GDE_Y_BENCH_ID);
-	StoreSetting(GMS_NV_GDE_Z_BENCH_ID);
+	StopAllTimer(BLECore_TaskId);
+	StoreAllSettings();
 	
 	osal_start_timerEx(BLECore_TaskId, SYSTEM_RESET_EVT, IDLE_PWR_HOLD_PERIOD);
 }

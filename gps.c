@@ -90,7 +90,18 @@ mtd5: 00010000 00010000 "cfg"
 
 #define MAX_MNG_GDE_CNT			100
 
-#define UPGD_PKT_RESEND_TIMES	3
+#define UPGD_PKT_RESEND_TIMES	2
+
+enum
+{
+	DEV_IDLE = 0,
+	DEV_RST_BENCH,
+	DEV_SYS_RST,
+	DEV_ERS_NEW,
+	DEV_UPGD,
+	DEV_UPGD_FIN,
+};
+
 /*********************************************************************
  * TYPEDEFS
  */
@@ -160,6 +171,12 @@ static uint8 totrdlen=0;
 
 // GDE ID wait to reset benchmark
 static uint16 rstgdeid = 0;
+
+// GDE ID wait to reboot
+static uint16 rbtgdeid = 0;
+
+// GDE ID wait erase current version
+static uint16 ersgdecur = 0;
 
 // Prepare upgrade flag
 static bool prepupgdflg = FALSE;
@@ -529,12 +546,13 @@ static rfpkterr_t GDEPktElmProc(uint8 subtype, uint8* pldbuf, uint8 pldlen)
 							break;
 						case GDE_SUBTYPE_CARINFO_REQ:
 							val = MSG_SUCCESS;
-							formGMEpkt(GME_SUBTYPE_CARINFO_RESP, (uint8 *)&val, GME_SUBTYPE_CARINFO_RESP_PL_LEN);
+							formGMEpkt(GME_SUBTYPE_CARINFO_RESP, (uint8 *)&val, EVLEN_GMS_INFO_ACK);
 							break;
 						default:
-							;// do not break
+							break;// do not break
 					}
 					elmpos += ELM_HDR_SIZE+EVLEN_GDE_HRTBT;
+					break;
 				}
 			case EID_GDE_BENCH_INFO:
 				if (pldbuf[elmpos+EVAL_LEN_POS] == EVLEN_GDE_BENCH_INFO)
@@ -568,7 +586,7 @@ static rfpkterr_t GDEPktElmProc(uint8 subtype, uint8* pldbuf, uint8 pldlen)
 			case EID_GDE_TMSYN:
 				if (pldbuf[elmpos+EVAL_LEN_POS] == EVLEN_GDE_TMSYN)
 				{
-					formGMEpkt(GME_SUBTYPE_TMSYN_RESP, NULL, GDE_SUBTYPE_TMSYN_REQ_PL_LEN);
+					formGMEpkt(GME_SUBTYPE_TMSYN_RESP, NULL, EVLEN_GME_NT_TM);
 					elmpos += ELM_HDR_SIZE+EVLEN_GDE_TMSYN;
 					break;
 				}
@@ -610,19 +628,49 @@ static void controlGDE(void)
 {
 	if (prepupgdflg == TRUE)
 	{
-		if (mnggdest[(RFdestID-1)%MAX_MNG_GDE_CNT] == FALSE)
+		if (mnggdest[(RFdestID-1)%MAX_MNG_GDE_CNT] == DEV_IDLE)
 		{
-			formGMEpkt(GME_SUBTYPE_ORDER_UPGD_REQ, NULL, GME_SUBTYPE_ORDER_UPGD_REQ_PL_LEN);
+			formGMEpkt(GME_SUBTYPE_ORDER_UPGD_REQ, NULL, 0);
 			printf("Send %d order upgrade...\r\n", RFdestID);
 		}
 	}
 
-	if (rstgdeid == RFdestID)
+	if (rstgdeid == RFdestID || rstgdeid == GDE_ADV_ID)
 	{
-		formGMEpkt(GME_SUBTYPE_RST_BENCH_PKT, NULL, GME_SUBTYPE_RST_BENCH_PKT_PL_LEN);
-		rstgdeid = 0;
-		printf("Reset benchmark...\r\n");
-	}	
+		if (mnggdest[(RFdestID-1)%MAX_MNG_GDE_CNT] == DEV_IDLE)
+		{
+			formGMEpkt(GME_SUBTYPE_RST_BENCH_PKT, NULL, EVLEN_GDE_BENCH_INFO);
+			mnggdest[(RFdestID-1)%MAX_MNG_GDE_CNT] = DEV_RST_BENCH;
+			rstgdeid = (rstgdeid == GDE_ADV_ID? rstgdeid: 0);
+			printf("Reset %d benchmark...\r\n", RFdestID);
+		}
+	}
+	if (rbtgdeid == RFdestID || rbtgdeid == GDE_ADV_ID)
+	{
+		if (mnggdest[(RFdestID-1)%MAX_MNG_GDE_CNT] == DEV_IDLE)
+		{
+			uint8 data[EVLEN_CHNG_ID];
+			memset(data, 0, EVLEN_CHNG_ID);
+			formGMEpkt(GME_SUBTYPE_CHNG_ID_PKT, data, EVLEN_CHNG_ID);
+			mnggdest[(RFdestID-1)%MAX_MNG_GDE_CNT] = DEV_SYS_RST;
+			rbtgdeid = (rbtgdeid == GDE_ADV_ID? rbtgdeid: 0);
+			printf("Reset %d device...\r\n", RFdestID);
+		}
+	}
+	if (ersgdecur == RFdestID || ersgdecur == GDE_ADV_ID)
+	{
+		if (mnggdest[(RFdestID-1)%MAX_MNG_GDE_CNT] == DEV_IDLE)
+		{
+			uint8 data[EVLEN_CHNG_ID];
+			memset(data, 0, EVLEN_CHNG_ID);
+			data[CHNG_VERN_NUM_H_POS]=0xFF;
+			data[CHNG_VERN_NUM_L_POS]=0xFF;
+			formGMEpkt(GME_SUBTYPE_CHNG_ID_PKT, data, EVLEN_CHNG_ID);
+			mnggdest[(RFdestID-1)%MAX_MNG_GDE_CNT] = DEV_ERS_NEW;
+			ersgdecur = (ersgdecur == GDE_ADV_ID? ersgdecur: 0);
+			printf("Erase %d device...\r\n", RFdestID);
+		}
+	}
 }
 
 static void procGDEack(uint8 subtype, msgerrcd_t ecd)
@@ -633,19 +681,20 @@ static void procGDEack(uint8 subtype, msgerrcd_t ecd)
 			if (subtype == GDE_SUBTYPE_ORDER_RESP)
 			{
 				printf("Order %d OK.\r\n", RFdestID);
-				mnggdest[(RFdestID-1)%MAX_MNG_GDE_CNT] = TRUE;
+				mnggdest[(RFdestID-1)%MAX_MNG_GDE_CNT] = DEV_UPGD;
 			}
 			else if (subtype == GDE_SUBTYPE_UPGD_ACK)
 			{
 				printf("%d upgrade OK.\r\n", RFdestID);
-				mnggdest[(RFdestID-1)%MAX_MNG_GDE_CNT] = FALSE;
+				mnggdest[(RFdestID-1)%MAX_MNG_GDE_CNT] = DEV_UPGD_FIN;
 			}
 			break;
 		case IMG_TYPE_ERR:
 		case IMG_SIZE_ERR:
 		case IMG_CRC_FAIL:
 			printf("%d upgrade failed, reason %d.\r\n", RFdestID, ecd);
-			prepupgdflg = FALSE;
+			mnggdest[(RFdestID-1)%MAX_MNG_GDE_CNT] = DEV_UPGD_FIN;
+//			prepupgdflg = FALSE;
 			break;
 		default:
 			break;
@@ -745,6 +794,15 @@ static uint8 fillrstbench(uint8 *pldbuf)
 	return (ELM_HDR_SIZE+EVLEN_GDE_BENCH_INFO);
 }
 
+static uint8 fillchngid(uint8 *pldbuf, uint8 *data, uint8 len)
+{
+	pldbuf[0] = EID_CHNG_ID;
+	pldbuf[EVAL_LEN_POS] = EVLEN_CHNG_ID;
+	memcpy(pldbuf+ELM_HDR_SIZE, data, len);
+
+	return (ELM_HDR_SIZE+EVLEN_CHNG_ID);
+}
+
 static rfpkterr_t  formGMEpkt(uint8 subtype, uint8 *data, uint8 len)
 {
 	uint8 rfbuf[GMS_PKT_MAX_LEN]={0};
@@ -789,6 +847,9 @@ static rfpkterr_t  formGMEpkt(uint8 subtype, uint8 *data, uint8 len)
 			// Fill reset benchmark packet
 			curpldpos += fillrstbench(rfbuf+curpldpos);
 			break;
+		case GME_SUBTYPE_CHNG_ID_PKT:
+			curpldpos += fillchngid(rfbuf+curpldpos,data,len);
+			break;
 		default:
 			return RF_SUBTYPE_UNK;
 	}
@@ -816,12 +877,12 @@ static void PrintGDETime(uint8* gdetm)
 
 static void PrintHrtbtData(uint8* hrtbtval)
 {
-	printf("\tBat: %3d  Tmpr: %3d  X: %5d  Y: %5d  Z: %5d  Status: %c\r\n",\
-			hrtbtval[HRT_BT_BATT_POS],(int8)hrtbtval[HRT_BT_TMPR_POS],\
+	printf("\tX: %5d  Y: %5d  Z: %5d  Status: %c Bat: %3d  Tmpr: %3d \r\n",\
 			(int16)BUILD_UINT16(hrtbtval[HRT_BT_XVAL_L_POS], hrtbtval[HRT_BT_XVAL_H_POS]),\
 			(int16)BUILD_UINT16(hrtbtval[HRT_BT_YVAL_L_POS], hrtbtval[HRT_BT_YVAL_H_POS]),\
 			(int16)BUILD_UINT16(hrtbtval[HRT_BT_ZVAL_L_POS], hrtbtval[HRT_BT_ZVAL_H_POS]),
-			(hrtbtval[HRT_BT_STAT_POS])? 'Y': 'N');
+			(hrtbtval[HRT_BT_STAT_POS])? 'Y': 'N',\
+			hrtbtval[HRT_BT_BATT_POS],(int8)hrtbtval[HRT_BT_TMPR_POS]);
 }
 static void PrintBnchmk(uint8* bnchmk)
 {
@@ -835,13 +896,13 @@ static void upgrade_gde_fw(int iSignNo)
 	uint16 fwblk,i;
 	uint8 upgdbuf[EVLEN_GMS_UPGD];
 
-	printf("Prepare state:");
+	printf("******\r\nPrepare state:\r\n");
 	for (i=0; i<MAX_MNG_GDE_CNT; i++)
 	{
-		if (mnggdest[i]!=0)
+		if (mnggdest[i] == DEV_UPGD)
 			printf(" %d",i+1);
 	}
-	printf("\r\n");
+	printf("\r\n******\r\n");
 
 	sleep(10);
 	binfp=fopen(binfstr,"rb");
@@ -898,7 +959,6 @@ static void prep_upgrade(char* binstr)
 		printf("Firmware version: V%02x.%02x, length: %dBytes, CRC: 0x%04x, blocks: %d.\r\n",\
 				HI_UINT16(fwvern),LO_UINT16(fwvern), fwlen, fwcrc, fwtotblk);
 		prepupgdflg = TRUE;
-		memset(mnggdest,0,sizeof(mnggdest));
 	}
 	else
 	{
@@ -1096,6 +1156,8 @@ static void usage()
 	printf("\t\t-d: serial debug print mode\r\n");
 	printf("\t\t-a: set GME ID\r\n");
 	printf("\t\t-b: reset GDE benchmark\r\n");
+	printf("\t\t-R: reboot GDE device\r\n");
+	printf("\t\t-E: Erase GDE current version\n");
 	printf("\t\t-s: set serial transparent module params\r\n");
 	printf("\t\t-r: remote server IP address\r\n");
 	printf("\t\t-p: remote server port\r\n");
@@ -1112,6 +1174,8 @@ int main(int argc, char ** argv)
 	unsigned char buf[GMS_PKT_MAX_LEN];
 	unsigned char crc_buf[GMS_PKT_MAX_LEN];
 	sworkstate_t wkst=NORMAL_MODE;
+
+	memset(mnggdest, DEV_IDLE, sizeof(mnggdest));
 
 	if (argc < 3 )
 	{
@@ -1149,6 +1213,12 @@ int main(int argc, char ** argv)
 					break;
 				case 'b':
 					rstgdeid = atoi(p);
+					break;
+				case 'R':
+					rbtgdeid = atoi(p);
+					break;
+				case 'E':
+					ersgdecur = atoi(p);
 					break;
 				case 'r':
 					host_addr = p;
@@ -1217,7 +1287,7 @@ int main(int argc, char ** argv)
 			{
 				gmspktform(buf,len);
 			}
-			usleep(200*1000);
+			usleep(50*1000);
 		}
 		else if (wkst == DEBUG_MODE)
 		{

@@ -136,8 +136,12 @@ static int8 gdetmpr = 0;
 // GDE battery power remain percentage
 static uint8 btprcnt = 100;
 
-// Emptyy status reversed
+// Empty status reversed flag, means no empty benchmark
 static bool emprvsflg = FALSE;
+
+// Finish first boot read GM value flag
+static bool finfistbootflg = FALSE;
+
 /*********************************************************************
  * LOCAL FUNCTIONS
  */
@@ -145,6 +149,8 @@ static bool GM_dev_init(void);
 static void GM_DRDY_INT_Cfg(void);
 
 static void InitGMState(void);
+static void ReadPrevGMSettings(void);
+
 static void GM_dev_stop(void);
 
 static void GM_dev_preread(void);
@@ -152,19 +158,16 @@ static void GM_dev_preread(void);
 static void GM_dev_read(uint8 task_id);
 static void GM_dev_proc(int16 tmpX,int16 tmpY,int16 tmpZ);
 
+static void ReprepareSync(void);
+
+static void GM_read_tick_rnd_set(void);
 static void GM_read_tick_rst(void);
 static void GM_read_tick_update(void);
 static void GM_send_data(uint8 task_id, int16 tmpX, int16 tmpY, int16 tmpZ);
 
 static void SendXYZVal(uint8 task_id, int16 tmpX, int16 tmpY, int16 tmpZ);
 
-static void set_time_sync(void);
-static void set_heart_beat(void);
-static void set_data_change(void);
-
-
 static int8 GM_dev_get_tmpr(void);
-static void GetDevPowerPrcnt(void);
 static uint8 CalcBatteryPercent(void);
 
 static bool GM_read_reg(uint8 addr,uint8 * pBuf,uint8 nBytes);
@@ -224,9 +227,9 @@ void GM_working(uint8 task_id, gmsensor_t ngmsnst)
 			PowerHold(task_id);
 			GM_dev_preread();
 			gmsnst = GMSnRead;
-			//osal_start_timerEx(task_id, GM_DATA_PROC_EVT, GM_SNSR_MEASURE_PERIOD);
-			while(! GM_DRDY_INT_PIN);
-			osal_set_event(task_id, GM_DATA_PROC_EVT);
+			osal_start_timerEx(task_id, GM_DATA_PROC_EVT, GM_SNSR_MEASURE_PERIOD);
+			/*while(! GM_DRDY_INT_PIN);
+			osal_set_event(task_id, GM_DATA_PROC_EVT);*/
 			break;
 		case GMSnRead:
 			gmsnst = GMSnReq;
@@ -281,7 +284,10 @@ void SendSyncTMReq(void)
 
 #if ( !defined GM_TEST_COMM )
 	if (syncautostop++ > MAX_TM_SYNC_TIMES)
+	{
 		ClearSyncTMReq();
+		ReprepareSync();
+	}
 #else	// GM_TEST_COMM
 	Com433WriteStr(COM433_DEBUG_PORT,"\r\nSend sync...\t");
 #endif	// !GM_TEST_COMM
@@ -318,6 +324,50 @@ void FormHrtbtData(uint8* hrtbtdata, int16 tmpX, int16 tmpY, int16 tmpZ)
 
 	//if ( cardetect!=NO_CAR_DETECTED && cardetect!=CAR_DETECTED_OK)
 	//	return;
+}
+
+/*********************************************************************
+ * @fn		set_time_sync
+ *
+ * @brief	Send time synchronization request.
+ *
+ * @param	none
+ *
+ * @return	none
+ */
+void set_time_sync(void)
+{
+	SET_SEND_BIT(sndtyp, SND_BIT_TM_SYNC);
+}
+
+
+/*********************************************************************
+ * @fn		set_heart_beat
+ *
+ * @brief	Send heart beat data next GM read process.
+ *
+ * @param	none
+ *
+ * @return	none
+ */
+void set_heart_beat(void)
+{
+	SET_SEND_BIT(sndtyp, SND_BIT_HRT_BT);
+}
+
+/*********************************************************************
+ * @fn		set_data_change
+ *
+ * @brief	Send lot status change data next GM read process, have highest priority.
+ *
+ * @param	none
+ *
+ * @return	none
+ */
+void set_data_change(void)
+{
+	chngautostop = 0;	// restart sen count
+	SET_SEND_BIT(sndtyp, SND_BIT_DAT_CHNG);
 }
 
 void ClearSyncTMReq(void)
@@ -438,6 +488,25 @@ uint8 GetEmpBenchCnt(void)
 	return tmpbenchcnt;
 }
 
+/*********************************************************************
+ * @fn		GetDevPowerPrcnt
+ *
+ * @brief	Get power percentage of device.
+ *
+ * @param	none
+ *
+ * @return	temperature
+ */
+void GetDevPowerPrcnt()
+{
+	uint8 tmpprcnt;
+
+	tmpprcnt = CalcBatteryPercent();
+
+	// Use old percentage if new>old
+	btprcnt = (tmpprcnt>btprcnt? btprcnt: tmpprcnt);
+}
+
 
 /*********************************************************************
  * PRIVATE FUNCTIONS
@@ -523,7 +592,7 @@ static void InitGMState(void)
 	// Clear read times if not preparing upgrade
 	if (GetPrepUpgdState() == FALSE)
 #endif	// GM_IMAGE_A || GM_IMAGE_B
-		GM_read_tick_rst();
+		GM_read_tick_rnd_set();
 
 	// Clear adjust and unknown status times
 	bnchadjcnt = 0;
@@ -535,8 +604,36 @@ static void InitGMState(void)
 	btprcnt = 100;
 
 #if ( defined GM_IMAGE_A ) || ( defined GM_IMAGE_B )
-	ReadGMSetting();
+	ReadPrevGMSettings();
 #endif	// GM_IMAGE_A || GM_IMAGE_B
+
+	// Begin time sync and heart beat every time
+	set_time_sync();
+	set_heart_beat();
+	GetDevPowerPrcnt();
+}
+
+static void ReadPrevGMSettings(void)
+{
+	int16 prevXbench,prevYbench,prevZbench;
+	uint8 prevstatus;
+
+	if (finfistbootflg == FALSE)
+	{
+		finfistbootflg = TRUE;
+
+		if (ReadPrevBenchVal(&prevXbench,&prevYbench,&prevZbench) == TRUE)
+			InitBenchmk(BENCH_CALIBRATING,prevXbench,prevYbench,prevZbench);
+
+		if (ReadPrevDtctStatus(&prevstatus) == TRUE)
+		{
+			if (prevstatus!=NO_CAR_DETECTED && prevstatus!=CAR_DETECTED_OK)
+				prevstatus = BENCH_CALIBRATING;
+			Com433WriteInt(COM433_DEBUG_PORT, "\r\nPV:", prevstatus, 10);
+			SetGMState((detectstatus_t)prevstatus);
+		}
+	}
+	return;
 }
 
 
@@ -648,14 +745,10 @@ static void GM_dev_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 			if (bnchadjcnt++ < GM_SNSR_WAIT_STEADY_CNT)
 			{
 				PrintGMvalue(COM433_DEBUG_PORT, "\r\nR:",tmpX,tmpY,tmpZ);
-				set_heart_beat();
-				GetDevPowerPrcnt();
+				set_heart_beat();	// keep heart beat during wait steady
 			}
 			else
-			{
 				InitBenchmk(cardetect,tmpX,tmpY,tmpZ);
-				set_time_sync();
-			}
 			break;
 		}
 		case ABNORMAL_DETECTION:
@@ -666,6 +759,16 @@ static void GM_dev_proc(int16 tmpX, int16 tmpY, int16 tmpZ)
 	set_time_sync();
 #endif	// !GM_TEST_COMM
 
+}
+
+static void ReprepareSync(void)
+{
+	tmsynccnt = c_rand()*MIN_IN_HOUR*HOUR_IN_DAY/MAX_RANDOM_SECONDS/hrtbt_inmin/MILSEC_IN_SEC;
+}
+
+static void GM_read_tick_rnd_set(void)
+{
+	readcnt = c_rand()*SEC_IN_MIN/MAX_RANDOM_SECONDS*hrtbt_inmin/GM_READ_EVT_PERIOD;
 }
 
 static void GM_read_tick_rst(void)
@@ -811,24 +914,6 @@ static int8 GM_dev_get_tmpr(void)
 	return tmpr;
 }
 
-/*********************************************************************
- * @fn		GetDevPowerPrcnt
- *
- * @brief	Get power percentage of device.
- *
- * @param	none
- *
- * @return	temperature
- */
-static void GetDevPowerPrcnt()
-{
-	uint8 tmpprcnt;
-
-	tmpprcnt = CalcBatteryPercent();
-
-	// Use old percentage if new>old
-	btprcnt = (tmpprcnt>btprcnt? btprcnt: tmpprcnt);
-}
 
 /*********************************************************************
  * @fn		CalcBatteryPercent
@@ -860,50 +945,6 @@ static uint8 CalcBatteryPercent(void)
 	return percent;
 }
 
-
-/*********************************************************************
- * @fn		set_time_sync
- *
- * @brief	Send time synchronization request.
- *
- * @param	none
- *
- * @return	none
- */
-static void set_time_sync(void)
-{
-	SET_SEND_BIT(sndtyp, SND_BIT_TM_SYNC);
-}
-
-
-/*********************************************************************
- * @fn		set_heart_beat
- *
- * @brief	Send heart beat data next GM read process.
- *
- * @param	none
- *
- * @return	none
- */
-static void set_heart_beat(void)
-{
-	SET_SEND_BIT(sndtyp, SND_BIT_HRT_BT);
-}
-
-/*********************************************************************
- * @fn		set_data_change
- *
- * @brief	Send lot status change data next GM read process, have highest priority.
- *
- * @param	none
- *
- * @return	none
- */
-static void set_data_change(void)
-{
-	chngautostop = 0;	// restart sen count
-	SET_SEND_BIT(sndtyp, SND_BIT_DAT_CHNG);
-}
 
 /*********************************************************************
 * @fn		GM_write_reg
@@ -1020,7 +1061,7 @@ static void ProcEmpData(detectstatus_t curdtct, int16 tmpX, int16 tmpY, int16 tm
 		{
 			bnchadjcnt++;
 			// Continuously adjust benchmark at first 10 times and fill the array
-			if ( tmpbenchcnt <= BENCH_AVG_LEN)
+			if ( tmpbenchcnt < BENCH_AVG_LEN)
 				NormRgltEmpBenchmk(tmpX,tmpY,tmpZ);
 			// Adjust benchmark at each ADJ_BENCHMK_TIMES
 			else if (bnchadjcnt >= ADJ_BENCHMK_TIMES && benchfixflg == FALSE)
@@ -1173,7 +1214,7 @@ static void ModifyBenchmk(detectstatus_t newstts)
 	{
 		// Change current empty benchmark to occupyed
 		InitBenchmk(CAR_DETECTED_OK,Xbenchmk,Ybenchmk,Zbenchmk);
-		// previous benchmark invalid, when perform CheckCarOut
+		// Previous benchmark invalid, when perform CheckCarOut
 		emprvsflg = TRUE;
 		tmpbenchcnt = 0;	
 	}

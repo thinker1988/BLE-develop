@@ -175,6 +175,10 @@ extern void ResetBenchmark(uint8 *bnchmk, uint8 len);
 extern void SendSyncTMReq(void);
 extern void FormHrtbtData(uint8 *hrtbtdata,int16 tmpX, int16 tmpY, int16 tmpZ);
 
+extern void set_time_sync(void);
+extern void set_heart_beat(void);
+extern void set_data_change(void);
+
 extern void ClearSyncTMReq(void);
 extern void ClearHeartBeat(void);
 extern void ClearDataResend(void);
@@ -185,6 +189,8 @@ extern void ReadGDEBench(uint8* pVal);
 
 extern bool InitBenchmk(detectstatus_t cardetectts,int16 xVal,int16 yVal, int16 zVal);
 extern uint8 GetEmpBenchCnt(void);
+extern void GetDevPowerPrcnt(void);
+
 
 #ifdef  __cplusplus
 }

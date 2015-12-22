@@ -129,7 +129,7 @@ void InitCommDevID(void)
 void SetDevID(uint16 GDEaddr, uint16 GMEaddr, uint16 vern)
 {
 	RFGDEID = ((GDEaddr>=GDE_ADV_ID || GDEaddr==0)? RFGDEID: GDEaddr);
-	RFGMEID = ((GMEaddr<= GDE_ADV_ID || GMEaddr>=GME_ADV_ID)? RFGMEID: GMEaddr);
+	RFGMEID = ((GMEaddr<=(GDE_ADV_ID+1) || GMEaddr>=GME_ADV_ID)? RFGMEID: GMEaddr);
 
 	if (GDEaddr==0 && GMEaddr==0 && vern == 0)
 		PerformSystemReset();
@@ -321,7 +321,7 @@ rfpkterr_t RFDataParse(uint8 *rfdata,uint8 len)
 	// Delay auto change to normal working
 	if (GetSysState() == SYS_SETUP)
 		osal_start_timerEx(BLECore_TaskId, BLE_SYS_WORKING_EVT, GTE_NO_OPR_WAIT_PERIOD);
-	else if (GetSysState() == SYS_UPGRADE)
+	else if (GetSysState()==SYS_UPGRADE && GetUpgdFinState()==FALSE )
 		osal_start_timerEx(BLECore_TaskId, BLE_SYS_WORKING_EVT, UPGD_RF_WAIT_PERIOD);
 
 	return ParseElmInfo(rfdata[GMS_SUB_TYPE_POS], rfdata+GMS_PKT_HDR_SIZE, pldlen);

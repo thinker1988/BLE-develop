@@ -49,9 +49,6 @@ extern int16 Xbenchmk,Ybenchmk,Zbenchmk;
 /*********************************************************************
  * LOCAL VARIABLES
  */
-// Read previous GM status flag
-static bool finfistbootflg = FALSE;
-
 static bool prepupgrd = FALSE;
 static bool upgdfin = FALSE;
 static msgerrcd_t upgdret=MSG_SUCCESS;
@@ -63,8 +60,8 @@ static uint32 oadodrfwlen;
 /*********************************************************************
  * LOCAL FUNCTIONS
  */
+static uint8 StoreSetting(uint8 NvId);
 
-static bool ReadPrevDtctStatus(int16* tmpxbm, int16* tmpybm, int16* tmpzbm);
 static uint8 GetValidFirmwareCount(void);
 
 static void set_fw_upgd_tick_alarm(uint8 alrmhh, uint8 alrmmm, uint8 alrmss);
@@ -74,46 +71,14 @@ static uint8 RFOadCheckDL(void);
 
 
 
-uint8 StoreSetting(uint8 NvId)
+void StoreAllSettings(void)
 {
-	uint8 ret = SUCCESS;
-	
-	switch(NvId)
-	{
-		case GMS_NV_GDE_ID_ID:
-			ret |= osal_snv_write(NvId, sizeof(RFGDEID),&RFGDEID);
-			break;
-		case GMS_NV_GME_ID_ID:
-			ret |= osal_snv_write(NvId, sizeof(RFGMEID),&RFGMEID);
-			break;
-		case GMS_NV_DT_STATE_ID:
-		{
-			uint8 cdst = GetGMSnState();
-			ret |= osal_snv_write(NvId, sizeof(cdst),&cdst);
-			break;
-		}
-		case GMS_NV_BENCH_CNT_ID:
-		{
-			uint8 tmpcnt = GetEmpBenchCnt();
-			ret |= osal_snv_write(NvId, sizeof(tmpcnt),&tmpcnt);
-			break;
-		}
-		case GMS_NV_GDE_X_BENCH_ID:
-			ret |= osal_snv_write(NvId, sizeof(Xbenchmk),&Xbenchmk);
-			break;
-		case GMS_NV_GDE_Y_BENCH_ID:
-			ret |= osal_snv_write(NvId, sizeof(Ybenchmk),&Ybenchmk);
-			break;
-		case GMS_NV_GDE_Z_BENCH_ID:
-			ret |= osal_snv_write(NvId, sizeof(Zbenchmk),&Zbenchmk);
-			break;
-		default:
-			break;
-	}
-
-	return ret;
+	StoreSetting(GMS_NV_DT_STATE_ID);
+	StoreSetting(GMS_NV_BENCH_CNT_ID);
+	StoreSetting(GMS_NV_GDE_X_BENCH_ID);
+	StoreSetting(GMS_NV_GDE_Y_BENCH_ID);
+	StoreSetting(GMS_NV_GDE_Z_BENCH_ID);
 }
-
 
 void ReadSysSetting(void)
 {
@@ -123,35 +88,49 @@ void ReadSysSetting(void)
 	ret |= osal_snv_read(GMS_NV_GDE_ID_ID, sizeof(prevgdeid),&prevgdeid);
 	ret |= osal_snv_read(GMS_NV_GME_ID_ID, sizeof(prevgmeid),&prevgmeid);
 
-	// No parameter saved yet
-	if (ret != SUCCESS)
+	if (ret == SUCCESS)
+	{
+		SetDevID(prevgdeid, prevgmeid, 0x0100);
+	}
+	else	// No parameter saved yet
 	{
 		SetDevID(GDE_DEV_ID, GME_DEV_ID, 0);
 		StoreSetting(GMS_NV_GDE_ID_ID);
-		StoreSetting(GMS_NV_GME_ID_ID);
-	}
-	else
-	{
-		SetDevID(prevgdeid, prevgmeid, 0);
+		StoreSetting(GMS_NV_GME_ID_ID);		
 	}
 }
 
-void ReadGMSetting(void)
+
+bool ReadPrevBenchVal(int16* tmpxbm, int16* tmpybm, int16* tmpzbm)
 {
-	int16 prevXbench,prevYbench,prevZbench;
+	uint8 ret = SUCCESS,prevcnt;
 
-	if (finfistbootflg == FALSE)
+	ret = osal_snv_read(GMS_NV_BENCH_CNT_ID, sizeof(prevcnt),&prevcnt);
+
+	// Only set benchmark when it have benchmark last working
+	if (ret == SUCCESS && prevcnt != 0)
 	{
-		finfistbootflg = TRUE;
-		if (ReadPrevDtctStatus(&prevXbench,&prevYbench,&prevZbench) == TRUE)
-		{
-			InitBenchmk(BENCH_CALIBRATING,prevXbench,prevYbench,prevZbench);
-			SetGMState(CAR_DETECTED_OK);
-		}
+		ret |= osal_snv_read(GMS_NV_GDE_X_BENCH_ID, sizeof(int16),tmpxbm);
+		ret |= osal_snv_read(GMS_NV_GDE_Y_BENCH_ID, sizeof(int16),tmpybm);
+		ret |= osal_snv_read(GMS_NV_GDE_Z_BENCH_ID, sizeof(int16),tmpzbm);
+		if (ret == SUCCESS)
+			return TRUE;
 	}
-	return;
+
+	return FALSE;
 }
 
+bool ReadPrevDtctStatus(uint8 *prevdtst)
+{
+	uint8 ret = SUCCESS;
+
+	ret = osal_snv_read(GMS_NV_DT_STATE_ID, sizeof(uint8), prevdtst);
+
+	if (ret==SUCCESS)
+		return TRUE;
+	else
+		return FALSE;
+}
 
 void PrepareUpgrade(uint8 subtype, uint8* upgpkt, uint8 len)
 {
@@ -234,16 +213,17 @@ void EraseFirmwareInfo(void)
 
 void EraseTargetFlash(void)
 {
-	uint8 i,erspg = RF_OAD_IMG_DST_PAGE;
+	uint8 i,erspg;
 
 	oadcurblknum = 0;
 	for (i=0; i<RF_OAD_IMG_DST_AREA; i++)
 	{
+		erspg = RF_OAD_IMG_DST_PAGE+i;
 #if ( defined GM_IMAGE_B )
-		if (erspg >= RF_OAD_IMG_B_PAGE)	// Erase next flash page
+		if (erspg >= RF_OAD_IMG_B_PAGE)
 			erspg += RF_OAD_IMG_B_AREA;
 #endif	// GM_IMAGE_B
-		HalFlashErase(erspg+i);
+		HalFlashErase(erspg);
 	}
 }
 
@@ -256,6 +236,12 @@ bool GetPrepUpgdState(void)
 {
 	return prepupgrd;
 }
+
+bool GetUpgdFinState(void)
+{
+	return upgdfin;
+}
+
 
 void ReportUpgdState(void)
 {
@@ -331,44 +317,68 @@ void RFOadImgBlockWrite(uint8 subtype, uint8 *pValue, uint8 len)
 			addr += RF_OAD_IMG_B_AREA * RF_OAD_FLASH_PAGE_MULT;
 #endif	// GM_IMAGE_B
 
-
 #if ( defined GM_IMAGE_A ) || ( defined GM_IMAGE_B )
 		HalFlashWrite(addr, pValue+RF_OAD_BLOCK_BEG_POS, (RF_OAD_BLOCK_SIZE/ HAL_FLASH_WORD_SIZE));
 #endif	// GM_IMAGE_A || GM_IMAGE_B
 
 		if (oadcurblknum == oadodrtotblk)	// If the OAD Image is complete.
+		{
+			upgdfin = TRUE;
 			ChngSysState(SYS_UPGRADE, IDLE_PWR_HOLD_PERIOD+c_rand()*SEC_IN_MIN/MAX_RANDOM_SECONDS);	
+		}
 	}
-	else if (blkNum>oadcurblknum)
+	else if (blkNum > oadcurblknum)
 	{
+		upgdfin = TRUE;
 		Com433WriteInt(COM433_DEBUG_PORT, "\r\nLOSE:",oadcurblknum,10);
-		ChngSysState(SYS_UPGRADE, 0);
+		ChngSysState(SYS_UPGRADE, IDLE_PWR_HOLD_PERIOD);
 		return;
 	}
 
 	return;
 }
 
-static bool ReadPrevDtctStatus(int16* tmpxbm, int16* tmpybm, int16* tmpzbm)
+
+static uint8 StoreSetting(uint8 NvId)
 {
-	uint8 ret = SUCCESS,prevcnt;
-	detectstatus_t prevdtst;
-
-	ret = osal_snv_read(GMS_NV_DT_STATE_ID, sizeof(prevdtst),&prevdtst);
-	ret |= osal_snv_read(GMS_NV_BENCH_CNT_ID, sizeof(prevcnt),&prevcnt);
-
-	// Only set benchmark when it's CAR_DETECTED status and have benchmark last working
-	if (ret == SUCCESS && prevdtst == CAR_DETECTED_OK && prevcnt !=0)
+	uint8 ret = SUCCESS;
+	
+	switch(NvId)
 	{
-		ret |= osal_snv_read(GMS_NV_GDE_X_BENCH_ID, sizeof(int16),tmpxbm);
-		ret |= osal_snv_read(GMS_NV_GDE_Y_BENCH_ID, sizeof(int16),tmpybm);
-		ret |= osal_snv_read(GMS_NV_GDE_Z_BENCH_ID, sizeof(int16),tmpzbm);
-		if (ret == SUCCESS)
-			return TRUE;
+		case GMS_NV_GDE_ID_ID:
+			ret |= osal_snv_write(NvId, sizeof(RFGDEID),&RFGDEID);
+			break;
+		case GMS_NV_GME_ID_ID:
+			ret |= osal_snv_write(NvId, sizeof(RFGMEID),&RFGMEID);
+			break;
+		case GMS_NV_DT_STATE_ID:
+		{
+			uint8 cdst = GetGMState();
+			ret |= osal_snv_write(NvId, sizeof(cdst),&cdst);
+			break;
+		}
+		case GMS_NV_BENCH_CNT_ID:
+		{
+			uint8 tmpcnt = GetEmpBenchCnt();
+			ret |= osal_snv_write(NvId, sizeof(tmpcnt),&tmpcnt);
+			break;
+		}
+		case GMS_NV_GDE_X_BENCH_ID:
+			ret |= osal_snv_write(NvId, sizeof(Xbenchmk),&Xbenchmk);
+			break;
+		case GMS_NV_GDE_Y_BENCH_ID:
+			ret |= osal_snv_write(NvId, sizeof(Ybenchmk),&Ybenchmk);
+			break;
+		case GMS_NV_GDE_Z_BENCH_ID:
+			ret |= osal_snv_write(NvId, sizeof(Zbenchmk),&Zbenchmk);
+			break;
+		default:
+			break;
 	}
 
-	return FALSE;
+	return ret;
 }
+
 
 static uint8 GetValidFirmwareCount(void)
 {
