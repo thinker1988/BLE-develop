@@ -22,20 +22,20 @@
  */
 #include "OSAL.h"
 #include "Com433.h"
-#include "Sx1278.h"
+#include "RFProc.h"
 
+#include "Sx1278.h"
 #include "Sx1278-LoRaMisc.h"
 #include "Sx1278-LoRa.h"
 
+
+#define OFFSET_OF(type,member)	((uint8) &((type *)0->member))
 
 #define DIO0	1
 #define DIO1	2
 #define DIO2	3
 #define DIO3	4
 #define DIO4	5
-
-
-
 
 #define MODULE_SX1276RF1IAS						0
 #define MODULE_SX1276RF1JAS						0
@@ -109,23 +109,26 @@ const int32_t HoppingFrequencies[] =
 	911000000,
 };
 
+
+extern uint8 RFwkfrq, RFstfrq, RFupgfrq, RFairbaud, RFpwr;
+
 // Default settings
 tLoRaSettings LoRaSettings =
 {
 	433000000,		// RFFrequency
-	20,			   // Power
+	20,				// Power
 	8,				// SignalBw [0: 7.8kHz, 1: 10.4 kHz, 2: 15.6 kHz, 3: 20.8 kHz, 4: 31.2 kHz,
-					  // 5: 41.6 kHz, 6: 62.5 kHz, 7: 125 kHz, 8: 250 kHz, 9: 500 kHz, other: Reserved]
+					// 5: 41.6 kHz, 6: 62.5 kHz, 7: 125 kHz, 8: 250 kHz, 9: 500 kHz, other: Reserved]
 	7,				// SpreadingFactor [6: 64, 7: 128, 8: 256, 9: 512, 10: 1024, 11: 2048, 12: 4096  chips]
 	2,				// ErrorCoding [1: 4/5, 2: 4/6, 3: 4/7, 4: 4/8]
-	false,			 // CrcOn [0: OFF, 1: ON]
+	false,			// CrcOn [0: OFF, 1: ON]
 	false,			// ImplicitHeaderOn [0: OFF, 1: ON]
 	0,				// RxSingleOn [0: Continuous, 1 Single]
 	0,				// FreqHopOn [0: OFF, 1: ON]
 	4,				// HopPeriod Hops every frequency hopping period symbols
-	100,			  // TxPacketTimeout
-	100,			  // RxPacketTimeout
-	128,			  // PayloadLength (used for implicit header mode)
+	100,			// TxPacketTimeout
+	100,			// RxPacketTimeout
+	128,			// PayloadLength (used for implicit header mode)
 };
 
 /*!
@@ -174,11 +177,12 @@ void SX1276LoRaInit( void )
 	SX1276WriteBuffer( REG_LR_OPMODE, SX1276Regs + 1, SX1278_REG_SIZE - 1 );
 
 	// set the RF settings 
-	SX1276LoRaSetRFFrequency( LoRaSettings.RFFrequency );
-	SX1276LoRaSetSpreadingFactor( LoRaSettings.SpreadingFactor ); // SF6 only operates in implicit header mode.
+	SX1276LoRaSetRFFrequency(SXRFFreq[GetCurFreq(GetSysState())]);//SX1276LoRaSetRFFrequency( LoRaSettings.RFFrequency );
+	SX1276LoRaSetSignalBandwidth(SXRFAirBaud[0][RFairbaud-1]);//SX1276LoRaSetSignalBandwidth( LoRaSettings.SignalBw );
+	SX1276LoRaSetSpreadingFactor(SXRFAirBaud[1][RFairbaud-1]);//SX1276LoRaSetSpreadingFactor( LoRaSettings.SpreadingFactor ); // SF6 only operates in implicit header mode.
+
 	SX1276LoRaSetErrorCoding( LoRaSettings.ErrorCoding );
 	SX1276LoRaSetPacketCrcOn( LoRaSettings.CrcOn );
-	SX1276LoRaSetSignalBandwidth( LoRaSettings.SignalBw );
 
 	SX1276LoRaSetImplicitHeaderOn( LoRaSettings.ImplicitHeaderOn );
 	SX1276LoRaSetSymbTimeout( 0x3FF );
@@ -200,7 +204,7 @@ void SX1276LoRaInit( void )
 		SX1276LoRaSetPAOutput( RFLR_PACONFIG_PASELECT_PABOOST );
 		SX1276LoRaSetPa20dBm( true );
 		LoRaSettings.Power = 20;
-		SX1276LoRaSetRFPower( LoRaSettings.Power );
+		SX1276LoRaSetRFPower( SXRFPower[RFpwr-1]);//SX1276LoRaSetRFPower( LoRaSettings.Power );
 	} 
 #elif( MODULE_SX1276RF1JAS == 1 )
 	if( LoRaSettings.RFFrequency > 860000000 )

@@ -327,7 +327,7 @@ void RFOadImgBlockWrite(uint8 subtype, uint8 *pValue, uint8 len)
 			ChngSysState(SYS_UPGRADE, IDLE_PWR_HOLD_PERIOD+c_rand()*SEC_IN_MIN/MAX_RANDOM_SECONDS);	
 		}
 	}
-	else if (blkNum > oadcurblknum)
+	else if (blkNum > oadcurblknum && upgdfin == FALSE)
 	{
 		upgdfin = TRUE;
 		Com433WriteInt(COM433_DEBUG_PORT, "\r\nLOSE:",oadcurblknum,10);

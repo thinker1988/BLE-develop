@@ -795,6 +795,7 @@ static void SendGDEParam(uint8* readreq, uint8 len)
 static bool SetGDEParam(uint8 *setdata, uint8 len)
 {
 	bool flag = FALSE;
+	uint8 cmdst;
 	
 	if (len!=EVLEN_GDE_PARAMS || GetSysState() != SYS_SETUP)
 		return flag;
@@ -804,7 +805,8 @@ static bool SetGDEParam(uint8 *setdata, uint8 len)
 	flag &= SetGMParam(setdata[ST_GM_HB_FREQ_POS],setdata[ST_GM_DTCT_SENS_POS],setdata[ST_GM_BENCH_ALG_POS],\
 			setdata[ST_GM_STATUS_POS]);
 
-	RFDataForm(GDE_SUBTYPE_T_SET_RESP, &flag, sizeof(flag));
+	cmdst = (flag==TRUE? MSG_SUCCESS: SET_PRAM_ERR);
+	RFDataForm(GDE_SUBTYPE_T_SET_RESP, &cmdst, sizeof(cmdst));
 	//RF_working(BLECore_TaskId, GetRFstate());
 
 	return flag;

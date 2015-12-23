@@ -412,7 +412,7 @@ void ReadGMParam(uint8 *rdbuf)
 	rdbuf[ST_GM_HB_FREQ_POS] = hrtbt_inmin;
 	rdbuf[ST_GM_DTCT_SENS_POS] = detectlevel;
 	rdbuf[ST_GM_BENCH_ALG_POS] = benchfixflg;
-	rdbuf[ST_GM_STATUS_POS] = cardetect;
+	rdbuf[ST_GM_STATUS_POS] = (cardetect==CAR_DETECTED_OK? CAR_DETECTED_OK: NO_CAR_DETECTED);
 }
 
 /*********************************************************************
@@ -439,6 +439,11 @@ bool SetGMParam(uint8 hrtbtmin, uint8 dtval, uint8 alg, uint8 status)
 
 void ReadGDEBench(uint8* pVal)
 {
+	if (GetEmpBenchCnt() == 0)
+	{
+		osal_memset(pVal, 0, EVLEN_GDE_BENCH_INFO);
+		return;
+	}
 	pVal[GDE_X_H_BCHMRK_POS] = HI_UINT16(Xbenchmk);
 	pVal[GDE_X_L_BCHMRK_POS] = LO_UINT16(Xbenchmk);
 	pVal[GDE_Y_H_BCHMRK_POS] = HI_UINT16(Ybenchmk);
@@ -467,6 +472,9 @@ bool InitBenchmk(detectstatus_t cardetectts,int16 xVal,int16 yVal, int16 zVal)
 		case BENCH_CALIBRATING:
 			// clear previous benchmark, Assume no car
 			tmpbenchcnt = 0;
+			NormRgltEmpBenchmk(xVal,yVal,zVal);
+			cardetect = NO_CAR_DETECTED;
+			break;
 		case NO_CAR_DETECTED:
 			NormRgltEmpBenchmk(xVal,yVal,zVal);
 			cardetect = NO_CAR_DETECTED;
@@ -1017,6 +1025,9 @@ static detectstatus_t CheckCarIn(int16 tmpX, int16 tmpY, int16 tmpZ)
 {
 	uint32 xdev,ydev,zdev,devsqrsum;
 
+	if (tmpbenchcnt == 0)	// if there is no benchmark
+		return BENCH_CALIBRATING;
+
 	xdev = CALC_ABS(tmpX-Xbenchmk);
 	ydev = CALC_ABS(tmpY-Ybenchmk);
 	zdev = CALC_ABS(tmpZ-Zbenchmk);
@@ -1070,6 +1081,9 @@ static void ProcEmpData(detectstatus_t curdtct, int16 tmpX, int16 tmpY, int16 tm
 				PrintGMvalue(COM433_DEBUG_PORT, "\r\nR:",tmpX,tmpY,tmpZ);
 			break;
 		}
+		case BENCH_CALIBRATING:
+			InitBenchmk(BENCH_CALIBRATING,tmpX,tmpY,tmpZ);
+			break;
 		case ABNORMAL_DETECTION:
 			if (++unkwncnt > MAX_ABNORMAL_TIMES)
 			{
@@ -1141,6 +1155,7 @@ static detectstatus_t CheckCarOut(int16 tmpX, int16 tmpY, int16 tmpZ)
 
 static void ProcOcpData(detectstatus_t curdtct, int16 tmpX, int16 tmpY, int16 tmpZ)
 {
+	// Use empty reverse flag not tmpbenchcnt, in case forming benchmark array will break the normal process.
 	if (emprvsflg == FALSE)
 	{
 		switch(curdtct)
@@ -1154,7 +1169,10 @@ static void ProcOcpData(detectstatus_t curdtct, int16 tmpX, int16 tmpY, int16 tm
 				PrintGMvalue(COM433_DEBUG_PORT, "\r\nOCP ERR:",tmpX,tmpY,tmpZ);
 				break;
 			case CAR_DETECTED_OK:
-				PrintGMvalue(COM433_DEBUG_PORT, "\r\nDR:",tmpX,tmpY,tmpZ);
+				if ( tmpdtctcnt < BENCH_WEIGHT_LEN)
+					WghtRgltOcpBenchmk(tmpX,tmpY,tmpZ);
+				else
+					PrintGMvalue(COM433_DEBUG_PORT, "\r\nDR:",tmpX,tmpY,tmpZ);
 				break;
 			default:
 				break;
@@ -1165,7 +1183,7 @@ static void ProcOcpData(detectstatus_t curdtct, int16 tmpX, int16 tmpY, int16 tm
 		switch(curdtct)
 		{
 			case NO_CAR_DETECTED:
-				if ( tmpbenchcnt <= BENCH_AVG_LEN)
+				if ( tmpbenchcnt <= BENCH_AVG_LEN)	// form benchmark array
 					NormRgltEmpBenchmk(tmpX,tmpY,tmpZ);
 				else
 				{
@@ -1175,9 +1193,8 @@ static void ProcOcpData(detectstatus_t curdtct, int16 tmpX, int16 tmpY, int16 tm
 				}
 				break;
 			case CAR_DETECTED_OK:
-				tmpbenchcnt = 0;
+				tmpbenchcnt = 0;	// clear benchmark array
 				WghtRgltOcpBenchmk(tmpX,tmpY,tmpZ);
-				PrintGMvalue(COM433_DEBUG_PORT, "\r\nDBR:",tmpX,tmpY,tmpZ);
 				break;
 			default:
 				break;
@@ -1201,7 +1218,7 @@ static void ModifyBenchmk(detectstatus_t newstts)
 	if (cardetect == newstts)
 		return;
 
-	if (newstts > CAR_DETECTED_OK)
+	if (newstts > CAR_DETECTED_OK || cardetect > CAR_DETECTED_OK || tmpbenchcnt == 0)
 		return;
 
 	ClearDataResend();
@@ -1316,8 +1333,8 @@ static void WghtRgltOcpBenchmk(int16 xVal,int16 yVal, int16 zVal)
 		tmpZdtctval[tmpdtctcnt-BENCH_WEIGHT_LEN-1] = zVal;
 
 		Xdtctval = CalcWeight(tmpXdtctval,tmpdtctcnt,BENCH_WEIGHT_LEN);
-		Ydtctval = CalcWeight(tmpXdtctval,tmpdtctcnt,BENCH_WEIGHT_LEN);
-		Zdtctval = CalcWeight(tmpXdtctval,tmpdtctcnt,BENCH_WEIGHT_LEN);
+		Ydtctval = CalcWeight(tmpYdtctval,tmpdtctcnt,BENCH_WEIGHT_LEN);
+		Zdtctval = CalcWeight(tmpZdtctval,tmpdtctcnt,BENCH_WEIGHT_LEN);
 	}
 	else
 	{

@@ -79,18 +79,27 @@ typedef unsigned long   uint32_t;
 #define SX1278_VB_ST_GPIO			BV(6)
 #define SX1278_VB_ST_PIN			P0_6
 
-
-
 #define SX1278_REG_SIZE				0x70
 
+#define ARR_SIZE(a)					(sizeof(a)/sizeof(a[0]))
 
 // CC112X have 12 RF frequency
-#define CHECK_FREQ_VALID(freq)		(((freq)>0 )? TRUE: FALSE)
+#define CHECK_FREQ_VALID(freq)		(((freq)>0 && freq<ARR_SIZE(SXRFFreq)+1)? TRUE: FALSE)
 
-#define CHECK_BAUD_VALID(baud)		(((baud)>0 )? TRUE: FALSE)
+#define CHECK_BAUD_VALID(baud)		(((baud)>0 && baud<ARR_SIZE(SXRFAirBaud[0])+1)? TRUE: FALSE)
 
-#define CHECK_PWR_VALID(plvl)		(((plvl)>0 )? TRUE: FALSE)
+#define CHECK_PWR_VALID(plvl)		(((plvl)>0 && plvl<ARR_SIZE(SXRFPower)+1)? TRUE: FALSE)
 
+// Sx1278 RF frequency option
+static const uint32 SXRFFreq[] = {433000000,470000000};
+
+// Sx1278 RF air baud option
+static const uint8 SXRFAirBaud[][6] = {
+	{7,7,7,7,8,9},	// SignalBw
+	{10,9,8,7,7,7}};// SpreadingFactor
+
+// Sx1278 RF power
+static const uint8 SXRFPower[] = {6,8,10,12,14,16,18,20};
 
 #if ( ! defined RION_CODE )
 /*!

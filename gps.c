@@ -483,7 +483,7 @@ static rfpkterr_t rfdataparse(uint8 *rfdata,uint8 len)
 			case GDE_SUBTYPE_CARINFO_REQ:	// GDE carinfo recieved success
 				if (pldlen == GDE_SUBTYPE_CARINFO_REQ_PL_LEN)
 				{
-					printf("===>Car detected.\r\n");
+					printf("===>Status change.\r\n");
 					break;
 				}
 			case GDE_SUBTYPE_TMSYN_REQ:	// Prepare time synchronizing
@@ -877,12 +877,12 @@ static void PrintGDETime(uint8* gdetm)
 
 static void PrintHrtbtData(uint8* hrtbtval)
 {
-	printf("\tX: %5d  Y: %5d  Z: %5d  Status: %c Bat: %3d  Tmpr: %3d \r\n",\
+	printf("\tX: %5d  Y: %5d  Z: %5d  Bat: %3d  Tmpr: %3d  Status: %c \r\n",\
 			(int16)BUILD_UINT16(hrtbtval[HRT_BT_XVAL_L_POS], hrtbtval[HRT_BT_XVAL_H_POS]),\
 			(int16)BUILD_UINT16(hrtbtval[HRT_BT_YVAL_L_POS], hrtbtval[HRT_BT_YVAL_H_POS]),\
-			(int16)BUILD_UINT16(hrtbtval[HRT_BT_ZVAL_L_POS], hrtbtval[HRT_BT_ZVAL_H_POS]),
-			(hrtbtval[HRT_BT_STAT_POS])? 'Y': 'N',\
-			hrtbtval[HRT_BT_BATT_POS],(int8)hrtbtval[HRT_BT_TMPR_POS]);
+			(int16)BUILD_UINT16(hrtbtval[HRT_BT_ZVAL_L_POS], hrtbtval[HRT_BT_ZVAL_H_POS]),\
+			hrtbtval[HRT_BT_BATT_POS],(int8)hrtbtval[HRT_BT_TMPR_POS],\
+			(hrtbtval[HRT_BT_STAT_POS]? 'Y': 'N') );
 }
 static void PrintBnchmk(uint8* bnchmk)
 {
@@ -1152,7 +1152,7 @@ static void usage()
 	printf("\t(app name) (serial tty file) (serial baud) [option params]\r\n");
 	printf("\tserial tty file, e.g. /dev/ttyUSB0\r\n");
 	printf("\tserial baud, e.g. 9600\r\n");
-	printf("\toption params: -d -a -b -s -r -p -u -t -v\r\n");
+	printf("\toption params: -d -a -b -R -E -s -r -p -u -t -v\r\n");
 	printf("\t\t-d: serial debug print mode\r\n");
 	printf("\t\t-a: set GME ID\r\n");
 	printf("\t\t-b: reset GDE benchmark\r\n");

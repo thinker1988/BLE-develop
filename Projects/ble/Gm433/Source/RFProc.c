@@ -128,7 +128,7 @@ uint8 GetCurFreq(sysstate_t state)
 	switch (state)
 	{
 		case SYS_BOOTUP:
-			freqsel = 0;	// always use 428 for bootup
+			freqsel = 0;	// always use default (option 0) for bootup
 			break;
 		case SYS_WORKING:
 			freqsel = RFwkfrq-1;

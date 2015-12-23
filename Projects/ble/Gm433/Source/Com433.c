@@ -88,6 +88,10 @@ void Com433Write(uint8 port, uint8 *pBuffer, uint16 length)
 
 void Com433WriteStr(uint8 port, uint8 str[])
 {
+#if ( !defined ALLOW_DEBUG_OUTPUT )
+	if (port == COM433_DEBUG_PORT)
+		return;
+#endif
 	Com433Write(port, str, osal_strlen((char*)str));
 }
 

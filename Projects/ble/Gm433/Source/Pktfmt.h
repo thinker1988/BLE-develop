@@ -395,7 +395,8 @@ typedef enum msgerrcd
 	MSG_SUCCESS=0,	// Message success
 	IMG_TYPE_ERR,	// Image type error(same with current working image)
 	IMG_SIZE_ERR,	// Image size error
-	IMG_CRC_FAIL	// Image crc fail
+	IMG_CRC_FAIL,	// Image crc fail
+	SET_PRAM_ERR
 }msgerrcd_t;
 
 typedef enum pktgms
