@@ -208,21 +208,12 @@ void GM_working(uint8 task_id, gmsensor_t ngmsnst)
 	switch (gmsnst)
 	{
 		case GMSnTest:
-		{
-			if (GM_dev_init() == TRUE)
-			{
-				InitGMState();
-				InitCommDevID();
-				// Prepare read once
-				gmsnst = GMSnReq;
-			}
-			else
-			{
-				gmsnst = GMSnErr;
-			}
+			GM_dev_init();
+			InitGMState();
+			InitCommDevID();
+			gmsnst = GMSnReq;	// Prepare read once
 			osal_start_timerEx(task_id,GM_DATA_PROC_EVT,WAIT_RF_WORK_PERIOD);
 			break;
-		}
 		case GMSnReq:
 			PowerHold(task_id);
 			GM_dev_preread();
@@ -237,11 +228,6 @@ void GM_working(uint8 task_id, gmsensor_t ngmsnst)
 			break;
 		case GMSnSleep:
 			GM_dev_stop();
-			break;
-		case GMSnErr:
-			Com433WriteStr(COM433_DEBUG_PORT,"\r\nGM init failed...");
-			SetRFstate(RF_SLEEP);
-			SetSysState(SYS_DORMANT);
 			break;
 		default:
 			break;
@@ -683,35 +669,34 @@ static void GM_dev_preread(void)
 static void GM_dev_read(uint8 task_id)
 {
 	uint8 tmp_data[6]={0};
-	int16 xval,yval,zval;
+	int16 xval=0,yval=0,zval=0;
 	
 	if (GM_read_reg(GM_X_AXIS_MSB_REG, tmp_data, sizeof(tmp_data)) == TRUE)
 	{
 		xval = BUILD_UINT16(tmp_data[1],tmp_data[0]);
 		yval = BUILD_UINT16(tmp_data[5],tmp_data[4]);
 		zval = BUILD_UINT16(tmp_data[3],tmp_data[2]);
+	}
 
-		// Advertised self test data (first data)
-		if (GetSysState() == SYS_BOOTUP)
-		{
-			SendXYZVal(task_id,xval,yval,zval);
-			SetIntState(WS_INT_DETECT);
-			osal_start_timerEx(task_id, HG_SWITCH_EVT, SELF_TEST_PERIOD);
-		}
-		else
-		{
-			osal_start_timerEx(task_id,GM_DATA_PROC_EVT,GM_READ_EVT_PERIOD-GM_SNSR_MEASURE_PERIOD);
-			GM_dev_proc(xval,yval,zval);
-
-			GM_read_tick_update();
-			GM_send_data(task_id,xval,yval,zval);
+	// Advertised self test data (first data)
+	if (GetSysState() == SYS_BOOTUP)
+	{
+		SendXYZVal(task_id,xval,yval,zval);
+		SetIntState(WS_INT_DETECT);
+		osal_start_timerEx(task_id, HG_SWITCH_EVT, SELF_TEST_PERIOD);
+	}
+	else
+	{
+		osal_start_timerEx(task_id,GM_DATA_PROC_EVT,GM_READ_EVT_PERIOD-GM_SNSR_MEASURE_PERIOD);
+		GM_dev_proc(xval,yval,zval);
+		GM_read_tick_update();
+		GM_send_data(task_id,xval,yval,zval);
 
 #if ( !defined ALLOW_DEBUG_OUTPUT )
-			osal_set_event(task_id, BLE_SYS_WORKING_EVT);
+		osal_set_event(task_id, BLE_SYS_WORKING_EVT);
 #else
-			osal_start_timerEx(task_id, BLE_SYS_WORKING_EVT, WAIT_SERIAL_OUTPUT_PERIOD);
+		osal_start_timerEx(task_id, BLE_SYS_WORKING_EVT, WAIT_SERIAL_OUTPUT_PERIOD);
 #endif	// !ALLOW_DEBUG_OUTPUT
-		}
 	}
 
 	return;
@@ -911,10 +896,7 @@ static int8 GM_dev_get_tmpr(void)
 	int8 tmpr;
 	
 	if (GM_read_reg(GM_TEMPR_MSB_REG, tmprval, sizeof(tmprval)) == FALSE)
-	{
-		SetGMSnState(GMSnErr);
 		return GM_INVALID_TEMPR;
-	}
 
 	fulltmprval = (int16)BUILD_UINT16(tmprval[1], tmprval[0]);
 	tmpr = (int8)(fulltmprval/128) + GM_BASE_TEMPR;
@@ -1039,21 +1021,15 @@ static detectstatus_t CheckCarIn(int16 tmpX, int16 tmpY, int16 tmpZ)
 	devsqrsum = xdev*xdev+ydev*ydev+zdev*zdev;
 
 	// First process long time abnormal value
-	if (devsqrsum >= sqrthrhldarr[detectlevel]/2 && devsqrsum < sqrthrhldarr[detectlevel] )
+	if (devsqrsum >= sqrthrhldarr[detectlevel]/4 && devsqrsum < sqrthrhldarr[detectlevel] )
 		return ABNORMAL_DETECTION;
 	else if (devsqrsum >= sqrthrhldarr[detectlevel] && devsqrsum < GM_ERROR_VALUE)
 		return CAR_DETECTED_OK;
-	else if (devsqrsum < sqrthrhldarr[detectlevel]/2)	// use 1/4
+	else if (devsqrsum < sqrthrhldarr[detectlevel]/4)
 		return NO_CAR_DETECTED;
 	else
 		return ERROR_DETECTION;
 
-/*	// A little change
-	else if (devsqrsum >= sqrthrhldarr[detectlevel]/4 && devsqrsum < sqrthrhldarr[detectlevel]/2 )
-	{
-		PrintGMvalue(COM433_DEBUG_PORT, "\r\nR:",tmpX,tmpY,tmpZ);
-	}*/
-	// Error value detect
 }
 
 static void ProcEmpData(detectstatus_t curdtct, int16 tmpX, int16 tmpY, int16 tmpZ)

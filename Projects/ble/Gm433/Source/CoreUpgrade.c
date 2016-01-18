@@ -73,6 +73,8 @@ static uint8 RFOadCheckDL(void);
 
 void StoreAllSettings(void)
 {
+	StoreSetting(GMS_NV_GDE_ID_ID);
+	StoreSetting(GMS_NV_GME_ID_ID);
 	StoreSetting(GMS_NV_DT_STATE_ID);
 	StoreSetting(GMS_NV_BENCH_CNT_ID);
 	StoreSetting(GMS_NV_GDE_X_BENCH_ID);

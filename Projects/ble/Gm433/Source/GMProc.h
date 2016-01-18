@@ -136,7 +136,6 @@ typedef enum gmsensor
 	GMSnReq,
 	GMSnRead,
 	GMSnSleep,
-	GMSnErr,
 }gmsensor_t;
 
 

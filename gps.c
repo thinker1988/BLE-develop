@@ -158,7 +158,7 @@ static uint16 RFdestID = GDE_DEV_ID;
 static uint16 version = VERSION_NUMBER;
 
 //char *host_addr = "120.26.103.149";
-static char *host_addr = "10.30.242.154";
+static char *host_addr = "172.20.82.201";
 static int host_port = 9999;
 
 // RF read GM system packet status
@@ -516,6 +516,7 @@ static rfpkterr_t rfdataparse(uint8 *rfdata,uint8 len)
 
 	if (rfdata[GMS_SUB_TYPE_POS]==GDE_SUBTYPE_HRTBEAT_REQ || rfdata[GMS_SUB_TYPE_POS]==GDE_SUBTYPE_CARINFO_REQ)
 		httpsend(rfdata, len);
+
 	return RF_SUCCESS;
 }
 
@@ -628,7 +629,7 @@ static void controlGDE(void)
 {
 	if (prepupgdflg == TRUE)
 	{
-		if (mnggdest[(RFdestID-1)%MAX_MNG_GDE_CNT] == DEV_IDLE)
+		//if (mnggdest[(RFdestID-1)%MAX_MNG_GDE_CNT] == DEV_IDLE)
 		{
 			formGMEpkt(GME_SUBTYPE_ORDER_UPGD_REQ, NULL, 0);
 			printf("Send %d order upgrade...\r\n", RFdestID);
